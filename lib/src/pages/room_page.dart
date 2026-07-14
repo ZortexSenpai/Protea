@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_selector/file_selector.dart';
@@ -7,6 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:matrix/matrix.dart';
 import 'package:pasteboard/pasteboard.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,6 +27,7 @@ import '../widgets/pinned_messages_dialog.dart';
 import '../widgets/presence_indicator.dart';
 import '../widgets/room_settings_dialog.dart';
 import '../widgets/user_profile_card.dart';
+import '../widgets/voice_message.dart';
 
 class RoomPage extends StatefulWidget {
   const RoomPage({super.key, required this.room, this.onOpenMenu});
@@ -59,6 +63,12 @@ class _RoomPageState extends State<RoomPage> {
   String? _lastMarkedReadEventId;
   StreamSubscription<SyncUpdate>? _syncSubscription;
   bool _dragging = false;
+
+  AudioRecorder? _recorder;
+  final List<double> _recordingAmplitudes = [];
+  Timer? _recordingTimer;
+  DateTime? _recordingStart;
+  bool _recording = false;
 
   String get _draftKey => 'draft_${widget.room.id}';
 
@@ -106,6 +116,8 @@ class _RoomPageState extends State<RoomPage> {
 
   @override
   void dispose() {
+    _recordingTimer?.cancel();
+    _recorder?.dispose();
     _syncSubscription?.cancel();
     _highlightTimer?.cancel();
     _itemPositionsListener.itemPositions.removeListener(_onPositionsChanged);
@@ -437,6 +449,150 @@ class _RoomPageState extends State<RoomPage> {
     for (final file in files) {
       await _sendBytes(file.bytes, file.name, mimeType: file.mimeType);
     }
+  }
+
+  Future<void> _startRecording() async {
+    final recorder = AudioRecorder();
+    try {
+      if (!await recorder.hasPermission()) {
+        _showError('Microphone permission denied.');
+        await recorder.dispose();
+        return;
+      }
+      final dir = await getTemporaryDirectory();
+      final path = '${dir.path}/protea_voice_${widget.room.id.hashCode}.m4a';
+      await recorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc, numChannels: 1),
+        path: path,
+      );
+      if (!mounted) {
+        await recorder.dispose();
+        return;
+      }
+      setState(() {
+        _recorder = recorder;
+        _recording = true;
+        _recordingAmplitudes.clear();
+        _recordingStart = DateTime.now();
+      });
+      _recordingTimer = Timer.periodic(const Duration(milliseconds: 150), (
+        _,
+      ) async {
+        final amplitude = await recorder.getAmplitude();
+        // dBFS, roughly -40 (silence) to 0 (max).
+        final normalized = ((amplitude.current + 40) / 40).clamp(0.0, 1.0);
+        if (mounted && _recording) {
+          setState(() => _recordingAmplitudes.add(normalized));
+        }
+      });
+    } catch (e) {
+      _showError(e);
+      await recorder.dispose();
+    }
+  }
+
+  Future<void> _cancelRecording() async {
+    _recordingTimer?.cancel();
+    final recorder = _recorder;
+    setState(() {
+      _recording = false;
+      _recorder = null;
+    });
+    try {
+      final path = await recorder?.stop();
+      await recorder?.dispose();
+      if (path != null) await File(path).delete();
+    } catch (_) {}
+  }
+
+  Future<void> _sendRecording() async {
+    _recordingTimer?.cancel();
+    final recorder = _recorder;
+    final start = _recordingStart;
+    final amplitudes = List<double>.from(_recordingAmplitudes);
+    setState(() {
+      _recording = false;
+      _recorder = null;
+    });
+    if (recorder == null || start == null) return;
+    try {
+      final path = await recorder.stop();
+      await recorder.dispose();
+      if (path == null) return;
+      final bytes = await File(path).readAsBytes();
+      try {
+        await File(path).delete();
+      } catch (_) {}
+      final durationMs = DateTime.now().difference(start).inMilliseconds;
+      // MSC3245 waveform: up to ~50 samples in the range 0..1024.
+      const sampleCount = 50;
+      final waveform = <int>[];
+      for (var i = 0; i < sampleCount; i++) {
+        if (amplitudes.isEmpty) {
+          waveform.add(512);
+          continue;
+        }
+        final index = (i * amplitudes.length / sampleCount).floor().clamp(
+          0,
+          amplitudes.length - 1,
+        );
+        waveform.add((amplitudes[index] * 1024).round().clamp(0, 1024));
+      }
+      final file = MatrixAudioFile(
+        bytes: bytes,
+        name: 'Voice message.m4a',
+        mimeType: 'audio/mp4',
+        duration: durationMs,
+      );
+      await widget.room.sendFileEvent(
+        file,
+        extraContent: {
+          'org.matrix.msc1767.audio': {
+            'duration': durationMs,
+            'waveform': waveform,
+          },
+          'org.matrix.msc3245.voice': <String, Object?>{},
+        },
+      );
+    } catch (e) {
+      _showError(e);
+    }
+  }
+
+  Widget _buildRecordingBar() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final elapsed = _recordingStart == null
+        ? Duration.zero
+        : DateTime.now().difference(_recordingStart!);
+    final recent = _recordingAmplitudes.length > 60
+        ? _recordingAmplitudes.sublist(_recordingAmplitudes.length - 60)
+        : _recordingAmplitudes;
+    return Row(
+      children: [
+        IconButton(
+          tooltip: 'Discard recording',
+          icon: Icon(Icons.delete_outline, color: colorScheme.error),
+          onPressed: _cancelRecording,
+        ),
+        Icon(Icons.mic, size: 18, color: colorScheme.error),
+        const SizedBox(width: 4),
+        Text(formatAudioDuration(elapsed)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Waveform(
+            values: recent.isEmpty ? const [0.1] : recent,
+            progress: 1,
+            height: 24,
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton.filled(
+          tooltip: 'Send voice message',
+          onPressed: _sendRecording,
+          icon: const Icon(Icons.send),
+        ),
+      ],
+    );
   }
 
   Future<void> _pickGif() async {
@@ -922,100 +1078,114 @@ class _RoomPageState extends State<RoomPage> {
                       SafeArea(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                          child: Row(
-                            children: [
-                              IconButton(
-                                tooltip: 'Attach file',
-                                onPressed: encryptedWithoutSupport
-                                    ? null
-                                    : _attachFile,
-                                icon: const Icon(Icons.attach_file),
-                              ),
-                              IconButton(
-                                tooltip: 'GIF',
-                                onPressed: encryptedWithoutSupport
-                                    ? null
-                                    : _pickGif,
-                                icon: const Icon(Icons.gif_box_outlined),
-                              ),
-                              IconButton(
-                                tooltip: 'Emoji',
-                                onPressed: encryptedWithoutSupport
-                                    ? null
-                                    : _pickEmoji,
-                                icon: const Icon(Icons.emoji_emotions_outlined),
-                              ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Focus(
-                                  onKeyEvent: (node, event) {
-                                    if (event is! KeyDownEvent) {
-                                      return KeyEventResult.ignored;
-                                    }
-                                    // Enter sends, Shift+Enter (or any other
-                                    // modifier) inserts a line break.
-                                    if (event.logicalKey ==
-                                            LogicalKeyboardKey.enter ||
-                                        event.logicalKey ==
-                                            LogicalKeyboardKey.numpadEnter) {
-                                      final keyboard =
-                                          HardwareKeyboard.instance;
-                                      if (!keyboard.isShiftPressed &&
-                                          !keyboard.isAltPressed &&
-                                          !keyboard.isControlPressed &&
-                                          !keyboard.isMetaPressed) {
-                                        _send();
-                                        return KeyEventResult.handled;
-                                      }
-                                      return KeyEventResult.ignored;
-                                    }
-                                    // Sends a pasted image alongside the field's
-                                    // own (text) paste handling.
-                                    if (event.logicalKey ==
-                                            LogicalKeyboardKey.keyV &&
-                                        (HardwareKeyboard
-                                                .instance
-                                                .isMetaPressed ||
-                                            HardwareKeyboard
-                                                .instance
-                                                .isControlPressed)) {
-                                      _tryPasteImage();
-                                    }
-                                    return KeyEventResult.ignored;
-                                  },
-                                  child: TextField(
-                                    controller: _sendController,
-                                    enabled: !encryptedWithoutSupport,
-                                    decoration: InputDecoration(
-                                      hintText: 'Message',
-                                      filled: true,
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(24),
-                                        borderSide: BorderSide.none,
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 10,
-                                          ),
+                          child: _recording
+                              ? _buildRecordingBar()
+                              : Row(
+                                  children: [
+                                    IconButton(
+                                      tooltip: 'Attach file',
+                                      onPressed: encryptedWithoutSupport
+                                          ? null
+                                          : _attachFile,
+                                      icon: const Icon(Icons.attach_file),
                                     ),
-                                    keyboardType: TextInputType.multiline,
-                                    textInputAction: TextInputAction.newline,
-                                    onChanged: _onInputChanged,
-                                    minLines: 1,
-                                    maxLines: 8,
-                                  ),
+                                    IconButton(
+                                      tooltip: 'GIF',
+                                      onPressed: encryptedWithoutSupport
+                                          ? null
+                                          : _pickGif,
+                                      icon: const Icon(Icons.gif_box_outlined),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Voice message',
+                                      onPressed: encryptedWithoutSupport
+                                          ? null
+                                          : _startRecording,
+                                      icon: const Icon(Icons.mic_none),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Emoji',
+                                      onPressed: encryptedWithoutSupport
+                                          ? null
+                                          : _pickEmoji,
+                                      icon: const Icon(
+                                        Icons.emoji_emotions_outlined,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Focus(
+                                        onKeyEvent: (node, event) {
+                                          if (event is! KeyDownEvent) {
+                                            return KeyEventResult.ignored;
+                                          }
+                                          // Enter sends, Shift+Enter (or any other
+                                          // modifier) inserts a line break.
+                                          if (event.logicalKey ==
+                                                  LogicalKeyboardKey.enter ||
+                                              event.logicalKey ==
+                                                  LogicalKeyboardKey
+                                                      .numpadEnter) {
+                                            final keyboard =
+                                                HardwareKeyboard.instance;
+                                            if (!keyboard.isShiftPressed &&
+                                                !keyboard.isAltPressed &&
+                                                !keyboard.isControlPressed &&
+                                                !keyboard.isMetaPressed) {
+                                              _send();
+                                              return KeyEventResult.handled;
+                                            }
+                                            return KeyEventResult.ignored;
+                                          }
+                                          // Sends a pasted image alongside the field's
+                                          // own (text) paste handling.
+                                          if (event.logicalKey ==
+                                                  LogicalKeyboardKey.keyV &&
+                                              (HardwareKeyboard
+                                                      .instance
+                                                      .isMetaPressed ||
+                                                  HardwareKeyboard
+                                                      .instance
+                                                      .isControlPressed)) {
+                                            _tryPasteImage();
+                                          }
+                                          return KeyEventResult.ignored;
+                                        },
+                                        child: TextField(
+                                          controller: _sendController,
+                                          enabled: !encryptedWithoutSupport,
+                                          decoration: InputDecoration(
+                                            hintText: 'Message',
+                                            filled: true,
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(24),
+                                              borderSide: BorderSide.none,
+                                            ),
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 16,
+                                                  vertical: 10,
+                                                ),
+                                          ),
+                                          keyboardType: TextInputType.multiline,
+                                          textInputAction:
+                                              TextInputAction.newline,
+                                          onChanged: _onInputChanged,
+                                          minLines: 1,
+                                          maxLines: 8,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton.filled(
+                                      onPressed: encryptedWithoutSupport
+                                          ? null
+                                          : _send,
+                                      icon: const Icon(Icons.send),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              IconButton.filled(
-                                onPressed: encryptedWithoutSupport
-                                    ? null
-                                    : _send,
-                                icon: const Icon(Icons.send),
-                              ),
-                            ],
-                          ),
                         ),
                       ),
                     ],
@@ -1859,11 +2029,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
         (displayEvent.messageType == MessageTypes.Image ||
             displayEvent.messageType == MessageTypes.Sticker) &&
         displayEvent.attachmentOrThumbnailMxcUrl(getThumbnail: true) != null;
+    final isAudio =
+        displayEvent.messageType == MessageTypes.Audio &&
+        displayEvent.attachmentMxcUrl != null;
     final isFile =
+        !isAudio &&
         _attachmentTypes.contains(displayEvent.messageType) &&
         displayEvent.attachmentMxcUrl != null;
     final isHtml =
         !isImage &&
+        !isAudio &&
         !isFile &&
         displayEvent.content.tryGet<String>('format') ==
             'org.matrix.custom.html' &&
@@ -1879,7 +2054,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final threadReplyCount = event
         .aggregatedEvents(timeline, RelationshipTypes.thread)
         .length;
-    final linkUrl = !isImage && !isFile
+    final linkUrl = !isImage && !isFile && !isAudio
         ? LinkPreview.firstLinkOf(displayEvent.body)
         : null;
     final timeText = DateFormat.Hm().format(event.originServerTs);
@@ -1918,7 +2093,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
               padding: const EdgeInsets.only(top: 6),
               child: Text(caption),
             ),
-        ] else if (isFile)
+        ] else if (isAudio)
+          VoiceMessageBubble(event: displayEvent)
+        else if (isFile)
           _buildFileContent(context, displayEvent)
         else if (includeText)
           if (isHtml)
@@ -2110,7 +2287,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
     }
 
     Widget textLayout() {
-      final showInline = !isImage && !isFile;
+      final showInline = !isImage && !isFile && !isAudio;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
         child: Opacity(

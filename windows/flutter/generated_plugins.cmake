@@ -7,6 +7,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   desktop_drop
   file_selector_windows
   pasteboard
+  record_windows
   sqlite3_flutter_libs
   url_launcher_windows
 )
