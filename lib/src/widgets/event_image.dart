@@ -150,30 +150,145 @@ class _EventImageState extends State<EventImage> {
 }
 
 /// Full-screen viewer for an image event, opened by tapping a preview.
-class ImageViewerPage extends StatelessWidget {
+/// Zoom: pinch/scroll, double-click, or the toolbar buttons.
+class ImageViewerPage extends StatefulWidget {
   const ImageViewerPage({super.key, required this.event});
 
   final Event event;
 
   @override
+  State<ImageViewerPage> createState() => _ImageViewerPageState();
+}
+
+class _ImageViewerPageState extends State<ImageViewerPage>
+    with SingleTickerProviderStateMixin {
+  static const _minScale = 1.0;
+  static const _maxScale = 8.0;
+
+  final _transformationController = TransformationController();
+  final _viewerKey = GlobalKey();
+  late final AnimationController _animationController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 200),
+  );
+  Animation<Matrix4>? _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController.addListener(() {
+      final animation = _animation;
+      if (animation != null) {
+        _transformationController.value = animation.value;
+      }
+    });
+    // Keeps the zoom percentage in the toolbar current while pinching.
+    _transformationController.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  double get _scale => _transformationController.value.getMaxScaleOnAxis();
+
+  void _animateTo(Matrix4 target) {
+    _animation =
+        Matrix4Tween(
+          begin: _transformationController.value,
+          end: target,
+        ).animate(
+          CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+        );
+    _animationController.forward(from: 0);
+  }
+
+  /// Zooms by [factor] around [focal] (viewer coordinates), defaulting to
+  /// the viewport center.
+  void _zoomBy(double factor, [Offset? focal]) {
+    final current = _transformationController.value.clone();
+    final targetScale = (_scale * factor).clamp(_minScale, _maxScale);
+    final effective = targetScale / _scale;
+    if (effective == 1) return;
+    final size = _viewerKey.currentContext?.size ?? MediaQuery.sizeOf(context);
+    final f = focal ?? Offset(size.width / 2, size.height / 2);
+    final zoom =
+        Matrix4.translationValues(f.dx, f.dy, 0) *
+                Matrix4.diagonal3Values(effective, effective, 1) *
+                Matrix4.translationValues(-f.dx, -f.dy, 0) *
+                current
+            as Matrix4;
+    _animateTo(zoom);
+  }
+
+  void _reset() => _animateTo(Matrix4.identity());
+
+  void _onDoubleTapDown(TapDownDetails details) {
+    if (_scale > 1.5) {
+      _reset();
+    } else {
+      _zoomBy(2.5 / _scale, details.localPosition);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final filename = event.content.tryGet<String>('filename') ?? event.body;
+    final filename =
+        widget.event.content.tryGet<String>('filename') ?? widget.event.body;
+    final zoomed = (_scale - 1).abs() > 0.01;
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         title: Text(filename, maxLines: 1, overflow: TextOverflow.ellipsis),
+        actions: [
+          if (zoomed)
+            Center(
+              child: Text(
+                '${(_scale * 100).round()} %',
+                style: Theme.of(
+                  context,
+                ).textTheme.labelMedium?.copyWith(color: Colors.white70),
+              ),
+            ),
+          IconButton(
+            tooltip: 'Zoom out',
+            icon: const Icon(Icons.zoom_out),
+            onPressed: _scale <= _minScale ? null : () => _zoomBy(1 / 1.5),
+          ),
+          IconButton(
+            tooltip: 'Zoom in',
+            icon: const Icon(Icons.zoom_in),
+            onPressed: _scale >= _maxScale ? null : () => _zoomBy(1.5),
+          ),
+          IconButton(
+            tooltip: 'Reset zoom',
+            icon: const Icon(Icons.fit_screen_outlined),
+            onPressed: zoomed ? _reset : null,
+          ),
+        ],
       ),
-      body: Center(
+      body: GestureDetector(
+        onDoubleTapDown: _onDoubleTapDown,
         child: InteractiveViewer(
-          maxScale: 8,
-          child: Hero(
-            tag: event.eventId,
-            child: EventImage(
-              event: event,
-              thumbnail: false,
-              fit: BoxFit.contain,
+          key: _viewerKey,
+          transformationController: _transformationController,
+          minScale: _minScale,
+          maxScale: _maxScale,
+          child: Center(
+            child: Hero(
+              tag: widget.event.eventId,
+              child: EventImage(
+                event: widget.event,
+                thumbnail: false,
+                fit: BoxFit.contain,
+              ),
             ),
           ),
         ),

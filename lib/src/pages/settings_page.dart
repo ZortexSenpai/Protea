@@ -66,8 +66,9 @@ class SettingsDialog extends StatelessWidget {
                     ListTile(
                       title: const Text('App layout'),
                       subtitle: const Text(
-                        'Discord-style shows a spaces list on the left with a '
-                        'channel view per space.',
+                        'Workspace shows a spaces rail with a channel list '
+                        'per space, Split pairs the room list with the chat, '
+                        'List opens chats as their own page.',
                       ),
                     ),
                     Padding(
@@ -75,13 +76,18 @@ class SettingsDialog extends StatelessWidget {
                       child: SegmentedButton<AppLayout>(
                         segments: const [
                           ButtonSegment(
-                            value: AppLayout.discord,
-                            label: Text('Discord-style'),
+                            value: AppLayout.workspace,
+                            label: Text('Workspace'),
                             icon: Icon(Icons.view_sidebar_outlined),
                           ),
                           ButtonSegment(
-                            value: AppLayout.classic,
-                            label: Text('Classic list'),
+                            value: AppLayout.split,
+                            label: Text('Split'),
+                            icon: Icon(Icons.vertical_split_outlined),
+                          ),
+                          ButtonSegment(
+                            value: AppLayout.list,
+                            label: Text('List'),
                             icon: Icon(Icons.view_list_outlined),
                           ),
                         ],
@@ -93,7 +99,7 @@ class SettingsDialog extends StatelessWidget {
                     const SizedBox(height: 16),
                     ListTile(
                       title: const Text('Spaces list position'),
-                      enabled: settings.layout == AppLayout.discord,
+                      enabled: settings.layout == AppLayout.workspace,
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -111,7 +117,8 @@ class SettingsDialog extends StatelessWidget {
                           ),
                         ],
                         selected: {settings.railPosition},
-                        onSelectionChanged: settings.layout == AppLayout.discord
+                        onSelectionChanged:
+                            settings.layout == AppLayout.workspace
                             ? (selection) =>
                                   settings.setRailPosition(selection.single)
                             : null,
@@ -163,6 +170,43 @@ class SettingsDialog extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    ListTile(
+                      title: const Text('Message layout'),
+                      subtitle: const Text(
+                        'How messages are displayed in chats.',
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: SegmentedButton<MessageLayout>(
+                        segments: const [
+                          ButtonSegment(
+                            value: MessageLayout.bubbles,
+                            label: Text('Bubbles'),
+                            icon: Icon(Icons.chat_bubble_outline),
+                          ),
+                          ButtonSegment(
+                            value: MessageLayout.cozy,
+                            label: Text('Cozy'),
+                            icon: Icon(Icons.view_agenda_outlined),
+                          ),
+                          ButtonSegment(
+                            value: MessageLayout.compact,
+                            label: Text('Compact'),
+                            icon: Icon(Icons.view_headline),
+                          ),
+                          ButtonSegment(
+                            value: MessageLayout.text,
+                            label: Text('Text'),
+                            icon: Icon(Icons.terminal),
+                          ),
+                        ],
+                        selected: {settings.messageLayout},
+                        onSelectionChanged: (selection) =>
+                            settings.setMessageLayout(selection.single),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     ListTile(title: const Text('Font size')),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -178,6 +222,31 @@ class SettingsDialog extends StatelessWidget {
                             settings.setTextScale(selection.single),
                       ),
                     ),
+                    const SizedBox(height: 24),
+                    _SectionHeader('Notifications'),
+                    SwitchListTile(
+                      secondary: const Icon(
+                        Icons.notifications_active_outlined,
+                      ),
+                      title: const Text('Notification sounds'),
+                      subtitle: const Text(
+                        'Play the system sound with desktop notifications.',
+                      ),
+                      value: settings.notificationSounds,
+                      onChanged: (value) =>
+                          settings.setNotificationSounds(value),
+                    ),
+                    const SizedBox(height: 24),
+                    _SectionHeader('Integrations'),
+                    const ListTile(
+                      leading: Icon(Icons.gif_box_outlined),
+                      title: Text('GIF search (Klipy)'),
+                      subtitle: Text(
+                        'The GIF picker uses the Klipy API. Get a free API '
+                        'key at klipy.com and paste it here.',
+                      ),
+                    ),
+                    _KlipyKeyField(settings: settings),
                     const SizedBox(height: 24),
                     _SectionHeader('Status'),
                     _StatusSection(client: client),
@@ -199,6 +268,60 @@ class SettingsDialog extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Text field storing the Klipy API key for the GIF picker.
+class _KlipyKeyField extends StatefulWidget {
+  const _KlipyKeyField({required this.settings});
+
+  final AppSettings settings;
+
+  @override
+  State<_KlipyKeyField> createState() => _KlipyKeyFieldState();
+}
+
+class _KlipyKeyFieldState extends State<_KlipyKeyField> {
+  late final _controller = TextEditingController(
+    text: widget.settings.klipyApiKey,
+  );
+  bool _saved = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    await widget.settings.setKlipyApiKey(_controller.text.trim());
+    if (mounted) setState(() => _saved = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: TextField(
+        controller: _controller,
+        decoration: InputDecoration(
+          labelText: 'Klipy API key',
+          border: const OutlineInputBorder(),
+          isDense: true,
+          suffixIcon: _saved
+              ? const Icon(Icons.check, color: Color(0xFF43A047))
+              : IconButton(
+                  tooltip: 'Save',
+                  icon: const Icon(Icons.save_outlined),
+                  onPressed: _save,
+                ),
+        ),
+        onChanged: (_) {
+          if (_saved) setState(() => _saved = false);
+        },
+        onSubmitted: (_) => _save(),
       ),
     );
   }

@@ -2,14 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum AppLayout {
-  /// Discord-style: spaces rail, channel list per space, chat pane.
-  discord,
+  /// Spaces rail, channel list per space and the chat pane next to it.
+  workspace,
 
-  /// Classic flat room list like a mobile messenger.
-  classic,
+  /// Flat room list on the left with the chat pane next to it.
+  split,
+
+  /// Flat room list only; chats open as their own page.
+  list,
 }
 
 enum RailPosition { left, right }
+
+/// How messages are rendered in the timeline.
+enum MessageLayout {
+  /// Asymmetric chat bubbles (own messages right, others left).
+  bubbles,
+
+  /// Full-width rows with avatars and a sender header per message group.
+  cozy,
+
+  /// Dense rows with a time gutter and inline sender names.
+  compact,
+
+  /// Terminal-style text lines: `[12:34] <name> message`.
+  text,
+}
 
 /// Selectable color themes. Each seed generates a full light and dark
 /// Material color scheme via [ColorScheme.fromSeed].
@@ -40,9 +58,15 @@ class AppSettings extends ChangeNotifier {
   static Future<AppSettings> load() async =>
       AppSettings._(await SharedPreferences.getInstance());
 
-  AppLayout get layout =>
-      AppLayout.values.asNameMap()[_prefs.getString('layout')] ??
-      AppLayout.discord;
+  AppLayout get layout {
+    final raw = _prefs.getString('layout');
+    // Legacy names from before the layouts were renamed.
+    return switch (raw) {
+      'discord' => AppLayout.workspace,
+      'classic' => AppLayout.list,
+      _ => AppLayout.values.asNameMap()[raw] ?? AppLayout.workspace,
+    };
+  }
 
   RailPosition get railPosition =>
       RailPosition.values.asNameMap()[_prefs.getString('railPosition')] ??
@@ -63,6 +87,25 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool get notificationSounds => _prefs.getBool('notificationSounds') ?? true;
+
+  Future<void> setNotificationSounds(bool value) async {
+    await _prefs.setBool('notificationSounds', value);
+    notifyListeners();
+  }
+
+  MessageLayout get messageLayout =>
+      MessageLayout.values.asNameMap()[_prefs.getString('messageLayout')] ??
+      MessageLayout.bubbles;
+
+  Future<void> setMessageLayout(MessageLayout value) =>
+      _set('messageLayout', value.name);
+
+  /// API key for the Klipy GIF search; empty when the feature is unused.
+  String get klipyApiKey => _prefs.getString('klipyApiKey') ?? '';
+
+  Future<void> setKlipyApiKey(String value) => _set('klipyApiKey', value);
+
   Future<void> setLayout(AppLayout value) => _set('layout', value.name);
 
   Future<void> setThemeColor(AppThemeColor value) =>
@@ -77,4 +120,17 @@ class AppSettings extends ChangeNotifier {
     await _prefs.setString(key, value);
     notifyListeners();
   }
+}
+
+/// Makes [AppSettings] available to any widget below the app's Navigator
+/// (including pushed routes) and rebuilds dependents on changes.
+class SettingsScope extends InheritedNotifier<AppSettings> {
+  const SettingsScope({
+    super.key,
+    required AppSettings settings,
+    required super.child,
+  }) : super(notifier: settings);
+
+  static AppSettings of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<SettingsScope>()!.notifier!;
 }

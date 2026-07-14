@@ -18,15 +18,26 @@ class RoomListPage extends StatelessWidget {
     required this.client,
     required this.manager,
     required this.settings,
+    this.onRoomSelected,
+    this.selectedRoomId,
   });
 
   final Client client;
   final ClientManager manager;
   final AppSettings settings;
 
+  /// When set the page is embedded (split layout): tapped rooms are reported
+  /// instead of pushed as a new page.
+  final ValueChanged<Room>? onRoomSelected;
+  final String? selectedRoomId;
+
   Future<void> _onRoomTap(BuildContext context, Room room) async {
     if (!await confirmRoomTap(context, room)) return;
-    if (context.mounted) {
+    if (!context.mounted) return;
+    final onSelected = onRoomSelected;
+    if (onSelected != null) {
+      onSelected(room);
+    } else {
       Navigator.of(
         context,
       ).push(MaterialPageRoute(builder: (_) => RoomPage(room: room)));
@@ -101,70 +112,102 @@ class RoomListPage extends StatelessWidget {
               ),
             );
           }
-          return ListView.builder(
-            itemCount: rooms.length,
-            itemBuilder: (context, index) {
-              final room = rooms[index];
-              final lastEvent = room.lastEvent;
-              final displayname = room.getLocalizedDisplayname();
-              final isInvite = room.membership == Membership.invite;
-              final directUserId = room.directChatMatrixID;
-              return ListTile(
-                leading: directUserId != null
-                    ? PresenceAvatar(
-                        client: client,
-                        userId: directUserId,
-                        name: displayname,
-                        avatarUrl: room.avatar,
-                      )
-                    : MxcAvatar(
-                        client: client,
-                        name: displayname,
-                        avatarUrl: room.avatar,
-                      ),
-                title: Text(
-                  displayname,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: Text(
-                  isInvite
-                      ? 'Invitation — tap to respond'
-                      : lastEvent?.calcLocalizedBodyFallback(
-                              const MatrixDefaultLocalizations(),
-                              hideReply: true,
-                              plaintextBody: true,
-                              removeMarkdown: true,
-                              withSenderNamePrefix: true,
-                            ) ??
-                            'No messages yet',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    if (lastEvent != null)
-                      Text(
-                        _formatTime(lastEvent.originServerTs),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    if (room.isUnreadOrInvited)
-                      Badge(
-                        label: Text(
-                          room.notificationCount > 0
-                              ? room.notificationCount.toString()
-                              : '',
-                        ),
-                      ),
-                  ],
-                ),
-                onTap: () => _onRoomTap(context, room),
-              );
-            },
+          final directs = rooms.where((room) => room.isDirectChat).toList();
+          final others = rooms.where((room) => !room.isDirectChat).toList();
+          return ListView(
+            children: [
+              if (directs.isNotEmpty) ...[
+                _SectionLabel('Direct messages'),
+                for (final room in directs) _roomTile(context, room),
+              ],
+              if (directs.isNotEmpty && others.isNotEmpty)
+                const SizedBox(height: 16),
+              if (others.isNotEmpty) ...[
+                _SectionLabel('Rooms'),
+                for (final room in others) _roomTile(context, room),
+              ],
+            ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _roomTile(BuildContext context, Room room) {
+    final lastEvent = room.lastEvent;
+    final displayname = room.getLocalizedDisplayname();
+    final isInvite = room.membership == Membership.invite;
+    final directUserId = room.directChatMatrixID;
+    return ListTile(
+      selected: room.id == selectedRoomId,
+      leading: directUserId != null
+          ? PresenceAvatar(
+              client: client,
+              userId: directUserId,
+              name: displayname,
+              avatarUrl: room.avatar,
+            )
+          : MxcAvatar(
+              client: client,
+              name: displayname,
+              avatarUrl: room.avatar,
+            ),
+      title: Text(displayname, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        isInvite
+            ? 'Invitation — tap to respond'
+            : lastEvent?.calcLocalizedBodyFallback(
+                    const MatrixDefaultLocalizations(),
+                    hideReply: true,
+                    plaintextBody: true,
+                    removeMarkdown: true,
+                    withSenderNamePrefix: true,
+                  ) ??
+                  'No messages yet',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (lastEvent != null)
+            Text(
+              _formatTime(lastEvent.originServerTs),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          if (room.isUnreadOrInvited)
+            Badge(
+              label: Text(
+                room.notificationCount > 0
+                    ? room.notificationCount.toString()
+                    : '',
+              ),
+            ),
+        ],
+      ),
+      onTap: () => _onRoomTap(context, room),
+    );
+  }
+}
+
+/// Small uppercase category label above a group of rooms.
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+      child: Text(
+        title.toUpperCase(),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          letterSpacing: 0.8,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

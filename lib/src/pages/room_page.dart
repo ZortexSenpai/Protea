@@ -10,10 +10,14 @@ import 'package:pasteboard/pasteboard.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings.dart';
 import '../widgets/emoji_picker.dart';
 import '../widgets/event_image.dart';
 import '../widgets/forward_message_dialog.dart';
+import '../widgets/gif_picker_dialog.dart';
 import '../widgets/html_message.dart';
+import '../widgets/initials_avatar.dart';
+import '../widgets/link_preview.dart';
 import '../widgets/message_search_dialog.dart';
 import '../widgets/mxc_avatar.dart';
 import '../widgets/pinned_messages_dialog.dart';
@@ -357,14 +361,113 @@ class _RoomPageState extends State<RoomPage> {
     'tiff',
   };
 
+  bool _looksLikeImage(String name, String? mimeType) =>
+      (mimeType?.startsWith('image/') ?? false) ||
+      _imageExtensions.contains(name.split('.').last.toLowerCase());
+
+  /// Shows a preview of the picked [files] and sends them on confirmation.
+  Future<void> _stageAndSend(
+    List<({Uint8List bytes, String name, String? mimeType})> files,
+  ) async {
+    if (files.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          files.length == 1 ? 'Send file?' : 'Send ${files.length} files?',
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400, maxHeight: 420),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final file in files) ...[
+                  if (_looksLikeImage(file.name, file.mimeType))
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.memory(
+                        file.bytes,
+                        height: 160,
+                        fit: BoxFit.contain,
+                      ),
+                    )
+                  else
+                    Row(
+                      children: [
+                        const Icon(Icons.insert_drive_file_outlined),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            file.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 12),
+                    child: Text(
+                      '${file.name} · '
+                      '${_MessageBubbleState._formatSize(file.bytes.length)}',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    for (final file in files) {
+      await _sendBytes(file.bytes, file.name, mimeType: file.mimeType);
+    }
+  }
+
+  Future<void> _pickGif() async {
+    final gif = await showGifPicker(context, _client);
+    if (gif == null) return;
+    try {
+      final response = await _client.httpClient.get(Uri.parse(gif.url));
+      if (response.statusCode != 200) {
+        throw Exception('GIF download failed (HTTP ${response.statusCode})');
+      }
+      final title = gif.title.trim();
+      await _sendBytes(
+        response.bodyBytes,
+        '${title.isEmpty ? 'gif' : title}.gif',
+        mimeType: 'image/gif',
+      );
+    } catch (e) {
+      _showError(e);
+    }
+  }
+
   Future<void> _attachFile() async {
     final picked = await openFile();
     if (picked == null) return;
-    await _sendBytes(
-      await picked.readAsBytes(),
-      picked.name,
-      mimeType: picked.mimeType,
-    );
+    await _stageAndSend([
+      (
+        bytes: await picked.readAsBytes(),
+        name: picked.name,
+        mimeType: picked.mimeType,
+      ),
+    ]);
   }
 
   Future<void> _sendBytes(
@@ -405,13 +508,15 @@ class _RoomPageState extends State<RoomPage> {
 
   Future<void> _onDropFiles(DropDoneDetails details) async {
     setState(() => _dragging = false);
+    final files = <({Uint8List bytes, String name, String? mimeType})>[];
     for (final file in details.files) {
-      await _sendBytes(
-        await file.readAsBytes(),
-        file.name,
+      files.add((
+        bytes: await file.readAsBytes(),
+        name: file.name,
         mimeType: file.mimeType,
-      );
+      ));
     }
+    await _stageAndSend(files);
   }
 
   /// Sends an image from the clipboard, if there is one. Called alongside
@@ -420,7 +525,9 @@ class _RoomPageState extends State<RoomPage> {
     try {
       final bytes = await Pasteboard.image;
       if (bytes == null || bytes.isEmpty) return;
-      await _sendBytes(bytes, 'pasted-image.png', mimeType: 'image/png');
+      await _stageAndSend([
+        (bytes: bytes, name: 'pasted-image.png', mimeType: 'image/png'),
+      ]);
     } catch (_) {}
   }
 
@@ -825,6 +932,13 @@ class _RoomPageState extends State<RoomPage> {
                                 icon: const Icon(Icons.attach_file),
                               ),
                               IconButton(
+                                tooltip: 'GIF',
+                                onPressed: encryptedWithoutSupport
+                                    ? null
+                                    : _pickGif,
+                                icon: const Icon(Icons.gif_box_outlined),
+                              ),
+                              IconButton(
                                 tooltip: 'Emoji',
                                 onPressed: encryptedWithoutSupport
                                     ? null
@@ -958,12 +1072,62 @@ class _MemberListPanel extends StatelessWidget {
           value: 'ignore',
           child: Text(ignored ? 'Unblock' : 'Block'),
         ),
+        if (user.canChangeUserPowerLevel) ...[
+          if (user.powerLevel.level < PowerLevel.defaultAdminLevel)
+            const PopupMenuItem(value: 'power:100', child: Text('Make admin')),
+          if (user.powerLevel.level < PowerLevel.defaultModeratorLevel)
+            const PopupMenuItem(
+              value: 'power:50',
+              child: Text('Make moderator'),
+            ),
+          if (user.powerLevel.level > PowerLevel.defaultUserLevel)
+            const PopupMenuItem(
+              value: 'power:0',
+              child: Text('Reset to member'),
+            ),
+        ],
         if (user.canKick)
           const PopupMenuItem(value: 'kick', child: Text('Kick')),
         if (user.canBan) const PopupMenuItem(value: 'ban', child: Text('Ban')),
       ],
     );
     if (selected == null || !context.mounted) return;
+    if (selected.startsWith('power:')) {
+      final level = int.parse(selected.substring('power:'.length));
+      if (level >= PowerLevel.defaultAdminLevel) {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Make ${user.calcDisplayname()} an admin?'),
+            content: const Text(
+              'Admins have the same power as you — you may not be able to '
+              'demote them afterwards.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Make admin'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true || !context.mounted) return;
+      }
+      try {
+        await user.setPower(level);
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(e.toString())));
+        }
+      }
+      return;
+    }
     if (selected == 'kick' || selected == 'ban') {
       final confirmed = await showDialog<bool>(
         context: context,
@@ -1069,6 +1233,12 @@ class _MemberListPanel extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        subtitle: switch (user.powerLevel.role) {
+                          PowerLevelRole.owner => const Text('Owner'),
+                          PowerLevelRole.admin => const Text('Admin'),
+                          PowerLevelRole.moderator => const Text('Moderator'),
+                          PowerLevelRole.user => null,
+                        },
                         onTap: () => showUserProfileCard(
                           context,
                           client: room.client,
@@ -1573,9 +1743,90 @@ class _MessageBubbleState extends State<_MessageBubble> {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
+  Widget _buildThreadChip(BuildContext context, int count) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => onOpenThread(event),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.forum_outlined, size: 14, color: colorScheme.primary),
+              const SizedBox(width: 4),
+              Text(
+                '$count ${count == 1 ? 'reply' : 'replies'}',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReceiptsRow(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Tooltip(
+        message:
+            'Read by ${widget.receipts.map((user) => user.calcDisplayname()).join(', ')}',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final user in widget.receipts.take(6))
+              Padding(
+                padding: const EdgeInsets.only(left: 2),
+                child: MxcAvatar(
+                  client: _client,
+                  name: user.calcDisplayname(),
+                  avatarUrl: user.avatarUrl,
+                  radius: 7,
+                ),
+              ),
+            if (widget.receipts.length > 6)
+              Padding(
+                padding: const EdgeInsets.only(left: 2),
+                child: Text(
+                  '+${widget.receipts.length - 6}',
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSenderAvatar(double radius) {
+    final sender = event.senderFromMemoryOrFallback;
+    return GestureDetector(
+      onTap: () => showUserProfileCard(
+        context,
+        client: _client,
+        userId: event.senderId,
+        displayName: sender.calcDisplayname(),
+        avatarUrl: sender.avatarUrl,
+      ),
+      child: MxcAvatar(
+        client: _client,
+        name: sender.calcDisplayname(),
+        avatarUrl: sender.avatarUrl,
+        radius: radius,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final layout = SettingsScope.of(context).messageLayout;
     final displayEvent = event.getDisplayEvent(timeline);
     final body = displayEvent.calcLocalizedBodyFallback(
       const MatrixDefaultLocalizations(),
@@ -1609,225 +1860,322 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final threadReplyCount = event
         .aggregatedEvents(timeline, RelationshipTypes.thread)
         .length;
+    final linkUrl = !isImage && !isFile
+        ? LinkPreview.firstLinkOf(displayEvent.body)
+        : null;
+    final timeText = DateFormat.Hm().format(event.originServerTs);
+    final threadChip = threadReplyCount > 0
+        ? _buildThreadChip(context, threadReplyCount)
+        : null;
+    final receiptsRow = widget.receipts.isNotEmpty
+        ? _buildReceiptsRow(context)
+        : null;
 
-    final bubble = Container(
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.75,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: widget.highlighted
-            ? colorScheme.tertiaryContainer
-            : ownMessage
-            ? colorScheme.primaryContainer
-            : colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (showSender && !ownMessage)
+    // The message content itself, shared by all layouts. In the text layout
+    // plain/formatted text is rendered inline instead.
+    Widget mainContent({required bool includeText}) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (inReplyToId != null)
+          _ReplyQuote(timeline: timeline, eventId: inReplyToId),
+        if (isImage) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ImageViewerPage(event: displayEvent),
+                ),
+              ),
+              child: Hero(
+                tag: displayEvent.eventId,
+                child: EventImage(event: displayEvent),
+              ),
+            ),
+          ),
+          if (caption != null)
             Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: Text(
-                sender,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(caption),
             ),
-          if (inReplyToId != null)
-            _ReplyQuote(timeline: timeline, eventId: inReplyToId),
-          if (isImage) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: GestureDetector(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ImageViewerPage(event: displayEvent),
-                  ),
-                ),
-                child: Hero(
-                  tag: displayEvent.eventId,
-                  child: EventImage(event: displayEvent),
-                ),
-              ),
-            ),
-            if (caption != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(caption),
-              ),
-          ] else if (isFile)
-            _buildFileContent(context, displayEvent)
-          else if (isHtml)
+        ] else if (isFile)
+          _buildFileContent(context, displayEvent)
+        else if (includeText)
+          if (isHtml)
             HtmlMessage(html: displayEvent.formattedText)
           else
             Text(body),
-          const SizedBox(height: 2),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                DateFormat.Hm().format(event.originServerTs),
-                style: Theme.of(context).textTheme.labelSmall,
+        if (linkUrl != null) LinkPreview(client: _client, url: linkUrl),
+      ],
+    );
+
+    GestureDetector withMenu(Widget child) => GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onLongPressStart: (details) =>
+          _showMessageMenu(context, details.globalPosition),
+      onSecondaryTapUp: (details) =>
+          _showMessageMenu(context, details.globalPosition),
+      child: child,
+    );
+
+    Widget bubblesLayout() {
+      final bubble = Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: ownMessage
+              ? colorScheme.primaryContainer
+              : colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (showSender && !ownMessage)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(
+                  sender,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-              if (failed) ...[
-                const SizedBox(width: 4),
-                Icon(Icons.error_outline, size: 14, color: colorScheme.error),
+            mainContent(includeText: true),
+            const SizedBox(height: 2),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(timeText, style: Theme.of(context).textTheme.labelSmall),
+                if (failed) ...[
+                  const SizedBox(width: 4),
+                  Icon(Icons.error_outline, size: 14, color: colorScheme.error),
+                ],
               ],
+            ),
+          ],
+        ),
+      );
+
+      return Padding(
+        padding: EdgeInsets.only(
+          left: ownMessage ? 48 : 8,
+          right: ownMessage ? 8 : 48,
+          top: showSender ? 8 : 2,
+          bottom: 2,
+        ),
+        child: Opacity(
+          opacity: sending ? 0.6 : 1,
+          child: Row(
+            mainAxisAlignment: ownMessage
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (!ownMessage) ...[
+                if (showSender)
+                  _buildSenderAvatar(14)
+                else
+                  const SizedBox(width: 28),
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: ownMessage
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    withMenu(bubble),
+                    ?reactions,
+                    ?threadChip,
+                    ?receiptsRow,
+                  ],
+                ),
+              ),
             ],
           ),
-        ],
-      ),
-    );
+        ),
+      );
+    }
+
+    Widget flatLayout({required bool compact}) {
+      final header = showSender
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 1),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      sender,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          (compact
+                                  ? Theme.of(context).textTheme.labelSmall
+                                  : Theme.of(context).textTheme.labelMedium)
+                              ?.copyWith(
+                                color: InitialsAvatar.colorFor(sender),
+                                fontWeight: FontWeight.w700,
+                              ),
+                    ),
+                  ),
+                  if (!compact) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      timeText,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ],
+                  if (failed) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.error_outline,
+                      size: 14,
+                      color: colorScheme.error,
+                    ),
+                  ],
+                ],
+              ),
+            )
+          : null;
+
+      return Padding(
+        padding: EdgeInsets.fromLTRB(12, showSender && !compact ? 8 : 1, 12, 1),
+        child: Opacity(
+          opacity: sending ? 0.6 : 1,
+          child: withMenu(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (compact)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: SizedBox(
+                      width: 38,
+                      child: Text(
+                        timeText,
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                    ),
+                  )
+                else if (showSender)
+                  _buildSenderAvatar(16)
+                else
+                  const SizedBox(width: 32),
+                SizedBox(width: compact ? 6 : 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ?header,
+                      mainContent(includeText: true),
+                      ?reactions,
+                      ?threadChip,
+                      ?receiptsRow,
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget textLayout() {
+      final showInline = !isImage && !isFile;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
+        child: Opacity(
+          opacity: sending ? 0.6 : 1,
+          child: withMenu(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '[$timeText] ',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.outline,
+                        ),
+                      ),
+                      TextSpan(
+                        text: '<$sender> ',
+                        style: TextStyle(
+                          color: InitialsAvatar.colorFor(sender),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (showInline) TextSpan(text: body),
+                      if (failed)
+                        WidgetSpan(
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Icon(
+                              Icons.error_outline,
+                              size: 14,
+                              color: colorScheme.error,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (!showInline || inReplyToId != null || linkUrl != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16),
+                    child: mainContent(includeText: false),
+                  ),
+                if (reactions != null ||
+                    threadChip != null ||
+                    receiptsRow != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [?reactions, ?threadChip, ?receiptsRow],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final inner = switch (layout) {
+      MessageLayout.bubbles => bubblesLayout(),
+      MessageLayout.cozy => flatLayout(compact: false),
+      MessageLayout.compact => flatLayout(compact: true),
+      MessageLayout.text => textLayout(),
+    };
 
     final messageRow = MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: ColoredBox(
-        color: _hovered
+        color: widget.highlighted
+            ? colorScheme.tertiaryContainer.withValues(alpha: 0.6)
+            : _hovered
             ? colorScheme.onSurface.withValues(alpha: 0.05)
             : Colors.transparent,
         child: Stack(
           children: [
-            Padding(
-              padding: EdgeInsets.only(
-                left: ownMessage ? 48 : 8,
-                right: ownMessage ? 8 : 48,
-                top: showSender ? 8 : 2,
-                bottom: 2,
-              ),
-              child: Opacity(
-                opacity: sending ? 0.6 : 1,
-                child: Row(
-                  mainAxisAlignment: ownMessage
-                      ? MainAxisAlignment.end
-                      : MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    if (!ownMessage) ...[
-                      if (showSender)
-                        GestureDetector(
-                          onTap: () => showUserProfileCard(
-                            context,
-                            client: _client,
-                            userId: event.senderId,
-                            displayName: sender,
-                            avatarUrl:
-                                event.senderFromMemoryOrFallback.avatarUrl,
-                          ),
-                          child: MxcAvatar(
-                            client: _client,
-                            name: sender,
-                            avatarUrl:
-                                event.senderFromMemoryOrFallback.avatarUrl,
-                            radius: 14,
-                          ),
-                        )
-                      else
-                        const SizedBox(width: 28),
-                      const SizedBox(width: 8),
-                    ],
-                    Flexible(
-                      child: Column(
-                        crossAxisAlignment: ownMessage
-                            ? CrossAxisAlignment.end
-                            : CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          GestureDetector(
-                            onLongPressStart: (details) => _showMessageMenu(
-                              context,
-                              details.globalPosition,
-                            ),
-                            onSecondaryTapUp: (details) => _showMessageMenu(
-                              context,
-                              details.globalPosition,
-                            ),
-                            child: bubble,
-                          ),
-                          ?reactions,
-                          if (threadReplyCount > 0)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(8),
-                                onTap: () => onOpenThread(event),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                    vertical: 2,
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.forum_outlined,
-                                        size: 14,
-                                        color: colorScheme.primary,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '$threadReplyCount '
-                                        '${threadReplyCount == 1 ? 'reply' : 'replies'}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall
-                                            ?.copyWith(
-                                              color: colorScheme.primary,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          if (widget.receipts.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Tooltip(
-                                message:
-                                    'Read by ${widget.receipts.map((user) => user.calcDisplayname()).join(', ')}',
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    for (final user in widget.receipts.take(6))
-                                      Padding(
-                                        padding: const EdgeInsets.only(left: 2),
-                                        child: MxcAvatar(
-                                          client: _client,
-                                          name: user.calcDisplayname(),
-                                          avatarUrl: user.avatarUrl,
-                                          radius: 7,
-                                        ),
-                                      ),
-                                    if (widget.receipts.length > 6)
-                                      Padding(
-                                        padding: const EdgeInsets.only(left: 2),
-                                        child: Text(
-                                          '+${widget.receipts.length - 6}',
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.labelSmall,
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            inner,
             // Floating action bar: painted on top so it never affects the
-            // bubble layout.
+            // message layout.
             if (_hovered)
               Positioned(top: 0, right: 8, child: _buildHoverActions()),
           ],

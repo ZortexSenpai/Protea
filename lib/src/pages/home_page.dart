@@ -5,6 +5,7 @@ import '../client_manager.dart';
 import '../settings.dart';
 import 'discord_home_page.dart';
 import 'room_list_page.dart';
+import 'split_home_page.dart';
 
 /// Chooses the home layout based on the user's settings.
 class HomePage extends StatelessWidget {
@@ -24,12 +25,17 @@ class HomePage extends StatelessWidget {
     return ListenableBuilder(
       listenable: settings,
       builder: (context, _) => switch (settings.layout) {
-        AppLayout.discord => DiscordHomePage(
+        AppLayout.workspace => DiscordHomePage(
           client: client,
           manager: manager,
           settings: settings,
         ),
-        AppLayout.classic => RoomListPage(
+        AppLayout.split => SplitHomePage(
+          client: client,
+          manager: manager,
+          settings: settings,
+        ),
+        AppLayout.list => RoomListPage(
           client: client,
           manager: manager,
           settings: settings,

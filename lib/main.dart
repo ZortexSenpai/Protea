@@ -19,7 +19,13 @@ Future<void> main() async {
   runApp(ProteaApp(manager: manager, settings: settings));
   // After runApp so a hanging permission prompt can never block the first
   // frame.
-  unawaited(NotificationService(manager, navigatorKey: navigatorKey).init());
+  unawaited(
+    NotificationService(
+      manager,
+      navigatorKey: navigatorKey,
+      settings: settings,
+    ).init(),
+  );
 }
 
 class ProteaApp extends StatelessWidget {
@@ -50,11 +56,14 @@ class ProteaApp extends StatelessWidget {
             ),
           ),
           themeMode: settings.themeMode,
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              textScaler: TextScaler.linear(settings.textScale),
+          builder: (context, child) => SettingsScope(
+            settings: settings,
+            child: MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(settings.textScale),
+              ),
+              child: child ?? const SizedBox.shrink(),
             ),
-            child: child ?? const SizedBox.shrink(),
           ),
           home: active == null
               ? LoginPage(client: manager.loginCandidate)

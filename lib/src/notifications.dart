@@ -6,15 +6,17 @@ import 'package:matrix/matrix.dart';
 
 import 'client_manager.dart';
 import 'pages/room_page.dart';
+import 'settings.dart';
 
 /// Shows desktop notifications for incoming messages (as selected by the
 /// account's push rules) of all logged-in accounts while the window is not
 /// focused.
 class NotificationService with WidgetsBindingObserver {
-  NotificationService(this.manager, {this.navigatorKey});
+  NotificationService(this.manager, {this.navigatorKey, this.settings});
 
   final ClientManager manager;
   final GlobalKey<NavigatorState>? navigatorKey;
+  final AppSettings? settings;
   final _plugin = FlutterLocalNotificationsPlugin();
   final _listening = <Client>{};
   final _subscriptions = <StreamSubscription<Event>>[];
@@ -114,8 +116,10 @@ class NotificationService with WidgetsBindingObserver {
         id: event.eventId.hashCode,
         title: room.getLocalizedDisplayname(),
         body: body,
-        notificationDetails: const NotificationDetails(
-          macOS: DarwinNotificationDetails(),
+        notificationDetails: NotificationDetails(
+          macOS: DarwinNotificationDetails(
+            presentSound: settings?.notificationSounds ?? true,
+          ),
         ),
         payload: '${client.clientName}|${room.id}',
       );

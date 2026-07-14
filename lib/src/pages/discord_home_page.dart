@@ -389,14 +389,32 @@ class _ChannelColumn extends StatelessWidget {
                       child: Text('No rooms here yet.'),
                     ),
                   )
-                : ListView.builder(
-                    itemCount: rooms.length,
-                    itemBuilder: (context, index) {
-                      final room = rooms[index];
-                      return _ChannelTile(
+                : Builder(
+                    builder: (context) {
+                      final directs = rooms
+                          .where((room) => room.isDirectChat)
+                          .toList();
+                      final channels = rooms
+                          .where((room) => !room.isDirectChat)
+                          .toList();
+                      Widget tile(Room room) => _ChannelTile(
                         room: room,
                         selected: room.id == selectedRoomId,
                         onTap: () => onRoomTap(room),
+                      );
+                      return ListView(
+                        children: [
+                          if (directs.isNotEmpty) ...[
+                            const _SectionLabel('Direct messages'),
+                            for (final room in directs) tile(room),
+                          ],
+                          if (directs.isNotEmpty && channels.isNotEmpty)
+                            const SizedBox(height: 16),
+                          if (channels.isNotEmpty) ...[
+                            const _SectionLabel('Channels'),
+                            for (final room in channels) tile(room),
+                          ],
+                        ],
                       );
                     },
                   ),
@@ -409,6 +427,28 @@ class _ChannelColumn extends StatelessWidget {
     return fillWidth
         ? Expanded(child: column)
         : SizedBox(width: 280, child: column);
+  }
+}
+
+/// Small uppercase category label above a group of rooms.
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+      child: Text(
+        title.toUpperCase(),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          letterSpacing: 0.8,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
   }
 }
 
@@ -492,24 +532,12 @@ class _ChannelTile extends StatelessWidget {
         dense: true,
         selected: selected,
         leading: directUserId != null
-            ? SizedBox(
-                width: 20,
-                height: 20,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(Icons.person_outline, size: 20),
-                    Positioned(
-                      right: -2,
-                      bottom: -2,
-                      child: PresenceDot(
-                        client: room.client,
-                        userId: directUserId,
-                        size: 9,
-                      ),
-                    ),
-                  ],
-                ),
+            ? PresenceAvatar(
+                client: room.client,
+                userId: directUserId,
+                name: room.getLocalizedDisplayname(),
+                avatarUrl: room.avatar,
+                radius: 12,
               )
             : Icon(isInvite ? Icons.mail_outline : Icons.tag, size: 20),
         title: Text(

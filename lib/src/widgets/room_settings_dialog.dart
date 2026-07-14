@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,49 +15,183 @@ Future<void> showRoomSettingsDialog(BuildContext context, Room room) =>
       builder: (_) => RoomSettingsDialog(room: room),
     );
 
-/// Asks for a user ID and invites them to [room].
-Future<void> showInviteDialog(BuildContext context, Room room) async {
-  final controller = TextEditingController();
-  final userId = await showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(room.isSpace ? 'Invite to space' : 'Invite to room'),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        decoration: const InputDecoration(
-          labelText: 'User ID (@user:server)',
-          border: OutlineInputBorder(),
+/// Searches the user directory (or takes a raw user ID) and invites the
+/// picked user to [room].
+Future<void> showInviteDialog(BuildContext context, Room room) => showDialog(
+  context: context,
+  builder: (_) => InviteDialog(room: room),
+);
+
+class InviteDialog extends StatefulWidget {
+  const InviteDialog({super.key, required this.room});
+
+  final Room room;
+
+  @override
+  State<InviteDialog> createState() => _InviteDialogState();
+}
+
+class _InviteDialogState extends State<InviteDialog> {
+  final _controller = TextEditingController();
+  Timer? _debounce;
+  List<Profile> _results = [];
+  bool _searching = false;
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onChanged(String text) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), _search);
+    setState(() {});
+  }
+
+  Future<void> _search() async {
+    final term = _controller.text.trim();
+    if (term.length < 2) {
+      setState(() => _results = []);
+      return;
+    }
+    setState(() => _searching = true);
+    try {
+      final response = await widget.room.client.searchUserDirectory(
+        term,
+        limit: 10,
+      );
+      if (mounted) setState(() => _results = response.results);
+    } catch (_) {
+      if (mounted) setState(() => _results = []);
+    } finally {
+      if (mounted) setState(() => _searching = false);
+    }
+  }
+
+  Future<void> _invite(String userId) async {
+    setState(() => _busy = true);
+    try {
+      await widget.room.invite(userId);
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Invited $userId')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final input = _controller.text.trim();
+    final looksLikeUserId = RegExp(r'^@[^:]+:.+$').hasMatch(input);
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420, maxHeight: 520),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+              child: Row(
+                children: [
+                  Text(
+                    widget.room.isSpace ? 'Invite to space' : 'Invite to room',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: 'Close',
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: TextField(
+                controller: _controller,
+                autofocus: true,
+                enabled: !_busy,
+                decoration: InputDecoration(
+                  hintText: 'Search by name, or enter @user:server',
+                  prefixIcon: const Icon(Icons.search),
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                  suffixIcon: _searching
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : null,
+                ),
+                onChanged: _onChanged,
+              ),
+            ),
+            const Divider(height: 1),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  if (looksLikeUserId)
+                    ListTile(
+                      leading: const Icon(Icons.person_add_outlined),
+                      title: Text('Invite $input'),
+                      enabled: !_busy,
+                      onTap: () => _invite(input),
+                    ),
+                  for (final profile in _results)
+                    ListTile(
+                      dense: true,
+                      enabled: !_busy,
+                      leading: MxcAvatar(
+                        client: widget.room.client,
+                        name: profile.displayName ?? profile.userId,
+                        avatarUrl: profile.avatarUrl,
+                        radius: 14,
+                      ),
+                      title: Text(
+                        profile.displayName ?? profile.userId,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        profile.userId,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () => _invite(profile.userId),
+                    ),
+                  if (!looksLikeUserId && _results.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text(
+                        'Type at least two characters to search the user '
+                        'directory.',
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
-        onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-          child: const Text('Invite'),
-        ),
-      ],
-    ),
-  );
-  controller.dispose();
-  if (userId == null || userId.isEmpty) return;
-  try {
-    await room.invite(userId);
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Invited $userId')));
-    }
-  } catch (e) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
-    }
+    );
   }
 }
 
