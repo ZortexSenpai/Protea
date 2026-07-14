@@ -8,19 +8,25 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart' as sqflite;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-/// Builds the Matrix [Client] with a platform-appropriate SQLite backend and
-/// restores a previous session from disk if one exists.
-Future<Client> buildMatrixClient() async {
+bool _vodozemacInitialized = false;
+
+/// Builds a Matrix [Client] named [name] with a platform-appropriate SQLite
+/// backend and restores its previous session from disk if one exists. Each
+/// account uses its own database file derived from [name].
+Future<Client> buildMatrixClient({String name = 'Protea'}) async {
   final dir = await getApplicationSupportDirectory();
   final fileStorage = Directory(p.join(dir.path, 'media'));
   await fileStorage.create(recursive: true);
 
-  // Initialize the vodozemac crypto library. The SDK enables E2EE (and with
-  // it device verification) automatically when this succeeded.
-  try {
-    await vod.init();
-  } catch (e, s) {
-    Logs().e('Failed to initialize end-to-end encryption', e, s);
+  // Initialize the vodozemac crypto library once. The SDK enables E2EE (and
+  // with it device verification) automatically when this succeeded.
+  if (!_vodozemacInitialized) {
+    try {
+      await vod.init();
+      _vodozemacInitialized = true;
+    } catch (e, s) {
+      Logs().e('Failed to initialize end-to-end encryption', e, s);
+    }
   }
 
   final DatabaseFactory dbFactory;
@@ -33,16 +39,19 @@ Future<Client> buildMatrixClient() async {
     dbFactory = databaseFactoryFfi;
   }
 
+  // 'Protea' maps to the pre-multi-account names so existing sessions keep
+  // working: database 'protea' in 'protea.sqlite'.
+  final dbName = name.toLowerCase();
   final database = await MatrixSdkDatabase.init(
-    'protea',
-    database: await dbFactory.openDatabase(p.join(dir.path, 'protea.sqlite')),
+    dbName,
+    database: await dbFactory.openDatabase(p.join(dir.path, '$dbName.sqlite')),
     sqfliteFactory: dbFactory,
     fileStorageLocation: fileStorage.uri,
     maxFileSize: 10 * 1024 * 1024,
   );
 
   final client = Client(
-    'Protea',
+    name,
     database: database,
     logLevel: Level.warning,
     // Without this, checkHomeserver rejects homeservers that only offer SSO

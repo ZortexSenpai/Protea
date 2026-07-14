@@ -2,17 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:matrix/matrix.dart';
 
+import '../client_manager.dart';
 import '../room_actions.dart';
 import '../settings.dart';
+import '../widgets/account_switcher.dart';
 import '../widgets/mxc_avatar.dart';
 import '../widgets/presence_indicator.dart';
 import 'room_page.dart';
 import 'settings_page.dart';
 
 class RoomListPage extends StatelessWidget {
-  const RoomListPage({super.key, required this.client, required this.settings});
+  const RoomListPage({
+    super.key,
+    required this.client,
+    required this.manager,
+    required this.settings,
+  });
 
   final Client client;
+  final ClientManager manager;
   final AppSettings settings;
 
   Future<void> _onRoomTap(BuildContext context, Room room) async {
@@ -48,6 +56,8 @@ class RoomListPage extends StatelessWidget {
                     client: client,
                     settings: settings,
                   );
+                case 'accounts':
+                  showAccountSwitcher(context, manager);
                 case 'logout':
                   confirmLogout(context, client);
               }
@@ -55,6 +65,10 @@ class RoomListPage extends StatelessWidget {
             itemBuilder: (context) => [
               PopupMenuItem(enabled: false, child: Text(client.userID ?? '')),
               const PopupMenuItem(value: 'settings', child: Text('Settings')),
+              const PopupMenuItem(
+                value: 'accounts',
+                child: Text('Switch account'),
+              ),
               const PopupMenuItem(value: 'logout', child: Text('Sign out')),
             ],
           ),

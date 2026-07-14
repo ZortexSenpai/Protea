@@ -25,16 +25,27 @@ class _LoginPageState extends State<LoginPage> {
   List<LoginFlow>? _flows;
   Timer? _flowsDebounce;
   int _flowsRequest = 0;
+  StreamSubscription<LoginState>? _loginStateSubscription;
 
   @override
   void initState() {
     super.initState();
     _homeserverController.addListener(_onHomeserverChanged);
     _fetchLoginFlows();
+    // When this page was pushed to add another account, close it on success.
+    // As the app's home (first login) it is replaced by main.dart instead.
+    _loginStateSubscription =
+        widget.client.onLoginStateChanged.stream.listen((state) {
+      if (state == LoginState.loggedIn && mounted) {
+        final navigator = Navigator.of(context);
+        if (navigator.canPop()) navigator.pop();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _loginStateSubscription?.cancel();
     _flowsDebounce?.cancel();
     _homeserverController.dispose();
     _usernameController.dispose();
@@ -141,6 +152,9 @@ class _LoginPageState extends State<LoginPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final ssoProviders = _ssoProviders;
     return Scaffold(
+      appBar: Navigator.of(context).canPop()
+          ? AppBar(title: const Text('Add account'))
+          : null,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),

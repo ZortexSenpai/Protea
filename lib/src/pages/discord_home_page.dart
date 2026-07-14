@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import '../client_manager.dart';
 import '../room_actions.dart';
 import '../settings.dart';
+import '../widgets/account_switcher.dart';
 import '../widgets/mxc_avatar.dart';
 import '../widgets/presence_indicator.dart';
 import '../widgets/user_profile_card.dart';
@@ -15,10 +17,12 @@ class DiscordHomePage extends StatefulWidget {
   const DiscordHomePage({
     super.key,
     required this.client,
+    required this.manager,
     required this.settings,
   });
 
   final Client client;
+  final ClientManager manager;
   final AppSettings settings;
 
   @override
@@ -103,6 +107,7 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
         );
         final channels = _ChannelColumn(
           client: _client,
+          manager: widget.manager,
           settings: widget.settings,
           title: _selectedSpaceId == null
               ? 'Home'
@@ -289,6 +294,7 @@ class _RailButton extends StatelessWidget {
 class _ChannelColumn extends StatelessWidget {
   const _ChannelColumn({
     required this.client,
+    required this.manager,
     required this.settings,
     required this.title,
     required this.rooms,
@@ -298,6 +304,7 @@ class _ChannelColumn extends StatelessWidget {
   });
 
   final Client client;
+  final ClientManager manager;
   final AppSettings settings;
   final String title;
   final List<Room> rooms;
@@ -347,7 +354,7 @@ class _ChannelColumn extends StatelessWidget {
                   ),
           ),
           const Divider(height: 1),
-          _UserFooter(client: client, settings: settings),
+          _UserFooter(client: client, manager: manager, settings: settings),
         ],
       ),
     );
@@ -415,9 +422,14 @@ class _ChannelTile extends StatelessWidget {
 }
 
 class _UserFooter extends StatelessWidget {
-  const _UserFooter({required this.client, required this.settings});
+  const _UserFooter({
+    required this.client,
+    required this.manager,
+    required this.settings,
+  });
 
   final Client client;
+  final ClientManager manager;
   final AppSettings settings;
 
   @override
@@ -454,6 +466,11 @@ class _UserFooter extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
+          ),
+          IconButton(
+            tooltip: 'Switch account',
+            icon: const Icon(Icons.swap_horiz, size: 20),
+            onPressed: () => showAccountSwitcher(context, manager),
           ),
           IconButton(
             tooltip: 'Settings',
