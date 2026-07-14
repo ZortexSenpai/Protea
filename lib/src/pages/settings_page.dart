@@ -411,6 +411,54 @@ class _ProfileSectionState extends State<_ProfileSection> {
     }
   }
 
+  Future<void> _editDisplayName() async {
+    final controller = TextEditingController(
+      text: _profile?.displayname ?? '',
+    );
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Display name'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+          onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (newName == null || newName.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      await widget.client.setProfileField(
+        widget.client.userID!,
+        'displayname',
+        {'displayname': newName},
+      );
+      await _loadProfile();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final client = widget.client;
@@ -472,10 +520,20 @@ class _ProfileSectionState extends State<_ProfileSection> {
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : IconButton(
-                  tooltip: 'Change profile picture',
-                  icon: const Icon(Icons.add_a_photo_outlined),
-                  onPressed: () => _uploadImageTo('avatar_url'),
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Edit display name',
+                      icon: const Icon(Icons.edit_outlined),
+                      onPressed: _editDisplayName,
+                    ),
+                    IconButton(
+                      tooltip: 'Change profile picture',
+                      icon: const Icon(Icons.add_a_photo_outlined),
+                      onPressed: () => _uploadImageTo('avatar_url'),
+                    ),
+                  ],
                 ),
         ),
       ],

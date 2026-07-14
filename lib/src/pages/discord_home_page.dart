@@ -6,7 +6,9 @@ import '../room_actions.dart';
 import '../settings.dart';
 import '../widgets/account_switcher.dart';
 import '../widgets/mxc_avatar.dart';
+import '../widgets/new_chat_dialog.dart';
 import '../widgets/presence_indicator.dart';
+import '../widgets/room_settings_dialog.dart';
 import '../widgets/user_profile_card.dart';
 import 'room_page.dart';
 import 'settings_page.dart';
@@ -180,6 +182,35 @@ class _SpaceRail extends StatelessWidget {
   final String? selectedSpaceId;
   final void Function(String? spaceId) onSelect;
 
+  Future<void> _showSpaceMenu(
+    BuildContext context,
+    Room space,
+    Offset position,
+  ) async {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        overlay.size.width - position.dx,
+        overlay.size.height - position.dy,
+      ),
+      items: [
+        const PopupMenuItem(value: 'settings', child: Text('Space settings')),
+        if (space.canInvite)
+          const PopupMenuItem(value: 'invite', child: Text('Invite to space')),
+      ],
+    );
+    if (selected == null || !context.mounted) return;
+    switch (selected) {
+      case 'settings':
+        await showRoomSettingsDialog(context, space);
+      case 'invite':
+        await showInviteDialog(context, space);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -215,21 +246,27 @@ class _SpaceRail extends StatelessWidget {
                     child: Divider(height: 1),
                   ),
                 for (final space in spaces)
-                  _RailButton(
-                    selected: selectedSpaceId == space.id,
-                    tooltip: space.getLocalizedDisplayname(),
-                    unread: space.spaceChildren.any((child) {
-                      final room = child.roomId == null
-                          ? null
-                          : space.client.getRoomById(child.roomId!);
-                      return room?.isUnreadOrInvited ?? false;
-                    }),
-                    onTap: () => onSelect(space.id),
-                    child: MxcAvatar(
-                      client: space.client,
-                      name: space.getLocalizedDisplayname(),
-                      avatarUrl: space.avatar,
-                      radius: 24,
+                  GestureDetector(
+                    onSecondaryTapUp: (details) =>
+                        _showSpaceMenu(context, space, details.globalPosition),
+                    onLongPressStart: (details) =>
+                        _showSpaceMenu(context, space, details.globalPosition),
+                    child: _RailButton(
+                      selected: selectedSpaceId == space.id,
+                      tooltip: space.getLocalizedDisplayname(),
+                      unread: space.spaceChildren.any((child) {
+                        final room = child.roomId == null
+                            ? null
+                            : space.client.getRoomById(child.roomId!);
+                        return room?.isUnreadOrInvited ?? false;
+                      }),
+                      onTap: () => onSelect(space.id),
+                      child: MxcAvatar(
+                        client: space.client,
+                        name: space.getLocalizedDisplayname(),
+                        avatarUrl: space.avatar,
+                        radius: 24,
+                      ),
                     ),
                   ),
               ],
@@ -323,13 +360,24 @@ class _ChannelColumn extends StatelessWidget {
         children: [
           Container(
             height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.only(left: 16, right: 4),
             alignment: Alignment.centerLeft,
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'New chat',
+                  icon: const Icon(Icons.add_comment_outlined, size: 20),
+                  onPressed: () => showNewChatDialog(context, client),
+                ),
+              ],
             ),
           ),
           const Divider(height: 1),
@@ -375,48 +423,110 @@ class _ChannelTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  Future<void> _showContextMenu(BuildContext context, Offset position) async {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        overlay.size.width - position.dx,
+        overlay.size.height - position.dy,
+      ),
+      items: [
+        const PopupMenuItem(value: 'settings', child: Text('Settings')),
+        if (room.canInvite)
+          const PopupMenuItem(value: 'invite', child: Text('Invite')),
+        const PopupMenuItem(value: 'leave', child: Text('Leave')),
+      ],
+    );
+    if (selected == null || !context.mounted) return;
+    switch (selected) {
+      case 'settings':
+        await showRoomSettingsDialog(context, room);
+      case 'invite':
+        await showInviteDialog(context, room);
+      case 'leave':
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Leave room?'),
+            content: Text(
+              'You will no longer see ${room.getLocalizedDisplayname()}.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Leave'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+        try {
+          await room.leave();
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(e.toString())));
+          }
+        }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isInvite = room.membership == Membership.invite;
     final directUserId = room.directChatMatrixID;
-    return ListTile(
-      dense: true,
-      selected: selected,
-      leading: directUserId != null
-          ? SizedBox(
-              width: 20,
-              height: 20,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Icon(Icons.person_outline, size: 20),
-                  Positioned(
-                    right: -2,
-                    bottom: -2,
-                    child: PresenceDot(
-                      client: room.client,
-                      userId: directUserId,
-                      size: 9,
+    return GestureDetector(
+      onSecondaryTapUp: (details) =>
+          _showContextMenu(context, details.globalPosition),
+      onLongPressStart: (details) =>
+          _showContextMenu(context, details.globalPosition),
+      child: ListTile(
+        dense: true,
+        selected: selected,
+        leading: directUserId != null
+            ? SizedBox(
+                width: 20,
+                height: 20,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.person_outline, size: 20),
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: PresenceDot(
+                        client: room.client,
+                        userId: directUserId,
+                        size: 9,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            )
-          : Icon(isInvite ? Icons.mail_outline : Icons.tag, size: 20),
-      title: Text(
-        room.getLocalizedDisplayname(),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: room.isUnreadOrInvited
-            ? const TextStyle(fontWeight: FontWeight.bold)
+                  ],
+                ),
+              )
+            : Icon(isInvite ? Icons.mail_outline : Icons.tag, size: 20),
+        title: Text(
+          room.getLocalizedDisplayname(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: room.isUnreadOrInvited
+              ? const TextStyle(fontWeight: FontWeight.bold)
+              : null,
+        ),
+        trailing: room.notificationCount > 0
+            ? Badge(label: Text(room.notificationCount.toString()))
+            : isInvite
+            ? const Badge(label: Text('!'))
             : null,
+        onTap: onTap,
       ),
-      trailing: room.notificationCount > 0
-          ? Badge(label: Text(room.notificationCount.toString()))
-          : isInvite
-          ? const Badge(label: Text('!'))
-          : null,
-      onTap: onTap,
     );
   }
 }

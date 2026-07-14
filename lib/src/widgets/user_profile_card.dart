@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import '../pages/room_page.dart';
 import 'initials_avatar.dart';
 import 'mxc_avatar.dart';
 import 'presence_indicator.dart';
@@ -18,16 +19,15 @@ Future<void> showUserProfileCard(
   required String userId,
   String? displayName,
   Uri? avatarUrl,
-}) =>
-    showDialog(
-      context: context,
-      builder: (_) => UserProfileCard(
-        client: client,
-        userId: userId,
-        displayName: displayName,
-        avatarUrl: avatarUrl,
-      ),
-    );
+}) => showDialog(
+  context: context,
+  builder: (_) => UserProfileCard(
+    client: client,
+    userId: userId,
+    displayName: displayName,
+    avatarUrl: avatarUrl,
+  ),
+);
 
 class UserProfileCard extends StatefulWidget {
   const UserProfileCard({
@@ -74,6 +74,25 @@ class _UserProfileCardState extends State<UserProfileCard> {
     return null;
   }
 
+  Future<void> _message() async {
+    final navigator = Navigator.of(context);
+    try {
+      final roomId = await widget.client.startDirectChat(widget.userId);
+      final room = widget.client.getRoomById(roomId);
+      if (!mounted) return;
+      navigator.pop();
+      if (room != null) {
+        navigator.push(MaterialPageRoute(builder: (_) => RoomPage(room: room)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -102,9 +121,7 @@ class _UserProfileCardState extends State<UserProfileCard> {
                             color: InitialsAvatar.colorFor(displayName),
                           ),
                         )
-                      : ColoredBox(
-                          color: InitialsAvatar.colorFor(displayName),
-                        ),
+                      : ColoredBox(color: InitialsAvatar.colorFor(displayName)),
                 ),
                 Positioned(
                   left: 16,
@@ -133,10 +150,9 @@ class _UserProfileCardState extends State<UserProfileCard> {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       displayName,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -144,8 +160,8 @@ class _UserProfileCardState extends State<UserProfileCard> {
                   Text(
                     widget.userId,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -155,6 +171,14 @@ class _UserProfileCardState extends State<UserProfileCard> {
                     userId: widget.userId,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
+                  if (widget.userId != widget.client.userID) ...[
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: _message,
+                      icon: const Icon(Icons.chat_outlined, size: 18),
+                      label: const Text('Message'),
+                    ),
+                  ],
                 ],
               ),
             ),

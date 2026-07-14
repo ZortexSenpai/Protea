@@ -7,6 +7,7 @@ import '../room_actions.dart';
 import '../settings.dart';
 import '../widgets/account_switcher.dart';
 import '../widgets/mxc_avatar.dart';
+import '../widgets/new_chat_dialog.dart';
 import '../widgets/presence_indicator.dart';
 import 'room_page.dart';
 import 'settings_page.dart';
@@ -47,6 +48,11 @@ class RoomListPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Protea'),
         actions: [
+          IconButton(
+            tooltip: 'New chat',
+            icon: const Icon(Icons.add_comment_outlined),
+            onPressed: () => showNewChatDialog(context, client),
+          ),
           PopupMenuButton<String>(
             onSelected: (value) {
               switch (value) {

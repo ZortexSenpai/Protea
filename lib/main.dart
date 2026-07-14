@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'src/client_manager.dart';
+import 'src/notifications.dart';
 import 'src/pages/home_page.dart';
 import 'src/pages/login_page.dart';
 import 'src/settings.dart';
@@ -11,6 +14,9 @@ Future<void> main() async {
   final settings = await AppSettings.load();
   final manager = await ClientManager.load();
   runApp(ProteaApp(manager: manager, settings: settings));
+  // After runApp so a hanging permission prompt can never block the first
+  // frame.
+  unawaited(NotificationService(manager).init());
 }
 
 class ProteaApp extends StatelessWidget {

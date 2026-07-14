@@ -1,13 +1,20 @@
+import 'dart:async';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:matrix/matrix.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../widgets/emoji_picker.dart';
 import '../widgets/event_image.dart';
+import '../widgets/html_message.dart';
+import '../widgets/message_search_dialog.dart';
 import '../widgets/mxc_avatar.dart';
+import '../widgets/pinned_messages_dialog.dart';
 import '../widgets/presence_indicator.dart';
+import '../widgets/room_settings_dialog.dart';
 import '../widgets/user_profile_card.dart';
 
 class RoomPage extends StatefulWidget {
@@ -27,9 +34,14 @@ class RoomPage extends StatefulWidget {
 class _RoomPageState extends State<RoomPage> {
   Timeline? _timeline;
   final _sendController = TextEditingController();
-  final _scrollController = ScrollController();
+  final _itemScrollController = ItemScrollController();
+  final _itemPositionsListener = ItemPositionsListener.create();
   Event? _replyTo;
+  Event? _editing;
+  bool _showMembers = false;
   DateTime? _typingLastSent;
+  String? _highlightedEventId;
+  Timer? _highlightTimer;
 
   static const _bubbleTypes = {
     EventTypes.Message,
@@ -42,15 +54,16 @@ class _RoomPageState extends State<RoomPage> {
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
+    _itemPositionsListener.itemPositions.addListener(_onPositionsChanged);
     _loadTimeline();
   }
 
   @override
   void dispose() {
+    _highlightTimer?.cancel();
+    _itemPositionsListener.itemPositions.removeListener(_onPositionsChanged);
     _timeline?.cancelSubscriptions();
     _sendController.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -70,16 +83,94 @@ class _RoomPageState extends State<RoomPage> {
     } catch (_) {}
   }
 
-  void _onScroll() {
+  void _onPositionsChanged() {
     final timeline = _timeline;
     if (timeline == null) return;
-    // The list is reversed, so maxScrollExtent is the oldest loaded message.
-    if (_scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 300 &&
+    final positions = _itemPositionsListener.itemPositions.value;
+    if (positions.isEmpty) return;
+    var minIndex = positions.first.index;
+    var maxIndex = positions.first.index;
+    for (final position in positions) {
+      if (position.index < minIndex) minIndex = position.index;
+      if (position.index > maxIndex) maxIndex = position.index;
+    }
+    // The list is reversed: high indices are the oldest loaded messages,
+    // index 0 is the newest.
+    if (maxIndex >= _visibleEvents(timeline).length - 3 &&
         timeline.canRequestHistory &&
         !timeline.isRequestingHistory) {
       timeline.requestHistory();
     }
+    if (minIndex <= 1 &&
+        timeline.canRequestFuture &&
+        !timeline.isRequestingFuture) {
+      timeline.requestFuture();
+    }
+  }
+
+  void _scrollToIndex(int index) {
+    if (_itemScrollController.isAttached) {
+      _itemScrollController.scrollTo(
+        index: index,
+        duration: const Duration(milliseconds: 300),
+        alignment: 0.5,
+      );
+    }
+  }
+
+  void _highlight(String eventId) {
+    _highlightTimer?.cancel();
+    setState(() => _highlightedEventId = eventId);
+    _highlightTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _highlightedEventId = null);
+    });
+  }
+
+  /// Scrolls to [eventId], loading a timeline anchored around it when it is
+  /// not in the currently loaded part of the history.
+  Future<void> _jumpToEvent(String eventId) async {
+    final timeline = _timeline;
+    if (timeline != null) {
+      final index = _visibleEvents(timeline)
+          .indexWhere((event) => event.eventId == eventId);
+      if (index != -1) {
+        _scrollToIndex(index);
+        _highlight(eventId);
+        return;
+      }
+    }
+    timeline?.cancelSubscriptions();
+    setState(() => _timeline = null);
+    try {
+      final contextTimeline = await widget.room.getTimeline(
+        onUpdate: () {
+          if (mounted) setState(() {});
+        },
+        eventContextId: eventId,
+      );
+      if (!mounted) {
+        contextTimeline.cancelSubscriptions();
+        return;
+      }
+      setState(() => _timeline = contextTimeline);
+      _highlight(eventId);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final index = _visibleEvents(contextTimeline)
+            .indexWhere((event) => event.eventId == eventId);
+        if (index != -1) _scrollToIndex(index);
+      });
+    } catch (e) {
+      _showError(e);
+      await _loadTimeline();
+    }
+  }
+
+  /// Leaves a jumped-to history position and returns to the live timeline.
+  Future<void> _returnToLive() async {
+    final old = _timeline;
+    setState(() => _timeline = null);
+    old?.cancelSubscriptions();
+    await _loadTimeline();
   }
 
   void _showError(Object error) {
@@ -93,14 +184,45 @@ class _RoomPageState extends State<RoomPage> {
     if (text.isEmpty) return;
     _sendController.clear();
     final replyTo = _replyTo;
-    setState(() => _replyTo = null);
+    final editing = _editing;
+    setState(() {
+      _replyTo = null;
+      _editing = null;
+    });
     _typingLastSent = null;
     widget.room.setTyping(false).catchError((_) {});
+    final wasInHistory = _timeline?.canRequestFuture ?? false;
     try {
-      await widget.room.sendTextEvent(text, inReplyTo: replyTo);
+      await widget.room.sendTextEvent(
+        text,
+        inReplyTo: replyTo,
+        editEventId: editing?.eventId,
+      );
+      // When sending from a jumped-to history position, return to the live
+      // timeline so the new message is visible.
+      if (wasInHistory && mounted) await _returnToLive();
     } catch (e) {
       _showError(e);
     }
+  }
+
+  void _startEdit(Event event) {
+    final displayEvent = _timeline == null
+        ? event
+        : event.getDisplayEvent(_timeline!);
+    setState(() {
+      _editing = event;
+      _replyTo = null;
+    });
+    _sendController.text = displayEvent.body;
+    _sendController.selection = TextSelection.collapsed(
+      offset: _sendController.text.length,
+    );
+  }
+
+  void _cancelEdit() {
+    setState(() => _editing = null);
+    _sendController.clear();
   }
 
   void _onInputChanged(String text) {
@@ -235,6 +357,31 @@ class _RoomPageState extends State<RoomPage> {
     );
   }
 
+  Widget _buildEditBar() {
+    final editing = _editing;
+    if (editing == null) return const SizedBox.shrink();
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.edit_outlined, size: 20, color: colorScheme.primary),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('Editing message')),
+          IconButton(
+            icon: const Icon(Icons.close, size: 18),
+            onPressed: _cancelEdit,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildReplyBar() {
     final replyTo = _replyTo;
     if (replyTo == null) return const SizedBox.shrink();
@@ -348,8 +495,44 @@ class _RoomPageState extends State<RoomPage> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Search messages',
+            icon: const Icon(Icons.search),
+            onPressed: () => showMessageSearch(
+              context,
+              widget.room,
+              onJumpToMessage: _jumpToEvent,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Pinned messages',
+            icon: const Icon(Icons.push_pin_outlined),
+            onPressed: () => showPinnedMessages(
+              context,
+              widget.room,
+              onJumpToMessage: _jumpToEvent,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Members',
+            icon: Icon(
+              _showMembers ? Icons.people : Icons.people_outline,
+            ),
+            onPressed: () => setState(() => _showMembers = !_showMembers),
+          ),
+          IconButton(
+            tooltip: 'Channel settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => showRoomSettingsDialog(context, widget.room),
+          ),
+        ],
       ),
-      body: Column(
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: Column(
         children: [
           if (encryptedWithoutSupport)
             MaterialBanner(
@@ -361,18 +544,39 @@ class _RoomPageState extends State<RoomPage> {
               actions: const [SizedBox.shrink()],
             ),
           Expanded(
-            child: timeline == null
-                ? const Center(child: CircularProgressIndicator())
-                : _TimelineList(
-                    timeline: timeline,
-                    events: _visibleEvents(timeline),
-                    scrollController: _scrollController,
-                    client: _client,
-                    onReply: (event) => setState(() => _replyTo = event),
-                    onSaveAttachment: _saveAttachment,
+            child: Stack(
+              children: [
+                timeline == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : _TimelineList(
+                        timeline: timeline,
+                        events: _visibleEvents(timeline),
+                        itemScrollController: _itemScrollController,
+                        itemPositionsListener: _itemPositionsListener,
+                        client: _client,
+                        highlightedEventId: _highlightedEventId,
+                        onReply: (event) => setState(() {
+                          _replyTo = event;
+                          _editing = null;
+                        }),
+                        onEdit: _startEdit,
+                        onSaveAttachment: _saveAttachment,
+                      ),
+                if (timeline?.canRequestFuture ?? false)
+                  Positioned(
+                    right: 16,
+                    bottom: 12,
+                    child: FloatingActionButton.small(
+                      tooltip: 'Jump to latest messages',
+                      onPressed: _returnToLive,
+                      child: const Icon(Icons.keyboard_double_arrow_down),
+                    ),
                   ),
+              ],
+            ),
           ),
           _buildTypingIndicator(),
+          _buildEditBar(),
           _buildReplyBar(),
           SafeArea(
             child: Padding(
@@ -423,6 +627,89 @@ class _RoomPageState extends State<RoomPage> {
             ),
           ),
         ],
+            ),
+          ),
+          if (_showMembers) _MemberListPanel(room: widget.room),
+        ],
+      ),
+    );
+  }
+}
+
+/// Right-side panel listing the members of the room.
+class _MemberListPanel extends StatelessWidget {
+  const _MemberListPanel({required this.room});
+
+  final Room room;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 240,
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(color: colorScheme.outlineVariant),
+        ),
+        color: colorScheme.surfaceContainerLow,
+      ),
+      child: FutureBuilder<List<User>>(
+        future: room.requestParticipants(),
+        initialData: room.getParticipants(),
+        builder: (context, snapshot) {
+          final members = (snapshot.data ?? [])
+              .where((user) => user.membership == Membership.join)
+              .toList()
+            ..sort(
+              (a, b) => a
+                  .calcDisplayname()
+                  .toLowerCase()
+                  .compareTo(b.calcDisplayname().toLowerCase()),
+            );
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Text(
+                  'Members — ${members.length}',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: members.length,
+                  itemBuilder: (context, index) {
+                    final user = members[index];
+                    final name = user.calcDisplayname();
+                    return ListTile(
+                      dense: true,
+                      leading: PresenceAvatar(
+                        client: room.client,
+                        userId: user.id,
+                        name: name,
+                        avatarUrl: user.avatarUrl,
+                        radius: 14,
+                      ),
+                      title: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () => showUserProfileCard(
+                        context,
+                        client: room.client,
+                        userId: user.id,
+                        displayName: name,
+                        avatarUrl: user.avatarUrl,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -432,17 +719,23 @@ class _TimelineList extends StatelessWidget {
   const _TimelineList({
     required this.timeline,
     required this.events,
-    required this.scrollController,
+    required this.itemScrollController,
+    required this.itemPositionsListener,
     required this.client,
+    required this.highlightedEventId,
     required this.onReply,
+    required this.onEdit,
     required this.onSaveAttachment,
   });
 
   final Timeline timeline;
   final List<Event> events;
-  final ScrollController scrollController;
+  final ItemScrollController itemScrollController;
+  final ItemPositionsListener itemPositionsListener;
   final Client client;
+  final String? highlightedEventId;
   final ValueChanged<Event> onReply;
+  final ValueChanged<Event> onEdit;
   final ValueChanged<Event> onSaveAttachment;
 
   @override
@@ -450,8 +743,9 @@ class _TimelineList extends StatelessWidget {
     if (events.isEmpty) {
       return const Center(child: Text('No messages yet. Say hello!'));
     }
-    return ListView.builder(
-      controller: scrollController,
+    return ScrollablePositionedList.builder(
+      itemScrollController: itemScrollController,
+      itemPositionsListener: itemPositionsListener,
       reverse: true,
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: events.length,
@@ -470,7 +764,9 @@ class _TimelineList extends StatelessWidget {
           timeline: timeline,
           ownMessage: event.senderId == client.userID,
           showSender: showSender,
+          highlighted: event.eventId == highlightedEventId,
           onReply: onReply,
+          onEdit: onEdit,
           onSaveAttachment: onSaveAttachment,
         );
       },
@@ -503,7 +799,9 @@ class _MessageBubble extends StatefulWidget {
     required this.timeline,
     required this.ownMessage,
     required this.showSender,
+    required this.highlighted,
     required this.onReply,
+    required this.onEdit,
     required this.onSaveAttachment,
   });
 
@@ -511,7 +809,9 @@ class _MessageBubble extends StatefulWidget {
   final Timeline timeline;
   final bool ownMessage;
   final bool showSender;
+  final bool highlighted;
   final ValueChanged<Event> onReply;
+  final ValueChanged<Event> onEdit;
   final ValueChanged<Event> onSaveAttachment;
 
   @override
@@ -535,6 +835,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
   bool get ownMessage => widget.ownMessage;
   bool get showSender => widget.showSender;
   ValueChanged<Event> get onReply => widget.onReply;
+  ValueChanged<Event> get onEdit => widget.onEdit;
   ValueChanged<Event> get onSaveAttachment => widget.onSaveAttachment;
 
   Client get _client => event.room.client;
@@ -604,6 +905,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final sent = event.status.isSent;
     final hasAttachment =
         displayEvent.attachmentOrThumbnailMxcUrl() != null;
+    final canPin =
+        event.room.canChangeStateEvent(EventTypes.RoomPinnedEvents);
+    final isPinned = event.room.pinnedEventIds.contains(event.eventId);
     final selected = await showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -643,7 +947,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
           ),
         if (sent)
           const PopupMenuItem(value: 'reply', child: Text('Reply')),
+        if (ownMessage &&
+            sent &&
+            displayEvent.messageType == MessageTypes.Text)
+          const PopupMenuItem(value: 'edit', child: Text('Edit')),
         const PopupMenuItem(value: 'copy', child: Text('Copy text')),
+        if (canPin && sent)
+          PopupMenuItem(
+            value: 'pin',
+            child: Text(isPinned ? 'Unpin' : 'Pin'),
+          ),
         if (hasAttachment)
           const PopupMenuItem(value: 'save', child: Text('Save file')),
         if (ownMessage && sent)
@@ -660,6 +973,19 @@ class _MessageBubbleState extends State<_MessageBubble> {
       }
     } else if (selected == 'reply') {
       onReply(event);
+    } else if (selected == 'edit') {
+      onEdit(event);
+    } else if (selected == 'pin') {
+      final ids = List<String>.from(event.room.pinnedEventIds);
+      isPinned ? ids.remove(event.eventId) : ids.add(event.eventId);
+      try {
+        await event.room.setPinnedEvents(ids);
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(e.toString())));
+        }
+      }
     } else if (selected == 'copy') {
       await Clipboard.setData(ClipboardData(
         text: displayEvent.calcLocalizedBodyFallback(
@@ -874,6 +1200,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
         displayEvent.attachmentOrThumbnailMxcUrl(getThumbnail: true) != null;
     final isFile = _attachmentTypes.contains(displayEvent.messageType) &&
         displayEvent.attachmentMxcUrl != null;
+    final isHtml = !isImage &&
+        !isFile &&
+        displayEvent.content.tryGet<String>('format') ==
+            'org.matrix.custom.html' &&
+        displayEvent.formattedText.isNotEmpty;
     // For attachments the body is the filename unless a separate `filename`
     // field is set, in which case the body is a real caption worth showing.
     final filename = displayEvent.content.tryGet<String>('filename');
@@ -890,9 +1221,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: ownMessage
-            ? colorScheme.primaryContainer
-            : colorScheme.surfaceContainerHighest,
+        color: widget.highlighted
+            ? colorScheme.tertiaryContainer
+            : ownMessage
+                ? colorScheme.primaryContainer
+                : colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -934,6 +1267,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
               ),
           ] else if (isFile)
             _buildFileContent(context, displayEvent)
+          else if (isHtml)
+            HtmlMessage(html: displayEvent.formattedText)
           else
             Text(body),
           const SizedBox(height: 2),
