@@ -29,8 +29,7 @@ class SsoIdentityProvider {
 List<SsoIdentityProvider> ssoProvidersFromFlows(List<LoginFlow> flows) {
   final ssoFlow = flows.where((f) => f.type == AuthenticationTypes.sso);
   if (ssoFlow.isEmpty) return [];
-  final rawProviders =
-      ssoFlow.first.additionalProperties['identity_providers'];
+  final rawProviders = ssoFlow.first.additionalProperties['identity_providers'];
   if (rawProviders is List) {
     final providers = rawProviders
         .whereType<Map>()
@@ -108,9 +107,9 @@ Future<String> waitForLoginToken(
     request.response.write(
       token != null
           ? '<html><body style="font-family: sans-serif; text-align: center; '
-              'margin-top: 4em"><h2>Login successful</h2>'
-              '<p>You can close this window and return to Protea.</p>'
-              '</body></html>'
+                'margin-top: 4em"><h2>Login successful</h2>'
+                '<p>You can close this window and return to Protea.</p>'
+                '</body></html>'
           : '<html><body>Missing loginToken parameter.</body></html>',
     );
     await request.response.close();

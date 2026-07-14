@@ -25,6 +25,10 @@ class KeyVerificationDialog extends StatefulWidget {
 class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
   KeyVerification get request => widget.request;
 
+  final _ssssController = TextEditingController();
+  bool _ssssBusy = false;
+  String? _ssssError;
+
   @override
   void initState() {
     super.initState();
@@ -36,7 +40,28 @@ class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
   @override
   void dispose() {
     request.onUpdate = null;
+    _ssssController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openSSSS() async {
+    final key = _ssssController.text.trim();
+    if (key.isEmpty) return;
+    setState(() {
+      _ssssBusy = true;
+      _ssssError = null;
+    });
+    try {
+      await request.openSSSS(keyOrPassphrase: key);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _ssssError = 'Could not unlock. Please check the recovery key.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _ssssBusy = false);
+    }
   }
 
   Future<void> _cancelAndClose() async {
@@ -51,20 +76,23 @@ class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
       case KeyVerificationState.askAccept:
         return _Message(
           icon: Icons.verified_user_outlined,
-          text: '${request.userId} wants to verify a device'
+          text:
+              '${request.userId} wants to verify a device'
               '${request.deviceId != null ? ' (${request.deviceId})' : ''}.',
         );
       case KeyVerificationState.waitingAccept:
         return const _Message(
           spinner: true,
-          text: 'Waiting for the other device to accept…\n\n'
+          text:
+              'Waiting for the other device to accept…\n\n'
               'Make sure the other device is online and the request was '
               'accepted there.',
         );
       case KeyVerificationState.askChoice:
         return const _Message(
           icon: Icons.emoji_emotions_outlined,
-          text: 'Compare a short list of emojis with the other device to '
+          text:
+              'Compare a short list of emojis with the other device to '
               'verify it.',
         );
       case KeyVerificationState.askSas:
@@ -89,8 +117,7 @@ class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
                     Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(emoji.emoji,
-                            style: const TextStyle(fontSize: 32)),
+                        Text(emoji.emoji, style: const TextStyle(fontSize: 32)),
                         Text(
                           emoji.name,
                           style: Theme.of(context).textTheme.labelSmall,
@@ -119,15 +146,39 @@ class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
       case KeyVerificationState.error:
         return _Message(
           icon: Icons.gpp_bad_outlined,
-          text: 'Verification failed or was cancelled.\n'
+          text:
+              'Verification failed or was cancelled.\n'
               '${request.canceledReason ?? ''}',
         );
       case KeyVerificationState.askSSSS:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Enter your recovery key to verify with your secure backup, '
+              'or skip to compare emojis with the other device instead.',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _ssssController,
+              enabled: !_ssssBusy,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Recovery key',
+                border: const OutlineInputBorder(),
+                errorText: _ssssError,
+              ),
+              onSubmitted: (_) => _openSSSS(),
+            ),
+          ],
+        );
       case KeyVerificationState.showQRSuccess:
       case KeyVerificationState.confirmQRScan:
         return const _Message(
           icon: Icons.info_outline,
-          text: 'This verification step is not supported by Protea. '
+          text:
+              'This verification step is not supported by Protea. '
               'Please use emoji verification.',
         );
     }
@@ -151,10 +202,7 @@ class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
         ];
       case KeyVerificationState.askChoice:
         return [
-          TextButton(
-            onPressed: _cancelAndClose,
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: _cancelAndClose, child: const Text('Cancel')),
           FilledButton(
             onPressed: () => request.continueVerification(EventTypes.Sas),
             child: const Text('Compare emojis'),
@@ -177,10 +225,7 @@ class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
       case KeyVerificationState.waitingAccept:
       case KeyVerificationState.waitingSas:
         return [
-          TextButton(
-            onPressed: _cancelAndClose,
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: _cancelAndClose, child: const Text('Cancel')),
         ];
       case KeyVerificationState.done:
       case KeyVerificationState.error:
@@ -191,13 +236,26 @@ class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
           ),
         ];
       case KeyVerificationState.askSSSS:
+        return [
+          TextButton(
+            onPressed: _ssssBusy ? null : () => request.openSSSS(skip: true),
+            child: const Text('Skip'),
+          ),
+          FilledButton(
+            onPressed: _ssssBusy ? null : _openSSSS,
+            child: _ssssBusy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Unlock'),
+          ),
+        ];
       case KeyVerificationState.showQRSuccess:
       case KeyVerificationState.confirmQRScan:
         return [
-          TextButton(
-            onPressed: _cancelAndClose,
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: _cancelAndClose, child: const Text('Cancel')),
         ];
     }
   }
@@ -270,8 +328,9 @@ class _KeyVerificationListenerState extends State<KeyVerificationListener> {
   @override
   void initState() {
     super.initState();
-    _subscription =
-        widget.client.onKeyVerificationRequest.stream.listen((request) {
+    _subscription = widget.client.onKeyVerificationRequest.stream.listen((
+      request,
+    ) {
       if (mounted) KeyVerificationDialog.show(context, request);
     });
   }

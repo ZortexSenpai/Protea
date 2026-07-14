@@ -50,6 +50,8 @@ dependencies:
   flutter_html: ^3.0.0
   flutter_local_notifications: ^22.0.1
   scrollable_positioned_list: ^0.3.8
+  desktop_drop: ^0.7.1
+  pasteboard: ^0.5.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

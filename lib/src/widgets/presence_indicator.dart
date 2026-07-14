@@ -16,8 +16,7 @@ class PresenceBuilder extends StatefulWidget {
 
   final Client client;
   final String userId;
-  final Widget Function(BuildContext context, CachedPresence? presence)
-      builder;
+  final Widget Function(BuildContext context, CachedPresence? presence) builder;
 
   @override
   State<PresenceBuilder> createState() => _PresenceBuilderState();
@@ -49,8 +48,7 @@ class _PresenceBuilderState extends State<PresenceBuilder> {
 
   Future<void> _fetch() async {
     try {
-      final presence =
-          await widget.client.fetchCurrentPresence(widget.userId);
+      final presence = await widget.client.fetchCurrentPresence(widget.userId);
       if (mounted) setState(() => _presence ??= presence);
     } catch (_) {}
   }
@@ -167,9 +165,10 @@ class PresenceLabel extends StatelessWidget {
     final base = switch (presence.presence) {
       PresenceType.online => 'Online',
       PresenceType.unavailable => 'Away',
-      PresenceType.offline => presence.lastActiveTimestamp == null
-          ? 'Offline'
-          : 'Last seen ${_relative(presence.lastActiveTimestamp!)}',
+      PresenceType.offline =>
+        presence.lastActiveTimestamp == null
+            ? 'Offline'
+            : 'Last seen ${_relative(presence.lastActiveTimestamp!)}',
     };
     final status = presence.statusMsg;
     return status == null || status.isEmpty ? base : '$base — $status';

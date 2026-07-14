@@ -99,8 +99,7 @@ class ClientManager extends ChangeNotifier {
   }
 
   void _persistAccounts() {
-    final names =
-        loggedInClients.map((client) => client.clientName).toList();
+    final names = loggedInClients.map((client) => client.clientName).toList();
     _prefs.setStringList(_accountsKey, names.isEmpty ? ['Protea'] : names);
   }
 }

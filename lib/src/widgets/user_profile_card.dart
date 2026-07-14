@@ -74,6 +74,25 @@ class _UserProfileCardState extends State<UserProfileCard> {
     return null;
   }
 
+  bool get _ignored => widget.client.ignoredUsers.contains(widget.userId);
+
+  Future<void> _toggleIgnore() async {
+    try {
+      if (_ignored) {
+        await widget.client.unignoreUser(widget.userId);
+      } else {
+        await widget.client.ignoreUser(widget.userId);
+      }
+      if (mounted) setState(() {});
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
   Future<void> _message() async {
     final navigator = Navigator.of(context);
     try {
@@ -173,10 +192,23 @@ class _UserProfileCardState extends State<UserProfileCard> {
                   ),
                   if (widget.userId != widget.client.userID) ...[
                     const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: _message,
-                      icon: const Icon(Icons.chat_outlined, size: 18),
-                      label: const Text('Message'),
+                    Row(
+                      children: [
+                        FilledButton.icon(
+                          onPressed: _message,
+                          icon: const Icon(Icons.chat_outlined, size: 18),
+                          label: const Text('Message'),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: _toggleIgnore,
+                          icon: Icon(
+                            _ignored ? Icons.person_add_outlined : Icons.block,
+                            size: 18,
+                          ),
+                          label: Text(_ignored ? 'Unblock' : 'Block'),
+                        ),
+                      ],
                     ),
                   ],
                 ],

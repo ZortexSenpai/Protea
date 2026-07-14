@@ -25,15 +25,15 @@ class HomePage extends StatelessWidget {
       listenable: settings,
       builder: (context, _) => switch (settings.layout) {
         AppLayout.discord => DiscordHomePage(
-            client: client,
-            manager: manager,
-            settings: settings,
-          ),
+          client: client,
+          manager: manager,
+          settings: settings,
+        ),
         AppLayout.classic => RoomListPage(
-            client: client,
-            manager: manager,
-            settings: settings,
-          ),
+          client: client,
+          manager: manager,
+          settings: settings,
+        ),
       },
     );
   }

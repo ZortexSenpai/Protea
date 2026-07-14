@@ -69,8 +69,9 @@ class _EventImageState extends State<EventImage> {
       return;
     }
     try {
-      final file = await widget.event
-          .downloadAndDecryptAttachment(getThumbnail: widget.thumbnail);
+      final file = await widget.event.downloadAndDecryptAttachment(
+        getThumbnail: widget.thumbnail,
+      );
       if (_cache.length >= _maxCacheEntries) {
         _cache.remove(_cache.keys.first);
       }
@@ -131,10 +132,7 @@ class _EventImageState extends State<EventImage> {
     }
     final size = _previewSize;
     return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: size.width,
-        maxHeight: size.height,
-      ),
+      constraints: BoxConstraints(maxWidth: size.width, maxHeight: size.height),
       child: AspectRatio(
         aspectRatio: size.width / size.height,
         child: Container(
@@ -159,8 +157,7 @@ class ImageViewerPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final filename =
-        event.content.tryGet<String>('filename') ?? event.body;
+    final filename = event.content.tryGet<String>('filename') ?? event.body;
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(

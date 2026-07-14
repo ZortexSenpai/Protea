@@ -28,8 +28,9 @@ Future<bool> confirmRoomTap(BuildContext context, Room room) async {
     join ? await room.join() : await room.leave();
   } catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
     return false;
   }

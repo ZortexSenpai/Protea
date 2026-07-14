@@ -11,14 +11,11 @@ Future<void> showMessageSearch(
   BuildContext context,
   Room room, {
   ValueChanged<String>? onJumpToMessage,
-}) =>
-    showDialog(
-      context: context,
-      builder: (_) => MessageSearchDialog(
-        room: room,
-        onJumpToMessage: onJumpToMessage,
-      ),
-    );
+}) => showDialog(
+  context: context,
+  builder: (_) =>
+      MessageSearchDialog(room: room, onJumpToMessage: onJumpToMessage),
+);
 
 class MessageSearchDialog extends StatefulWidget {
   const MessageSearchDialog({
@@ -77,8 +74,9 @@ class _MessageSearchDialogState extends State<MessageSearchDialog> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     } finally {
       if (mounted) setState(() => _searching = false);
@@ -156,56 +154,54 @@ class _MessageSearchDialogState extends State<MessageSearchDialog> {
                       child: Text('Search the history of this room.'),
                     )
                   : _results.isEmpty && !_searching
-                      ? const Padding(
-                          padding: EdgeInsets.all(32),
-                          child: Text('No messages found.'),
-                        )
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: _results.length,
-                          itemBuilder: (context, index) {
-                            final event = _results[index];
-                            final sender = event.senderFromMemoryOrFallback;
-                            return ListTile(
-                              leading: MxcAvatar(
-                                client: widget.room.client,
-                                name: sender.calcDisplayname(),
-                                avatarUrl: sender.avatarUrl,
-                                radius: 16,
-                              ),
-                              title: Text(
-                                sender.calcDisplayname(),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(
-                                event.calcLocalizedBodyFallback(
-                                  const MatrixDefaultLocalizations(),
-                                  hideReply: true,
-                                  plaintextBody: true,
-                                  removeMarkdown: true,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              trailing: Text(
-                                DateFormat.yMMMd()
-                                    .format(event.originServerTs),
-                                style:
-                                    Theme.of(context).textTheme.labelSmall,
-                              ),
-                              onTap: () {
-                                final jump = widget.onJumpToMessage;
-                                if (jump != null) {
-                                  Navigator.of(context).pop();
-                                  jump(event.eventId);
-                                } else {
-                                  _showResult(event);
-                                }
-                              },
-                            );
+                  ? const Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Text('No messages found.'),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _results.length,
+                      itemBuilder: (context, index) {
+                        final event = _results[index];
+                        final sender = event.senderFromMemoryOrFallback;
+                        return ListTile(
+                          leading: MxcAvatar(
+                            client: widget.room.client,
+                            name: sender.calcDisplayname(),
+                            avatarUrl: sender.avatarUrl,
+                            radius: 16,
+                          ),
+                          title: Text(
+                            sender.calcDisplayname(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            event.calcLocalizedBodyFallback(
+                              const MatrixDefaultLocalizations(),
+                              hideReply: true,
+                              plaintextBody: true,
+                              removeMarkdown: true,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: Text(
+                            DateFormat.yMMMd().format(event.originServerTs),
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                          onTap: () {
+                            final jump = widget.onJumpToMessage;
+                            if (jump != null) {
+                              Navigator.of(context).pop();
+                              jump(event.eventId);
+                            } else {
+                              _showResult(event);
+                            }
                           },
-                        ),
+                        );
+                      },
+                    ),
             ),
             const Divider(height: 1),
             Padding(

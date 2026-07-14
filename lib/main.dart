@@ -8,6 +8,9 @@ import 'src/pages/home_page.dart';
 import 'src/pages/login_page.dart';
 import 'src/settings.dart';
 import 'src/widgets/key_verification_dialog.dart';
+import 'src/widgets/quick_switcher.dart';
+
+final navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,7 +19,7 @@ Future<void> main() async {
   runApp(ProteaApp(manager: manager, settings: settings));
   // After runApp so a hanging permission prompt can never block the first
   // frame.
-  unawaited(NotificationService(manager).init());
+  unawaited(NotificationService(manager, navigatorKey: navigatorKey).init());
 }
 
 class ProteaApp extends StatelessWidget {
@@ -34,6 +37,7 @@ class ProteaApp extends StatelessWidget {
         return MaterialApp(
           title: 'Protea',
           debugShowCheckedModeBanner: false,
+          navigatorKey: navigatorKey,
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(
               seedColor: settings.themeColor.seed,
@@ -46,6 +50,12 @@ class ProteaApp extends StatelessWidget {
             ),
           ),
           themeMode: settings.themeMode,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(settings.textScale),
+            ),
+            child: child ?? const SizedBox.shrink(),
+          ),
           home: active == null
               ? LoginPage(client: manager.loginCandidate)
               : KeyVerificationListener(
@@ -53,10 +63,13 @@ class ProteaApp extends StatelessWidget {
                   // changes, so no per-room or per-client state leaks over.
                   key: ValueKey(active.clientName),
                   client: active,
-                  child: HomePage(
+                  child: QuickSwitcherListener(
                     client: active,
-                    manager: manager,
-                    settings: settings,
+                    child: HomePage(
+                      client: active,
+                      manager: manager,
+                      settings: settings,
+                    ),
                   ),
                 ),
         );

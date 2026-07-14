@@ -1,18 +1,20 @@
 import 'dart:async';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:matrix/matrix.dart';
 
 import 'client_manager.dart';
+import 'pages/room_page.dart';
 
 /// Shows desktop notifications for incoming messages (as selected by the
 /// account's push rules) of all logged-in accounts while the window is not
 /// focused.
 class NotificationService with WidgetsBindingObserver {
-  NotificationService(this.manager);
+  NotificationService(this.manager, {this.navigatorKey});
 
   final ClientManager manager;
+  final GlobalKey<NavigatorState>? navigatorKey;
   final _plugin = FlutterLocalNotificationsPlugin();
   final _listening = <Client>{};
   final _subscriptions = <StreamSubscription<Event>>[];
@@ -26,8 +28,8 @@ class NotificationService with WidgetsBindingObserver {
 
   Future<void> init() async {
     WidgetsBinding.instance.addObserver(this);
-    _lifecycle = WidgetsBinding.instance.lifecycleState ??
-        AppLifecycleState.resumed;
+    _lifecycle =
+        WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed;
     try {
       // Permissions are NOT requested during initialize: the request blocks
       // until the user answers the system prompt (or forever when the prompt
@@ -41,11 +43,13 @@ class NotificationService with WidgetsBindingObserver {
           ),
           linux: LinuxInitializationSettings(defaultActionName: 'Open'),
         ),
+        onDidReceiveNotificationResponse: _onNotificationTapped,
       );
       unawaited(
         _plugin
             .resolvePlatformSpecificImplementation<
-                MacOSFlutterLocalNotificationsPlugin>()
+              MacOSFlutterLocalNotificationsPlugin
+            >()
             ?.requestPermissions(alert: true, badge: true, sound: true),
       );
     } catch (e, s) {
@@ -59,8 +63,9 @@ class NotificationService with WidgetsBindingObserver {
     for (final client in manager.clients) {
       if (!_listening.add(client)) continue;
       _subscriptions.add(
-        client.onNotification.stream
-            .listen((event) => _showNotification(client, event)),
+        client.onNotification.stream.listen(
+          (event) => _showNotification(client, event),
+        ),
       );
     }
   }
@@ -68,6 +73,26 @@ class NotificationService with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _lifecycle = state;
+  }
+
+  /// Opens the room a tapped notification belongs to. The payload is
+  /// `clientName|roomId`.
+  void _onNotificationTapped(NotificationResponse response) {
+    final payload = response.payload;
+    final navigator = navigatorKey?.currentState;
+    if (payload == null || navigator == null) return;
+    final separator = payload.indexOf('|');
+    if (separator == -1) return;
+    final clientName = payload.substring(0, separator);
+    final roomId = payload.substring(separator + 1);
+    for (final client in manager.clients) {
+      if (client.clientName != clientName) continue;
+      final room = client.getRoomById(roomId);
+      if (room == null) return;
+      if (manager.activeClient != client) manager.setActive(client);
+      navigator.push(MaterialPageRoute(builder: (_) => RoomPage(room: room)));
+      return;
+    }
   }
 
   Future<void> _showNotification(Client client, Event event) async {
@@ -89,8 +114,10 @@ class NotificationService with WidgetsBindingObserver {
         id: event.eventId.hashCode,
         title: room.getLocalizedDisplayname(),
         body: body,
-        notificationDetails:
-            const NotificationDetails(macOS: DarwinNotificationDetails()),
+        notificationDetails: const NotificationDetails(
+          macOS: DarwinNotificationDetails(),
+        ),
+        payload: '${client.clientName}|${room.id}',
       );
     } catch (_) {
       // Notifications are best-effort (permission may have been denied).

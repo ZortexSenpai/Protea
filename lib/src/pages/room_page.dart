@@ -1,14 +1,18 @@
 import 'dart:async';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:matrix/matrix.dart';
+import 'package:pasteboard/pasteboard.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../widgets/emoji_picker.dart';
 import '../widgets/event_image.dart';
+import '../widgets/forward_message_dialog.dart';
 import '../widgets/html_message.dart';
 import '../widgets/message_search_dialog.dart';
 import '../widgets/mxc_avatar.dart';
@@ -38,10 +42,21 @@ class _RoomPageState extends State<RoomPage> {
   final _itemPositionsListener = ItemPositionsListener.create();
   Event? _replyTo;
   Event? _editing;
+  Event? _threadRoot;
+  List<User> _mentionSuggestions = [];
   bool _showMembers = false;
   DateTime? _typingLastSent;
   String? _highlightedEventId;
   Timer? _highlightTimer;
+
+  /// First unread event when the room was opened; a "New messages" divider
+  /// is shown above it.
+  String? _unreadMarkerEventId;
+  String? _lastMarkedReadEventId;
+  StreamSubscription<SyncUpdate>? _syncSubscription;
+  bool _dragging = false;
+
+  String get _draftKey => 'draft_${widget.room.id}';
 
   static const _bubbleTypes = {
     EventTypes.Message,
@@ -55,16 +70,63 @@ class _RoomPageState extends State<RoomPage> {
   void initState() {
     super.initState();
     _itemPositionsListener.itemPositions.addListener(_onPositionsChanged);
+    // Receipts and typing arrive as ephemeral sync data that does not
+    // trigger timeline updates, so rebuild on every sync as well.
+    _syncSubscription = _client.onSync.stream.listen((_) {
+      if (mounted) setState(() {});
+      _maybeMarkRead();
+    });
     _loadTimeline();
+    _loadDraft();
+  }
+
+  Future<void> _loadDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    final draft = prefs.getString(_draftKey);
+    if (draft != null &&
+        draft.isNotEmpty &&
+        mounted &&
+        _sendController.text.isEmpty) {
+      _sendController.text = draft;
+    }
+  }
+
+  Future<void> _saveDraft(String text) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (text.isEmpty) {
+      await prefs.remove(_draftKey);
+    } else {
+      await prefs.setString(_draftKey, text);
+    }
   }
 
   @override
   void dispose() {
+    _syncSubscription?.cancel();
     _highlightTimer?.cancel();
     _itemPositionsListener.itemPositions.removeListener(_onPositionsChanged);
     _timeline?.cancelSubscriptions();
     _sendController.dispose();
     super.dispose();
+  }
+
+  /// Sends a read receipt for the newest event while the room is open on
+  /// the live timeline.
+  void _maybeMarkRead() {
+    final timeline = _timeline;
+    if (timeline == null || timeline.canRequestFuture) return;
+    Event? lastEvent;
+    for (final event in timeline.events) {
+      if (event.status.isSynced) {
+        lastEvent = event;
+        break;
+      }
+    }
+    if (lastEvent == null || lastEvent.eventId == _lastMarkedReadEventId) {
+      return;
+    }
+    _lastMarkedReadEventId = lastEvent.eventId;
+    timeline.setReadMarker().catchError((_) {});
   }
 
   Future<void> _loadTimeline() async {
@@ -77,10 +139,32 @@ class _RoomPageState extends State<RoomPage> {
       timeline.cancelSubscriptions();
       return;
     }
+    // Determine where the "New messages" divider belongs before the read
+    // marker below moves the fully-read position.
+    final fullyRead = widget.room.fullyRead;
+    if (fullyRead.isNotEmpty) {
+      final events = _visibleEvents(timeline);
+      final index = events.indexWhere((event) => event.eventId == fullyRead);
+      if (index > 0) {
+        _unreadMarkerEventId = events[index - 1].eventId;
+      }
+    }
     setState(() => _timeline = timeline);
     try {
       await timeline.setReadMarker();
     } catch (_) {}
+  }
+
+  /// Users (excluding ourselves) whose latest read receipt points at each
+  /// event.
+  Map<String, List<User>> _receiptsByEvent() {
+    final result = <String, List<User>>{};
+    for (final entry in widget.room.receiptState.global.otherUsers.entries) {
+      if (entry.key == _client.userID) continue;
+      final user = widget.room.unsafeGetUserFromMemoryOrFallback(entry.key);
+      result.putIfAbsent(entry.value.eventId, () => []).add(user);
+    }
+    return result;
   }
 
   void _onPositionsChanged() {
@@ -131,8 +215,9 @@ class _RoomPageState extends State<RoomPage> {
   Future<void> _jumpToEvent(String eventId) async {
     final timeline = _timeline;
     if (timeline != null) {
-      final index = _visibleEvents(timeline)
-          .indexWhere((event) => event.eventId == eventId);
+      final index = _visibleEvents(
+        timeline,
+      ).indexWhere((event) => event.eventId == eventId);
       if (index != -1) {
         _scrollToIndex(index);
         _highlight(eventId);
@@ -155,8 +240,9 @@ class _RoomPageState extends State<RoomPage> {
       setState(() => _timeline = contextTimeline);
       _highlight(eventId);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final index = _visibleEvents(contextTimeline)
-            .indexWhere((event) => event.eventId == eventId);
+        final index = _visibleEvents(
+          contextTimeline,
+        ).indexWhere((event) => event.eventId == eventId);
         if (index != -1) _scrollToIndex(index);
       });
     } catch (e) {
@@ -175,8 +261,9 @@ class _RoomPageState extends State<RoomPage> {
 
   void _showError(Object error) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(error.toString())));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(error.toString())));
   }
 
   Future<void> _send() async {
@@ -190,6 +277,7 @@ class _RoomPageState extends State<RoomPage> {
       _editing = null;
     });
     _typingLastSent = null;
+    _saveDraft('');
     widget.room.setTyping(false).catchError((_) {});
     final wasInHistory = _timeline?.canRequestFuture ?? false;
     try {
@@ -226,6 +314,8 @@ class _RoomPageState extends State<RoomPage> {
   }
 
   void _onInputChanged(String text) {
+    _saveDraft(text);
+    _updateMentionSuggestions();
     if (text.isEmpty) {
       _typingLastSent = null;
       widget.room.setTyping(false).catchError((_) {});
@@ -256,17 +346,36 @@ class _RoomPageState extends State<RoomPage> {
   }
 
   static const _imageExtensions = {
-    'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif', 'heic', 'tiff',
+    'png',
+    'jpg',
+    'jpeg',
+    'gif',
+    'webp',
+    'bmp',
+    'avif',
+    'heic',
+    'tiff',
   };
 
   Future<void> _attachFile() async {
     final picked = await openFile();
     if (picked == null) return;
+    await _sendBytes(
+      await picked.readAsBytes(),
+      picked.name,
+      mimeType: picked.mimeType,
+    );
+  }
+
+  Future<void> _sendBytes(
+    Uint8List bytes,
+    String name, {
+    String? mimeType,
+  }) async {
     try {
-      final bytes = await picked.readAsBytes();
-      final name = picked.name;
       final extension = name.split('.').last.toLowerCase();
-      final isImage = (picked.mimeType?.startsWith('image/') ?? false) ||
+      final isImage =
+          (mimeType?.startsWith('image/') ?? false) ||
           _imageExtensions.contains(extension);
       MatrixFile file;
       if (isImage) {
@@ -281,17 +390,38 @@ class _RoomPageState extends State<RoomPage> {
         file = MatrixImageFile(
           bytes: bytes,
           name: name,
-          mimeType: picked.mimeType,
+          mimeType: mimeType,
           width: width,
           height: height,
         );
       } else {
-        file = MatrixFile(bytes: bytes, name: name, mimeType: picked.mimeType);
+        file = MatrixFile(bytes: bytes, name: name, mimeType: mimeType);
       }
       await widget.room.sendFileEvent(file);
     } catch (e) {
       _showError(e);
     }
+  }
+
+  Future<void> _onDropFiles(DropDoneDetails details) async {
+    setState(() => _dragging = false);
+    for (final file in details.files) {
+      await _sendBytes(
+        await file.readAsBytes(),
+        file.name,
+        mimeType: file.mimeType,
+      );
+    }
+  }
+
+  /// Sends an image from the clipboard, if there is one. Called alongside
+  /// the text field's own paste handling, which covers plain text.
+  Future<void> _tryPasteImage() async {
+    try {
+      final bytes = await Pasteboard.image;
+      if (bytes == null || bytes.isEmpty) return;
+      await _sendBytes(bytes, 'pasted-image.png', mimeType: 'image/png');
+    } catch (_) {}
   }
 
   Future<void> _saveAttachment(Event event) async {
@@ -305,8 +435,9 @@ class _RoomPageState extends State<RoomPage> {
         name: file.name,
       ).saveTo(location.path);
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Saved ${file.name}')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Saved ${file.name}')));
       }
     } catch (e) {
       _showError(e);
@@ -319,9 +450,64 @@ class _RoomPageState extends State<RoomPage> {
             (_bubbleTypes.contains(event.type) ||
                 event.type == EventTypes.RoomMember) &&
             event.relationshipType != RelationshipTypes.edit &&
+            // Thread replies only show in the thread panel.
+            event.relationshipType != RelationshipTypes.thread &&
             event.type != EventTypes.Reaction,
       )
       .toList();
+
+  void _openThread(Event event) {
+    setState(() => _threadRoot = event);
+  }
+
+  /// Suggests members while an `@word` fragment is being typed before the
+  /// cursor.
+  void _updateMentionSuggestions() {
+    final text = _sendController.text;
+    final selection = _sendController.selection;
+    final cursor = selection.isValid ? selection.baseOffset : text.length;
+    final match = RegExp(r'@(\w*)$').firstMatch(text.substring(0, cursor));
+    if (match == null) {
+      if (_mentionSuggestions.isNotEmpty) {
+        setState(() => _mentionSuggestions = []);
+      }
+      return;
+    }
+    final query = match.group(1)!.toLowerCase();
+    final suggestions = widget.room
+        .getParticipants()
+        .where(
+          (user) =>
+              user.membership == Membership.join &&
+              user.id != _client.userID &&
+              (user.calcDisplayname().toLowerCase().startsWith(query) ||
+                  user.id.toLowerCase().substring(1).startsWith(query)),
+        )
+        .take(5)
+        .toList();
+    setState(() => _mentionSuggestions = suggestions);
+  }
+
+  void _insertMention(User user) {
+    final text = _sendController.text;
+    final selection = _sendController.selection;
+    final cursor = selection.isValid ? selection.baseOffset : text.length;
+    final match = RegExp(r'@(\w*)$').firstMatch(text.substring(0, cursor));
+    if (match == null) return;
+    // Mention fragments are converted to matrix.to pills by the SDK's
+    // markdown parser on send; the raw ID works as a plain fallback.
+    final fragments = user.mentionFragments;
+    final mention = fragments.isNotEmpty ? fragments.first : user.id;
+    final newText = text.replaceRange(match.start, cursor, '$mention ');
+    _sendController.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(
+        offset: match.start + mention.length + 1,
+      ),
+    );
+    setState(() => _mentionSuggestions = []);
+    _saveDraft(newText);
+  }
 
   Widget _buildTypingIndicator() {
     return StreamBuilder<SyncUpdate>(
@@ -345,10 +531,9 @@ class _RoomPageState extends State<RoomPage> {
               alignment: Alignment.centerLeft,
               child: Text(
                 text,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(fontStyle: FontStyle.italic),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
               ),
             ),
           ),
@@ -404,9 +589,9 @@ class _RoomPageState extends State<RoomPage> {
                 Text(
                   replyTo.senderFromMemoryOrFallback.calcDisplayname(),
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colorScheme.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 Text(
                   replyTo.calcLocalizedBodyFallback(
@@ -516,9 +701,7 @@ class _RoomPageState extends State<RoomPage> {
           ),
           IconButton(
             tooltip: 'Members',
-            icon: Icon(
-              _showMembers ? Icons.people : Icons.people_outline,
-            ),
+            icon: Icon(_showMembers ? Icons.people : Icons.people_outline),
             onPressed: () => setState(() => _showMembers = !_showMembers),
           ),
           IconButton(
@@ -528,109 +711,222 @@ class _RoomPageState extends State<RoomPage> {
           ),
         ],
       ),
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: Column(
-        children: [
-          if (encryptedWithoutSupport)
-            MaterialBanner(
-              content: const Text(
-                'This room is end-to-end encrypted. This build of Protea was '
-                'compiled without E2EE support, so messages cannot be read or sent here.',
-              ),
-              leading: const Icon(Icons.lock_outline),
-              actions: const [SizedBox.shrink()],
-            ),
-          Expanded(
-            child: Stack(
+      body: DropTarget(
+        onDragDone: _onDropFiles,
+        onDragEntered: (_) => setState(() => _dragging = true),
+        onDragExited: (_) => setState(() => _dragging = false),
+        child: Stack(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                timeline == null
-                    ? const Center(child: CircularProgressIndicator())
-                    : _TimelineList(
-                        timeline: timeline,
-                        events: _visibleEvents(timeline),
-                        itemScrollController: _itemScrollController,
-                        itemPositionsListener: _itemPositionsListener,
-                        client: _client,
-                        highlightedEventId: _highlightedEventId,
-                        onReply: (event) => setState(() {
-                          _replyTo = event;
-                          _editing = null;
-                        }),
-                        onEdit: _startEdit,
-                        onSaveAttachment: _saveAttachment,
+                Expanded(
+                  child: Column(
+                    children: [
+                      if (encryptedWithoutSupport)
+                        MaterialBanner(
+                          content: const Text(
+                            'This room is end-to-end encrypted. This build of Protea was '
+                            'compiled without E2EE support, so messages cannot be read or sent here.',
+                          ),
+                          leading: const Icon(Icons.lock_outline),
+                          actions: const [SizedBox.shrink()],
+                        ),
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            timeline == null
+                                ? const Center(
+                                    child: CircularProgressIndicator(),
+                                  )
+                                : _TimelineList(
+                                    timeline: timeline,
+                                    events: _visibleEvents(timeline),
+                                    itemScrollController: _itemScrollController,
+                                    itemPositionsListener:
+                                        _itemPositionsListener,
+                                    client: _client,
+                                    highlightedEventId: _highlightedEventId,
+                                    unreadMarkerEventId: _unreadMarkerEventId,
+                                    receiptsByEvent: _receiptsByEvent(),
+                                    onReply: (event) => setState(() {
+                                      _replyTo = event;
+                                      _editing = null;
+                                    }),
+                                    onEdit: _startEdit,
+                                    onOpenThread: _openThread,
+                                    onSaveAttachment: _saveAttachment,
+                                  ),
+                            if (timeline?.canRequestFuture ?? false)
+                              Positioned(
+                                right: 16,
+                                bottom: 12,
+                                child: FloatingActionButton.small(
+                                  tooltip: 'Jump to latest messages',
+                                  onPressed: _returnToLive,
+                                  child: const Icon(
+                                    Icons.keyboard_double_arrow_down,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
-                if (timeline?.canRequestFuture ?? false)
-                  Positioned(
-                    right: 16,
-                    bottom: 12,
-                    child: FloatingActionButton.small(
-                      tooltip: 'Jump to latest messages',
-                      onPressed: _returnToLive,
-                      child: const Icon(Icons.keyboard_double_arrow_down),
-                    ),
+                      _buildTypingIndicator(),
+                      _buildEditBar(),
+                      _buildReplyBar(),
+                      if (_mentionSuggestions.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          constraints: const BoxConstraints(maxHeight: 240),
+                          child: ListView(
+                            shrinkWrap: true,
+                            children: [
+                              for (final user in _mentionSuggestions)
+                                ListTile(
+                                  dense: true,
+                                  leading: MxcAvatar(
+                                    client: _client,
+                                    name: user.calcDisplayname(),
+                                    avatarUrl: user.avatarUrl,
+                                    radius: 12,
+                                  ),
+                                  title: Text(
+                                    user.calcDisplayname(),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  subtitle: Text(
+                                    user.id,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  onTap: () => _insertMention(user),
+                                ),
+                            ],
+                          ),
+                        ),
+                      SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                tooltip: 'Attach file',
+                                onPressed: encryptedWithoutSupport
+                                    ? null
+                                    : _attachFile,
+                                icon: const Icon(Icons.attach_file),
+                              ),
+                              IconButton(
+                                tooltip: 'Emoji',
+                                onPressed: encryptedWithoutSupport
+                                    ? null
+                                    : _pickEmoji,
+                                icon: const Icon(Icons.emoji_emotions_outlined),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Focus(
+                                  onKeyEvent: (node, event) {
+                                    // Sends a pasted image alongside the field's
+                                    // own (text) paste handling.
+                                    if (event is KeyDownEvent &&
+                                        event.logicalKey ==
+                                            LogicalKeyboardKey.keyV &&
+                                        (HardwareKeyboard
+                                                .instance
+                                                .isMetaPressed ||
+                                            HardwareKeyboard
+                                                .instance
+                                                .isControlPressed)) {
+                                      _tryPasteImage();
+                                    }
+                                    return KeyEventResult.ignored;
+                                  },
+                                  child: TextField(
+                                    controller: _sendController,
+                                    enabled: !encryptedWithoutSupport,
+                                    decoration: InputDecoration(
+                                      hintText: 'Message',
+                                      filled: true,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(24),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 10,
+                                          ),
+                                    ),
+                                    textInputAction: TextInputAction.send,
+                                    onSubmitted: (_) => _send(),
+                                    onChanged: _onInputChanged,
+                                    minLines: 1,
+                                    maxLines: 5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton.filled(
+                                onPressed: encryptedWithoutSupport
+                                    ? null
+                                    : _send,
+                                icon: const Icon(Icons.send),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+                if (_threadRoot != null && timeline != null)
+                  _ThreadPanel(
+                    room: widget.room,
+                    timeline: timeline,
+                    root: _threadRoot!,
+                    onClose: () => setState(() => _threadRoot = null),
+                  ),
+                if (_showMembers) _MemberListPanel(room: widget.room),
               ],
             ),
-          ),
-          _buildTypingIndicator(),
-          _buildEditBar(),
-          _buildReplyBar(),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    tooltip: 'Attach file',
-                    onPressed: encryptedWithoutSupport ? null : _attachFile,
-                    icon: const Icon(Icons.attach_file),
-                  ),
-                  IconButton(
-                    tooltip: 'Emoji',
-                    onPressed: encryptedWithoutSupport ? null : _pickEmoji,
-                    icon: const Icon(Icons.emoji_emotions_outlined),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: TextField(
-                      controller: _sendController,
-                      enabled: !encryptedWithoutSupport,
-                      decoration: InputDecoration(
-                        hintText: 'Message',
-                        filled: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
+            if (_dragging)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Container(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.12),
+                    alignment: Alignment.center,
+                    child: Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.file_upload_outlined),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Drop files to upload',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ],
                         ),
                       ),
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _send(),
-                      onChanged: _onInputChanged,
-                      minLines: 1,
-                      maxLines: 5,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: encryptedWithoutSupport ? null : _send,
-                    icon: const Icon(Icons.send),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-        ],
-            ),
-          ),
-          if (_showMembers) _MemberListPanel(room: widget.room),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -642,30 +938,96 @@ class _MemberListPanel extends StatelessWidget {
 
   final Room room;
 
+  Future<void> _showMemberMenu(
+    BuildContext context,
+    User user,
+    Offset position,
+  ) async {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final ignored = room.client.ignoredUsers.contains(user.id);
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        overlay.size.width - position.dx,
+        overlay.size.height - position.dy,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'ignore',
+          child: Text(ignored ? 'Unblock' : 'Block'),
+        ),
+        if (user.canKick)
+          const PopupMenuItem(value: 'kick', child: Text('Kick')),
+        if (user.canBan) const PopupMenuItem(value: 'ban', child: Text('Ban')),
+      ],
+    );
+    if (selected == null || !context.mounted) return;
+    if (selected == 'kick' || selected == 'ban') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(
+            '${selected == 'kick' ? 'Kick' : 'Ban'} '
+            '${user.calcDisplayname()}?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(selected == 'kick' ? 'Kick' : 'Ban'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !context.mounted) return;
+    }
+    try {
+      switch (selected) {
+        case 'ignore':
+          ignored
+              ? await room.client.unignoreUser(user.id)
+              : await room.client.ignoreUser(user.id);
+        case 'kick':
+          await user.kick();
+        case 'ban':
+          await user.ban();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: 240,
       decoration: BoxDecoration(
-        border: Border(
-          left: BorderSide(color: colorScheme.outlineVariant),
-        ),
+        border: Border(left: BorderSide(color: colorScheme.outlineVariant)),
         color: colorScheme.surfaceContainerLow,
       ),
       child: FutureBuilder<List<User>>(
         future: room.requestParticipants(),
         initialData: room.getParticipants(),
         builder: (context, snapshot) {
-          final members = (snapshot.data ?? [])
-              .where((user) => user.membership == Membership.join)
-              .toList()
-            ..sort(
-              (a, b) => a
-                  .calcDisplayname()
-                  .toLowerCase()
-                  .compareTo(b.calcDisplayname().toLowerCase()),
-            );
+          final members =
+              (snapshot.data ?? [])
+                  .where((user) => user.membership == Membership.join)
+                  .toList()
+                ..sort(
+                  (a, b) => a.calcDisplayname().toLowerCase().compareTo(
+                    b.calcDisplayname().toLowerCase(),
+                  ),
+                );
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -682,26 +1044,38 @@ class _MemberListPanel extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final user = members[index];
                     final name = user.calcDisplayname();
-                    return ListTile(
-                      dense: true,
-                      leading: PresenceAvatar(
-                        client: room.client,
-                        userId: user.id,
-                        name: name,
-                        avatarUrl: user.avatarUrl,
-                        radius: 14,
-                      ),
-                      title: Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      onTap: () => showUserProfileCard(
+                    return GestureDetector(
+                      onSecondaryTapUp: (details) => _showMemberMenu(
                         context,
-                        client: room.client,
-                        userId: user.id,
-                        displayName: name,
-                        avatarUrl: user.avatarUrl,
+                        user,
+                        details.globalPosition,
+                      ),
+                      onLongPressStart: (details) => _showMemberMenu(
+                        context,
+                        user,
+                        details.globalPosition,
+                      ),
+                      child: ListTile(
+                        dense: true,
+                        leading: PresenceAvatar(
+                          client: room.client,
+                          userId: user.id,
+                          name: name,
+                          avatarUrl: user.avatarUrl,
+                          radius: 14,
+                        ),
+                        title: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onTap: () => showUserProfileCard(
+                          context,
+                          client: room.client,
+                          userId: user.id,
+                          displayName: name,
+                          avatarUrl: user.avatarUrl,
+                        ),
                       ),
                     );
                   },
@@ -723,8 +1097,11 @@ class _TimelineList extends StatelessWidget {
     required this.itemPositionsListener,
     required this.client,
     required this.highlightedEventId,
+    required this.unreadMarkerEventId,
+    required this.receiptsByEvent,
     required this.onReply,
     required this.onEdit,
+    required this.onOpenThread,
     required this.onSaveAttachment,
   });
 
@@ -734,8 +1111,11 @@ class _TimelineList extends StatelessWidget {
   final ItemPositionsListener itemPositionsListener;
   final Client client;
   final String? highlightedEventId;
+  final String? unreadMarkerEventId;
+  final Map<String, List<User>> receiptsByEvent;
   final ValueChanged<Event> onReply;
   final ValueChanged<Event> onEdit;
+  final ValueChanged<Event> onOpenThread;
   final ValueChanged<Event> onSaveAttachment;
 
   @override
@@ -754,9 +1134,9 @@ class _TimelineList extends StatelessWidget {
         if (event.type == EventTypes.RoomMember) {
           return _StateEventLabel(event: event, timeline: timeline);
         }
-        final previous =
-            index + 1 < events.length ? events[index + 1] : null;
-        final showSender = previous == null ||
+        final previous = index + 1 < events.length ? events[index + 1] : null;
+        final showSender =
+            previous == null ||
             previous.senderId != event.senderId ||
             previous.type == EventTypes.RoomMember;
         return _MessageBubble(
@@ -765,8 +1145,11 @@ class _TimelineList extends StatelessWidget {
           ownMessage: event.senderId == client.userID,
           showSender: showSender,
           highlighted: event.eventId == highlightedEventId,
+          showUnreadMarker: event.eventId == unreadMarkerEventId,
+          receipts: receiptsByEvent[event.eventId] ?? const [],
           onReply: onReply,
           onEdit: onEdit,
+          onOpenThread: onOpenThread,
           onSaveAttachment: onSaveAttachment,
         );
       },
@@ -800,8 +1183,11 @@ class _MessageBubble extends StatefulWidget {
     required this.ownMessage,
     required this.showSender,
     required this.highlighted,
+    required this.showUnreadMarker,
+    required this.receipts,
     required this.onReply,
     required this.onEdit,
+    required this.onOpenThread,
     required this.onSaveAttachment,
   });
 
@@ -810,6 +1196,9 @@ class _MessageBubble extends StatefulWidget {
   final bool ownMessage;
   final bool showSender;
   final bool highlighted;
+  final bool showUnreadMarker;
+  final List<User> receipts;
+  final ValueChanged<Event> onOpenThread;
   final ValueChanged<Event> onReply;
   final ValueChanged<Event> onEdit;
   final ValueChanged<Event> onSaveAttachment;
@@ -836,6 +1225,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
   bool get showSender => widget.showSender;
   ValueChanged<Event> get onReply => widget.onReply;
   ValueChanged<Event> get onEdit => widget.onEdit;
+  ValueChanged<Event> get onOpenThread => widget.onOpenThread;
   ValueChanged<Event> get onSaveAttachment => widget.onSaveAttachment;
 
   Client get _client => event.room.client;
@@ -845,8 +1235,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
       ?.tryGet<String>('key');
 
   Future<void> _toggleReaction(BuildContext context, String key) async {
-    final reactions =
-        event.aggregatedEvents(timeline, RelationshipTypes.reaction);
+    final reactions = event.aggregatedEvents(
+      timeline,
+      RelationshipTypes.reaction,
+    );
     Event? ownReaction;
     for (final reaction in reactions) {
       if (reaction.senderId == _client.userID &&
@@ -863,8 +1255,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     }
   }
@@ -892,21 +1285,19 @@ class _MessageBubbleState extends State<_MessageBubble> {
       await event.redactEvent();
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     }
   }
 
   Future<void> _showMessageMenu(BuildContext context, Offset position) async {
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final displayEvent = event.getDisplayEvent(timeline);
     final sent = event.status.isSent;
-    final hasAttachment =
-        displayEvent.attachmentOrThumbnailMxcUrl() != null;
-    final canPin =
-        event.room.canChangeStateEvent(EventTypes.RoomPinnedEvents);
+    final hasAttachment = displayEvent.attachmentOrThumbnailMxcUrl() != null;
+    final canPin = event.room.canChangeStateEvent(EventTypes.RoomPinnedEvents);
     final isPinned = event.room.pinnedEventIds.contains(event.eventId);
     final selected = await showMenu<String>(
       context: context,
@@ -930,8 +1321,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     onTap: () => Navigator.pop(context, 'react:$emoji'),
                     child: Padding(
                       padding: const EdgeInsets.all(4),
-                      child:
-                          Text(emoji, style: const TextStyle(fontSize: 20)),
+                      child: Text(emoji, style: const TextStyle(fontSize: 20)),
                     ),
                   ),
                 InkWell(
@@ -945,18 +1335,15 @@ class _MessageBubbleState extends State<_MessageBubble> {
               ],
             ),
           ),
+        if (sent) const PopupMenuItem(value: 'reply', child: Text('Reply')),
         if (sent)
-          const PopupMenuItem(value: 'reply', child: Text('Reply')),
-        if (ownMessage &&
-            sent &&
-            displayEvent.messageType == MessageTypes.Text)
+          const PopupMenuItem(value: 'thread', child: Text('Reply in thread')),
+        if (ownMessage && sent && displayEvent.messageType == MessageTypes.Text)
           const PopupMenuItem(value: 'edit', child: Text('Edit')),
         const PopupMenuItem(value: 'copy', child: Text('Copy text')),
+        if (sent) const PopupMenuItem(value: 'forward', child: Text('Forward')),
         if (canPin && sent)
-          PopupMenuItem(
-            value: 'pin',
-            child: Text(isPinned ? 'Unpin' : 'Pin'),
-          ),
+          PopupMenuItem(value: 'pin', child: Text(isPinned ? 'Unpin' : 'Pin')),
         if (hasAttachment)
           const PopupMenuItem(value: 'save', child: Text('Save file')),
         if (ownMessage && sent)
@@ -973,8 +1360,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
       }
     } else if (selected == 'reply') {
       onReply(event);
+    } else if (selected == 'thread') {
+      onOpenThread(event);
     } else if (selected == 'edit') {
       onEdit(event);
+    } else if (selected == 'forward') {
+      await showForwardDialog(context, displayEvent);
     } else if (selected == 'pin') {
       final ids = List<String>.from(event.room.pinnedEventIds);
       isPinned ? ids.remove(event.eventId) : ids.add(event.eventId);
@@ -982,18 +1373,21 @@ class _MessageBubbleState extends State<_MessageBubble> {
         await event.room.setPinnedEvents(ids);
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(e.toString())));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(e.toString())));
         }
       }
     } else if (selected == 'copy') {
-      await Clipboard.setData(ClipboardData(
-        text: displayEvent.calcLocalizedBodyFallback(
-          const MatrixDefaultLocalizations(),
-          hideReply: true,
-          plaintextBody: true,
+      await Clipboard.setData(
+        ClipboardData(
+          text: displayEvent.calcLocalizedBodyFallback(
+            const MatrixDefaultLocalizations(),
+            hideReply: true,
+            plaintextBody: true,
+          ),
         ),
-      ));
+      );
     } else if (selected == 'save') {
       onSaveAttachment(displayEvent);
     } else if (selected == 'delete') {
@@ -1046,8 +1440,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           horizontal: 5,
                           vertical: 4,
                         ),
-                        child:
-                            Text(emoji, style: const TextStyle(fontSize: 15)),
+                        child: Text(
+                          emoji,
+                          style: const TextStyle(fontSize: 15),
+                        ),
                       ),
                     ),
                   ),
@@ -1072,8 +1468,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   icon: Icons.more_horiz,
                   tooltip: 'More',
                   onTap: () {
-                    final box =
-                        buttonContext.findRenderObject() as RenderBox;
+                    final box = buttonContext.findRenderObject() as RenderBox;
                     _showMessageMenu(
                       context,
                       box.localToGlobal(Offset(0, box.size.height + 4)),
@@ -1089,8 +1484,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
   }
 
   Widget? _buildReactions(BuildContext context) {
-    final reactions =
-        event.aggregatedEvents(timeline, RelationshipTypes.reaction);
+    final reactions = event.aggregatedEvents(
+      timeline,
+      RelationshipTypes.reaction,
+    );
     if (reactions.isEmpty) return null;
     final colorScheme = Theme.of(context).colorScheme;
     final byKey = <String, List<Event>>{};
@@ -1110,17 +1507,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
               borderRadius: BorderRadius.circular(12),
               onTap: () => _toggleReaction(context, entry.key),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: entry.value
-                          .any((r) => r.senderId == _client.userID)
+                  color: entry.value.any((r) => r.senderId == _client.userID)
                       ? colorScheme.primaryContainer
                       : colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: entry.value
-                            .any((r) => r.senderId == _client.userID)
+                    color: entry.value.any((r) => r.senderId == _client.userID)
                         ? colorScheme.primary
                         : Colors.transparent,
                   ),
@@ -1158,11 +1552,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  filename,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                Text(filename, maxLines: 1, overflow: TextOverflow.ellipsis),
                 Text(
                   sizeText == null ? 'Click to save' : '$sizeText · save',
                   style: Theme.of(context).textTheme.labelSmall,
@@ -1195,12 +1585,15 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final sending = event.status.isSending;
     final failed = event.status.isError;
 
-    final isImage = (displayEvent.messageType == MessageTypes.Image ||
+    final isImage =
+        (displayEvent.messageType == MessageTypes.Image ||
             displayEvent.messageType == MessageTypes.Sticker) &&
         displayEvent.attachmentOrThumbnailMxcUrl(getThumbnail: true) != null;
-    final isFile = _attachmentTypes.contains(displayEvent.messageType) &&
+    final isFile =
+        _attachmentTypes.contains(displayEvent.messageType) &&
         displayEvent.attachmentMxcUrl != null;
-    final isHtml = !isImage &&
+    final isHtml =
+        !isImage &&
         !isFile &&
         displayEvent.content.tryGet<String>('format') ==
             'org.matrix.custom.html' &&
@@ -1208,12 +1601,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
     // For attachments the body is the filename unless a separate `filename`
     // field is set, in which case the body is a real caption worth showing.
     final filename = displayEvent.content.tryGet<String>('filename');
-    final caption =
-        isImage && filename != null && filename != displayEvent.body
-            ? body
-            : null;
+    final caption = isImage && filename != null && filename != displayEvent.body
+        ? body
+        : null;
     final inReplyToId = displayEvent.inReplyToEventId();
     final reactions = _buildReactions(context);
+    final threadReplyCount = event
+        .aggregatedEvents(timeline, RelationshipTypes.thread)
+        .length;
 
     final bubble = Container(
       constraints: BoxConstraints(
@@ -1224,8 +1619,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
         color: widget.highlighted
             ? colorScheme.tertiaryContainer
             : ownMessage
-                ? colorScheme.primaryContainer
-                : colorScheme.surfaceContainerHighest,
+            ? colorScheme.primaryContainer
+            : colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -1238,9 +1633,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
               child: Text(
                 sender,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           if (inReplyToId != null)
@@ -1289,7 +1684,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
       ),
     );
 
-    return MouseRegion(
+    final messageRow = MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: ColoredBox(
@@ -1345,12 +1740,85 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         children: [
                           GestureDetector(
                             onLongPressStart: (details) => _showMessageMenu(
-                                context, details.globalPosition),
+                              context,
+                              details.globalPosition,
+                            ),
                             onSecondaryTapUp: (details) => _showMessageMenu(
-                                context, details.globalPosition),
+                              context,
+                              details.globalPosition,
+                            ),
                             child: bubble,
                           ),
                           ?reactions,
+                          if (threadReplyCount > 0)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: () => onOpenThread(event),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 2,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.forum_outlined,
+                                        size: 14,
+                                        color: colorScheme.primary,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '$threadReplyCount '
+                                        '${threadReplyCount == 1 ? 'reply' : 'replies'}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelSmall
+                                            ?.copyWith(
+                                              color: colorScheme.primary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (widget.receipts.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Tooltip(
+                                message:
+                                    'Read by ${widget.receipts.map((user) => user.calcDisplayname()).join(', ')}',
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    for (final user in widget.receipts.take(6))
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 2),
+                                        child: MxcAvatar(
+                                          client: _client,
+                                          name: user.calcDisplayname(),
+                                          avatarUrl: user.avatarUrl,
+                                          radius: 7,
+                                        ),
+                                      ),
+                                    if (widget.receipts.length > 6)
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 2),
+                                        child: Text(
+                                          '+${widget.receipts.length - 6}',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.labelSmall,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -1361,13 +1829,45 @@ class _MessageBubbleState extends State<_MessageBubble> {
             // Floating action bar: painted on top so it never affects the
             // bubble layout.
             if (_hovered)
-              Positioned(
-                top: 0,
-                right: 8,
-                child: _buildHoverActions(),
-              ),
+              Positioned(top: 0, right: 8, child: _buildHoverActions()),
           ],
         ),
+      ),
+    );
+
+    if (!widget.showUnreadMarker) return messageRow;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [const _UnreadMarker(), messageRow],
+    );
+  }
+}
+
+/// Divider between the last read and the first unread message.
+class _UnreadMarker extends StatelessWidget {
+  const _UnreadMarker();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: color)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              'New messages',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(child: Divider(color: color)),
+        ],
       ),
     );
   }
@@ -1426,9 +1926,7 @@ class _ReplyQuote extends StatelessWidget {
                         if (sender.isNotEmpty)
                           Text(
                             sender,
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
+                            style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(
                                   color: colorScheme.primary,
                                   fontWeight: FontWeight.w600,
@@ -1449,6 +1947,210 @@ class _ReplyQuote extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Right-side panel showing a thread: the root message, its replies and a
+/// composer that sends into the thread.
+class _ThreadPanel extends StatefulWidget {
+  const _ThreadPanel({
+    required this.room,
+    required this.timeline,
+    required this.root,
+    required this.onClose,
+  });
+
+  final Room room;
+  final Timeline timeline;
+  final Event root;
+  final VoidCallback onClose;
+
+  @override
+  State<_ThreadPanel> createState() => _ThreadPanelState();
+}
+
+class _ThreadPanelState extends State<_ThreadPanel> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  List<Event> get _replies =>
+      widget.root
+          .aggregatedEvents(widget.timeline, RelationshipTypes.thread)
+          .toList()
+        ..sort((a, b) => a.originServerTs.compareTo(b.originServerTs));
+
+  Future<void> _send() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    _controller.clear();
+    try {
+      final replies = _replies;
+      await widget.room.sendTextEvent(
+        text,
+        threadRootEventId: widget.root.eventId,
+        threadLastEventId: replies.isEmpty ? null : replies.last.eventId,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final replies = _replies;
+    return Container(
+      width: 320,
+      decoration: BoxDecoration(
+        border: Border(left: BorderSide(color: colorScheme.outlineVariant)),
+        color: colorScheme.surfaceContainerLow,
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+            child: Row(
+              children: [
+                Text('Thread', style: Theme.of(context).textTheme.titleSmall),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Close thread',
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: widget.onClose,
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: [
+                _ThreadMessage(event: widget.root, timeline: widget.timeline),
+                const Divider(),
+                if (replies.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('No replies yet.'),
+                  )
+                else
+                  for (final reply in replies)
+                    _ThreadMessage(event: reply, timeline: widget.timeline),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      decoration: InputDecoration(
+                        hintText: 'Reply in thread',
+                        filled: true,
+                        isDense: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _send(),
+                      minLines: 1,
+                      maxLines: 4,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton.filled(
+                    iconSize: 18,
+                    onPressed: _send,
+                    icon: const Icon(Icons.send),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact message rendering used inside the thread panel.
+class _ThreadMessage extends StatelessWidget {
+  const _ThreadMessage({required this.event, required this.timeline});
+
+  final Event event;
+  final Timeline timeline;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayEvent = event.getDisplayEvent(timeline);
+    final sender = event.senderFromMemoryOrFallback;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MxcAvatar(
+            client: event.room.client,
+            name: sender.calcDisplayname(),
+            avatarUrl: sender.avatarUrl,
+            radius: 12,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        sender.calcDisplayname(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      DateFormat.Hm().format(event.originServerTs),
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ],
+                ),
+                Text(
+                  displayEvent.calcLocalizedBodyFallback(
+                    const MatrixDefaultLocalizations(),
+                    hideReply: true,
+                    plaintextBody: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

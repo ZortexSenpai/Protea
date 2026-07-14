@@ -34,8 +34,9 @@ class _LoginPageState extends State<LoginPage> {
     _fetchLoginFlows();
     // When this page was pushed to add another account, close it on success.
     // As the app's home (first login) it is replaced by main.dart instead.
-    _loginStateSubscription =
-        widget.client.onLoginStateChanged.stream.listen((state) {
+    _loginStateSubscription = widget.client.onLoginStateChanged.stream.listen((
+      state,
+    ) {
       if (state == LoginState.loggedIn && mounted) {
         final navigator = Navigator.of(context);
         if (navigator.canPop()) navigator.pop();
@@ -69,8 +70,9 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _fetchLoginFlows() async {
     final request = ++_flowsRequest;
     try {
-      final (_, _, flows, _) =
-          await widget.client.checkHomeserver(_homeserverUri);
+      final (_, _, flows, _) = await widget.client.checkHomeserver(
+        _homeserverUri,
+      );
       if (mounted && request == _flowsRequest) {
         setState(() => _flows = flows);
       }
@@ -245,8 +247,9 @@ class _LoginPageState extends State<LoginPage> {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: OutlinedButton.icon(
-                        onPressed:
-                            _loading ? null : () => _loginWithSso(provider),
+                        onPressed: _loading
+                            ? null
+                            : () => _loginWithSso(provider),
                         icon: const Icon(Icons.open_in_browser),
                         label: Text(
                           provider.id == null

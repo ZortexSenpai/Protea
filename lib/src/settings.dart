@@ -40,7 +40,9 @@ class AppSettings extends ChangeNotifier {
   static Future<AppSettings> load() async =>
       AppSettings._(await SharedPreferences.getInstance());
 
-  AppLayout get layout => AppLayout.values.asNameMap()[_prefs.getString('layout')] ?? AppLayout.discord;
+  AppLayout get layout =>
+      AppLayout.values.asNameMap()[_prefs.getString('layout')] ??
+      AppLayout.discord;
 
   RailPosition get railPosition =>
       RailPosition.values.asNameMap()[_prefs.getString('railPosition')] ??
@@ -53,6 +55,13 @@ class AppSettings extends ChangeNotifier {
   AppThemeColor get themeColor =>
       AppThemeColor.values.asNameMap()[_prefs.getString('themeColor')] ??
       AppThemeColor.protea;
+
+  double get textScale => _prefs.getDouble('textScale') ?? 1.0;
+
+  Future<void> setTextScale(double value) async {
+    await _prefs.setDouble('textScale', value);
+    notifyListeners();
+  }
 
   Future<void> setLayout(AppLayout value) => _set('layout', value.name);
 

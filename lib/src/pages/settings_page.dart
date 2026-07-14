@@ -4,6 +4,7 @@ import 'package:matrix/matrix.dart';
 
 import '../room_actions.dart';
 import '../settings.dart';
+import '../widgets/bootstrap_dialog.dart';
 import '../widgets/initials_avatar.dart';
 import '../widgets/key_verification_dialog.dart';
 import '../widgets/mxc_avatar.dart';
@@ -161,11 +162,28 @@ class SettingsDialog extends StatelessWidget {
                         ],
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    ListTile(title: const Text('Font size')),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: SegmentedButton<double>(
+                        segments: const [
+                          ButtonSegment(value: 0.85, label: Text('Small')),
+                          ButtonSegment(value: 1.0, label: Text('Normal')),
+                          ButtonSegment(value: 1.15, label: Text('Large')),
+                          ButtonSegment(value: 1.3, label: Text('Huge')),
+                        ],
+                        selected: {settings.textScale},
+                        onSelectionChanged: (selection) =>
+                            settings.setTextScale(selection.single),
+                      ),
+                    ),
                     const SizedBox(height: 24),
                     _SectionHeader('Status'),
                     _StatusSection(client: client),
                     const SizedBox(height: 24),
                     _SectionHeader('Security'),
+                    _BackupSection(client: client),
                     _DevicesSection(client: client),
                     const SizedBox(height: 24),
                     _SectionHeader('Account'),
@@ -182,6 +200,116 @@ class SettingsDialog extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Shows the cross-signing / key backup state with actions to set it up,
+/// unlock it with the recovery key, or reset it.
+class _BackupSection extends StatefulWidget {
+  const _BackupSection({required this.client});
+
+  final Client client;
+
+  @override
+  State<_BackupSection> createState() => _BackupSectionState();
+}
+
+class _BackupSectionState extends State<_BackupSection> {
+  Future<void> _openBootstrap({bool wipe = false}) async {
+    if (wipe) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Reset chat backup?'),
+          content: const Text(
+            'This discards the existing cross-signing keys and key backup '
+            'and creates new ones. Devices verified before will need to be '
+            'verified again, and history encrypted with lost keys stays '
+            'unreadable.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Reset'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+    await showBootstrapDialog(context, client: widget.client, wipe: wipe);
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final encryption = widget.client.encryption;
+    if (encryption == null) return const SizedBox.shrink();
+    final configured =
+        encryption.crossSigning.enabled && encryption.keyManager.enabled;
+    if (!configured) {
+      return ListTile(
+        leading: const Icon(Icons.backup_outlined),
+        title: const Text('Chat backup is not set up'),
+        subtitle: const Text(
+          'Set up cross-signing and key backup so encrypted messages '
+          'survive on new devices.',
+        ),
+        trailing: FilledButton(
+          onPressed: () => _openBootstrap(),
+          child: const Text('Set up'),
+        ),
+      );
+    }
+    return FutureBuilder<List<bool>>(
+      future: Future.wait([
+        encryption.crossSigning.isCached(),
+        encryption.keyManager.isCached(),
+      ]),
+      builder: (context, snapshot) {
+        final cached = snapshot.data?.every((value) => value) ?? false;
+        if (!snapshot.hasData) {
+          return const ListTile(
+            leading: Icon(Icons.backup_outlined),
+            title: Text('Chat backup'),
+            subtitle: Text('Checking…'),
+          );
+        }
+        if (!cached) {
+          return ListTile(
+            leading: Icon(Icons.lock_clock, color: const Color(0xFFF9A825)),
+            title: const Text('Chat backup is locked'),
+            subtitle: const Text(
+              'Unlock it with your recovery key to read old encrypted '
+              'messages on this device.',
+            ),
+            trailing: FilledButton(
+              onPressed: () => _openBootstrap(),
+              child: const Text('Unlock'),
+            ),
+          );
+        }
+        return ListTile(
+          leading: const Icon(Icons.verified_user, color: Color(0xFF43A047)),
+          title: const Text('Chat backup enabled'),
+          subtitle: const Text(
+            'Cross-signing and key backup are active on this device.',
+          ),
+          trailing: PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'reset') _openBootstrap(wipe: true);
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'reset', child: Text('Reset backup')),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -412,9 +540,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
   }
 
   Future<void> _editDisplayName() async {
-    final controller = TextEditingController(
-      text: _profile?.displayname ?? '',
-    );
+    final controller = TextEditingController(text: _profile?.displayname ?? '');
     final newName = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -431,8 +557,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () =>
-                Navigator.of(context).pop(controller.text.trim()),
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
             child: const Text('Save'),
           ),
         ],
@@ -493,8 +618,9 @@ class _ProfileSectionState extends State<_ProfileSection> {
                     child: IconButton.filledTonal(
                       tooltip: 'Change banner',
                       icon: const Icon(Icons.panorama_outlined, size: 20),
-                      onPressed:
-                          _busy ? null : () => _uploadImageTo(bannerProfileField),
+                      onPressed: _busy
+                          ? null
+                          : () => _uploadImageTo(bannerProfileField),
                     ),
                   ),
                 ],

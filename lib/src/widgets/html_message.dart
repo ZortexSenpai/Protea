@@ -11,10 +11,8 @@ class HtmlMessage extends StatelessWidget {
 
   /// Removes the quoted fallback block of rich replies; the bubble already
   /// renders its own reply preview.
-  static String _stripReplyFallback(String html) => html.replaceFirst(
-        RegExp(r'<mx-reply>.*?</mx-reply>', dotAll: true),
-        '',
-      );
+  static String _stripReplyFallback(String html) =>
+      html.replaceFirst(RegExp(r'<mx-reply>.*?</mx-reply>', dotAll: true), '');
 
   @override
   Widget build(BuildContext context) {
@@ -22,16 +20,14 @@ class HtmlMessage extends StatelessWidget {
     return Html(
       data: _stripReplyFallback(html),
       shrinkWrap: true,
+      extensions: [_SpoilerExtension()],
       onLinkTap: (url, attributes, element) {
         if (url != null) {
           launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
         }
       },
       style: {
-        'body': Style(
-          margin: Margins.zero,
-          padding: HtmlPaddings.zero,
-        ),
+        'body': Style(margin: Margins.zero, padding: HtmlPaddings.zero),
         'p': Style(margin: Margins.zero),
         'code': Style(
           backgroundColor: colorScheme.surface.withValues(alpha: 0.5),
@@ -54,6 +50,55 @@ class HtmlMessage extends StatelessWidget {
           textDecoration: TextDecoration.none,
         ),
       },
+    );
+  }
+}
+
+/// Renders `<span data-mx-spoiler>` as hidden text that reveals on click.
+class _SpoilerExtension extends TagExtension {
+  _SpoilerExtension()
+    : super(
+        tagsToExtend: {'span'},
+        builder: (extensionContext) =>
+            _SpoilerText(text: extensionContext.element?.text ?? ''),
+      );
+
+  @override
+  bool matches(ExtensionContext context) =>
+      context.elementName == 'span' &&
+      context.attributes.containsKey('data-mx-spoiler');
+}
+
+class _SpoilerText extends StatefulWidget {
+  const _SpoilerText({required this.text});
+
+  final String text;
+
+  @override
+  State<_SpoilerText> createState() => _SpoilerTextState();
+}
+
+class _SpoilerTextState extends State<_SpoilerText> {
+  bool _revealed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: () => setState(() => _revealed = !_revealed),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          color: _revealed
+              ? colorScheme.surface.withValues(alpha: 0.4)
+              : colorScheme.onSurface,
+          borderRadius: BorderRadius.circular(3),
+        ),
+        child: Text(
+          widget.text,
+          style: TextStyle(color: _revealed ? null : Colors.transparent),
+        ),
+      ),
     );
   }
 }

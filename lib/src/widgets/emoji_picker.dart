@@ -27,10 +27,7 @@ class _EmojiGrid extends StatelessWidget {
           '😕🙁😮😯😲😳🥺😦😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬'
           '😈💀💩🤡👻👽🤖',
     ),
-    (
-      'Gestures',
-      '👍👎👌🤌✌️🤞🤟🤘🤙👈👉👆👇☝️✋🤚🖐️🖖👋🤝👏🙌👐🤲🙏💪✊👊🤛🤜',
-    ),
+    ('Gestures', '👍👎👌🤌✌️🤞🤟🤘🤙👈👉👆👇☝️✋🤚🖐️🖖👋🤝👏🙌👐🤲🙏💪✊👊🤛🤜'),
     (
       'Hearts & symbols',
       '❤️🧡💛💚💙💜🖤🤍🤎💔❣️💕💞💓💗💖💘💝💯💢💥💫💦💨'
@@ -78,10 +75,7 @@ class _EmojiGrid extends StatelessWidget {
         for (final (title, emojis) in _categories) ...[
           Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 4),
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.labelMedium,
-            ),
+            child: Text(title, style: Theme.of(context).textTheme.labelMedium),
           ),
           Wrap(
             children: [

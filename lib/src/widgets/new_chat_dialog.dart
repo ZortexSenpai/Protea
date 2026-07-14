@@ -35,10 +35,10 @@ class _NewChatDialogState extends State<NewChatDialog> {
   }
 
   String get _label => switch (_mode) {
-        _NewChatMode.dm => 'User ID (@user:server)',
-        _NewChatMode.group => 'Group name',
-        _NewChatMode.join => 'Room ID or alias (#room:server)',
-      };
+    _NewChatMode.dm => 'User ID (@user:server)',
+    _NewChatMode.group => 'Group name',
+    _NewChatMode.join => 'Room ID or alias (#room:server)',
+  };
 
   Future<void> _submit() async {
     final input = _inputController.text.trim();
@@ -62,14 +62,13 @@ class _NewChatDialogState extends State<NewChatDialog> {
       final navigator = Navigator.of(context);
       navigator.pop();
       if (room != null) {
-        navigator.push(
-          MaterialPageRoute(builder: (_) => RoomPage(room: room)),
-        );
+        navigator.push(MaterialPageRoute(builder: (_) => RoomPage(room: room)));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
         setState(() => _busy = false);
       }
     }
