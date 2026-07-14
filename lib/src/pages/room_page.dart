@@ -949,10 +949,29 @@ class _RoomPageState extends State<RoomPage> {
                               Expanded(
                                 child: Focus(
                                   onKeyEvent: (node, event) {
+                                    if (event is! KeyDownEvent) {
+                                      return KeyEventResult.ignored;
+                                    }
+                                    // Enter sends, Shift+Enter (or any other
+                                    // modifier) inserts a line break.
+                                    if (event.logicalKey ==
+                                            LogicalKeyboardKey.enter ||
+                                        event.logicalKey ==
+                                            LogicalKeyboardKey.numpadEnter) {
+                                      final keyboard =
+                                          HardwareKeyboard.instance;
+                                      if (!keyboard.isShiftPressed &&
+                                          !keyboard.isAltPressed &&
+                                          !keyboard.isControlPressed &&
+                                          !keyboard.isMetaPressed) {
+                                        _send();
+                                        return KeyEventResult.handled;
+                                      }
+                                      return KeyEventResult.ignored;
+                                    }
                                     // Sends a pasted image alongside the field's
                                     // own (text) paste handling.
-                                    if (event is KeyDownEvent &&
-                                        event.logicalKey ==
+                                    if (event.logicalKey ==
                                             LogicalKeyboardKey.keyV &&
                                         (HardwareKeyboard
                                                 .instance
@@ -980,11 +999,11 @@ class _RoomPageState extends State<RoomPage> {
                                             vertical: 10,
                                           ),
                                     ),
-                                    textInputAction: TextInputAction.send,
-                                    onSubmitted: (_) => _send(),
+                                    keyboardType: TextInputType.multiline,
+                                    textInputAction: TextInputAction.newline,
                                     onChanged: _onInputChanged,
                                     minLines: 1,
-                                    maxLines: 5,
+                                    maxLines: 8,
                                   ),
                                 ),
                               ),
@@ -2404,25 +2423,42 @@ class _ThreadPanelState extends State<_ThreadPanel> {
               child: Row(
                 children: [
                   Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      decoration: InputDecoration(
-                        hintText: 'Reply in thread',
-                        filled: true,
-                        isDense: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide: BorderSide.none,
+                    child: Focus(
+                      onKeyEvent: (node, event) {
+                        // Enter sends, Shift+Enter inserts a line break.
+                        if (event is KeyDownEvent &&
+                            (event.logicalKey == LogicalKeyboardKey.enter ||
+                                event.logicalKey ==
+                                    LogicalKeyboardKey.numpadEnter) &&
+                            !HardwareKeyboard.instance.isShiftPressed &&
+                            !HardwareKeyboard.instance.isAltPressed &&
+                            !HardwareKeyboard.instance.isControlPressed &&
+                            !HardwareKeyboard.instance.isMetaPressed) {
+                          _send();
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: TextField(
+                        controller: _controller,
+                        decoration: InputDecoration(
+                          hintText: 'Reply in thread',
+                          filled: true,
+                          isDense: true,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
+                        minLines: 1,
+                        maxLines: 4,
                       ),
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _send(),
-                      minLines: 1,
-                      maxLines: 4,
                     ),
                   ),
                   const SizedBox(width: 6),
