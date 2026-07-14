@@ -7,6 +7,7 @@ import '../settings.dart';
 import '../widgets/account_switcher.dart';
 import '../widgets/mxc_avatar.dart';
 import '../widgets/new_chat_dialog.dart';
+import '../widgets/pinned_rooms_section.dart';
 import '../widgets/presence_indicator.dart';
 import '../widgets/room_settings_dialog.dart';
 import '../widgets/user_profile_card.dart';
@@ -391,11 +392,21 @@ class _ChannelColumn extends StatelessWidget {
                   )
                 : Builder(
                     builder: (context) {
+                      final pinned = pinnedRooms(rooms);
+                      final pinnedIds = pinned.map((room) => room.id).toSet();
                       final directs = rooms
-                          .where((room) => room.isDirectChat)
+                          .where(
+                            (room) =>
+                                room.isDirectChat &&
+                                !pinnedIds.contains(room.id),
+                          )
                           .toList();
                       final channels = rooms
-                          .where((room) => !room.isDirectChat)
+                          .where(
+                            (room) =>
+                                !room.isDirectChat &&
+                                !pinnedIds.contains(room.id),
+                          )
                           .toList();
                       Widget tile(Room room) => _ChannelTile(
                         room: room,
@@ -404,6 +415,13 @@ class _ChannelColumn extends StatelessWidget {
                       );
                       return ListView(
                         children: [
+                          if (pinned.isNotEmpty) ...[
+                            PinnedRoomsSection(
+                              pinned: pinned,
+                              tileBuilder: tile,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
                           if (directs.isNotEmpty) ...[
                             const _SectionLabel('Direct messages'),
                             for (final room in directs) tile(room),
@@ -474,6 +492,10 @@ class _ChannelTile extends StatelessWidget {
         overlay.size.height - position.dy,
       ),
       items: [
+        PopupMenuItem(
+          value: 'pin',
+          child: Text(room.isFavourite ? 'Unpin' : 'Pin'),
+        ),
         const PopupMenuItem(value: 'settings', child: Text('Settings')),
         if (room.canInvite)
           const PopupMenuItem(value: 'invite', child: Text('Invite')),
@@ -482,6 +504,16 @@ class _ChannelTile extends StatelessWidget {
     );
     if (selected == null || !context.mounted) return;
     switch (selected) {
+      case 'pin':
+        try {
+          await togglePinned(room);
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(e.toString())));
+          }
+        }
       case 'settings':
         await showRoomSettingsDialog(context, room);
       case 'invite':

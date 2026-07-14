@@ -8,7 +8,9 @@ import '../settings.dart';
 import '../widgets/account_switcher.dart';
 import '../widgets/mxc_avatar.dart';
 import '../widgets/new_chat_dialog.dart';
+import '../widgets/pinned_rooms_section.dart';
 import '../widgets/presence_indicator.dart';
+import '../widgets/room_settings_dialog.dart';
 import 'room_page.dart';
 import 'settings_page.dart';
 
@@ -112,10 +114,27 @@ class RoomListPage extends StatelessWidget {
               ),
             );
           }
-          final directs = rooms.where((room) => room.isDirectChat).toList();
-          final others = rooms.where((room) => !room.isDirectChat).toList();
+          final pinned = pinnedRooms(rooms);
+          final pinnedIds = pinned.map((room) => room.id).toSet();
+          final directs = rooms
+              .where(
+                (room) => room.isDirectChat && !pinnedIds.contains(room.id),
+              )
+              .toList();
+          final others = rooms
+              .where(
+                (room) => !room.isDirectChat && !pinnedIds.contains(room.id),
+              )
+              .toList();
           return ListView(
             children: [
+              if (pinned.isNotEmpty) ...[
+                PinnedRoomsSection(
+                  pinned: pinned,
+                  tileBuilder: (room) => _roomTile(context, room),
+                ),
+                const SizedBox(height: 16),
+              ],
               if (directs.isNotEmpty) ...[
                 _SectionLabel('Direct messages'),
                 for (final room in directs) _roomTile(context, room),
@@ -133,60 +152,105 @@ class RoomListPage extends StatelessWidget {
     );
   }
 
+  Future<void> _showRoomMenu(
+    BuildContext context,
+    Room room,
+    Offset position,
+  ) async {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        overlay.size.width - position.dx,
+        overlay.size.height - position.dy,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'pin',
+          child: Text(room.isFavourite ? 'Unpin' : 'Pin'),
+        ),
+        const PopupMenuItem(value: 'settings', child: Text('Settings')),
+      ],
+    );
+    if (selected == null || !context.mounted) return;
+    switch (selected) {
+      case 'pin':
+        try {
+          await togglePinned(room);
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(e.toString())));
+          }
+        }
+      case 'settings':
+        await showRoomSettingsDialog(context, room);
+    }
+  }
+
   Widget _roomTile(BuildContext context, Room room) {
     final lastEvent = room.lastEvent;
     final displayname = room.getLocalizedDisplayname();
     final isInvite = room.membership == Membership.invite;
     final directUserId = room.directChatMatrixID;
-    return ListTile(
-      selected: room.id == selectedRoomId,
-      leading: directUserId != null
-          ? PresenceAvatar(
-              client: client,
-              userId: directUserId,
-              name: displayname,
-              avatarUrl: room.avatar,
-            )
-          : MxcAvatar(
-              client: client,
-              name: displayname,
-              avatarUrl: room.avatar,
-            ),
-      title: Text(displayname, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        isInvite
-            ? 'Invitation — tap to respond'
-            : lastEvent?.calcLocalizedBodyFallback(
-                    const MatrixDefaultLocalizations(),
-                    hideReply: true,
-                    plaintextBody: true,
-                    removeMarkdown: true,
-                    withSenderNamePrefix: true,
-                  ) ??
-                  'No messages yet',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (lastEvent != null)
-            Text(
-              _formatTime(lastEvent.originServerTs),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          if (room.isUnreadOrInvited)
-            Badge(
-              label: Text(
-                room.notificationCount > 0
-                    ? room.notificationCount.toString()
-                    : '',
+    return GestureDetector(
+      onSecondaryTapUp: (details) =>
+          _showRoomMenu(context, room, details.globalPosition),
+      onLongPressStart: (details) =>
+          _showRoomMenu(context, room, details.globalPosition),
+      child: ListTile(
+        selected: room.id == selectedRoomId,
+        leading: directUserId != null
+            ? PresenceAvatar(
+                client: client,
+                userId: directUserId,
+                name: displayname,
+                avatarUrl: room.avatar,
+              )
+            : MxcAvatar(
+                client: client,
+                name: displayname,
+                avatarUrl: room.avatar,
               ),
-            ),
-        ],
+        title: Text(displayname, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text(
+          isInvite
+              ? 'Invitation — tap to respond'
+              : lastEvent?.calcLocalizedBodyFallback(
+                      const MatrixDefaultLocalizations(),
+                      hideReply: true,
+                      plaintextBody: true,
+                      removeMarkdown: true,
+                      withSenderNamePrefix: true,
+                    ) ??
+                    'No messages yet',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (lastEvent != null)
+              Text(
+                _formatTime(lastEvent.originServerTs),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            if (room.isUnreadOrInvited)
+              Badge(
+                label: Text(
+                  room.notificationCount > 0
+                      ? room.notificationCount.toString()
+                      : '',
+                ),
+              ),
+          ],
+        ),
+        onTap: () => _onRoomTap(context, room),
       ),
-      onTap: () => _onRoomTap(context, room),
     );
   }
 }
