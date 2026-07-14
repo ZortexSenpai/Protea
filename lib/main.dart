@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'src/auto_away.dart';
 import 'src/client_manager.dart';
 import 'src/notifications.dart';
 import 'src/pages/home_page.dart';
@@ -16,7 +17,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final settings = await AppSettings.load();
   final manager = await ClientManager.load();
-  runApp(ProteaApp(manager: manager, settings: settings));
+  final autoAway = AutoAwayService(manager, settings)..init();
+  runApp(ProteaApp(manager: manager, settings: settings, autoAway: autoAway));
   // After runApp so a hanging permission prompt can never block the first
   // frame.
   unawaited(
@@ -29,10 +31,16 @@ Future<void> main() async {
 }
 
 class ProteaApp extends StatelessWidget {
-  const ProteaApp({super.key, required this.manager, required this.settings});
+  const ProteaApp({
+    super.key,
+    required this.manager,
+    required this.settings,
+    this.autoAway,
+  });
 
   final ClientManager manager;
   final AppSettings settings;
+  final AutoAwayService? autoAway;
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +70,14 @@ class ProteaApp extends StatelessWidget {
               data: MediaQuery.of(context).copyWith(
                 textScaler: TextScaler.linear(settings.textScale),
               ),
-              child: child ?? const SizedBox.shrink(),
+              child: Listener(
+                // Pointer activity feeds the auto-away idle detection
+                // (keyboard activity is tracked by the service itself).
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (_) => autoAway?.notifyActivity(),
+                onPointerSignal: (_) => autoAway?.notifyActivity(),
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
           home: active == null

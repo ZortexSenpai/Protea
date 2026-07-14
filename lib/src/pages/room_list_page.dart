@@ -10,6 +10,7 @@ import '../widgets/mxc_avatar.dart';
 import '../widgets/new_chat_dialog.dart';
 import '../widgets/pinned_rooms_section.dart';
 import '../widgets/presence_indicator.dart';
+import '../widgets/room_directory_dialog.dart';
 import '../widgets/room_settings_dialog.dart';
 import 'room_page.dart';
 import 'settings_page.dart';
@@ -61,6 +62,11 @@ class RoomListPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Protea'),
         actions: [
+          IconButton(
+            tooltip: 'Explore public rooms',
+            icon: const Icon(Icons.explore_outlined),
+            onPressed: () => showRoomDirectory(context, client),
+          ),
           IconButton(
             tooltip: 'New chat',
             icon: const Icon(Icons.add_comment_outlined),

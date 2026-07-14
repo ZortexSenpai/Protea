@@ -24,7 +24,9 @@ import '../widgets/link_preview.dart';
 import '../widgets/message_search_dialog.dart';
 import '../widgets/mxc_avatar.dart';
 import '../widgets/pinned_messages_dialog.dart';
+import '../widgets/poll.dart';
 import '../widgets/presence_indicator.dart';
+import '../widgets/sticker_picker.dart';
 import '../widgets/room_settings_dialog.dart';
 import '../widgets/user_profile_card.dart';
 import '../widgets/voice_message.dart';
@@ -76,6 +78,7 @@ class _RoomPageState extends State<RoomPage> {
     EventTypes.Message,
     EventTypes.Sticker,
     EventTypes.Encrypted,
+    pollStartType,
   };
 
   Client get _client => widget.room.client;
@@ -1103,6 +1106,37 @@ class _RoomPageState extends State<RoomPage> {
                                           : _startRecording,
                                       icon: const Icon(Icons.mic_none),
                                     ),
+                                    PopupMenuButton<String>(
+                                      tooltip: 'More attachments',
+                                      enabled: !encryptedWithoutSupport,
+                                      icon: const Icon(
+                                        Icons.add_circle_outline,
+                                      ),
+                                      onSelected: (value) {
+                                        switch (value) {
+                                          case 'poll':
+                                            showCreatePollDialog(
+                                              context,
+                                              widget.room,
+                                            );
+                                          case 'sticker':
+                                            showStickerPicker(
+                                              context,
+                                              widget.room,
+                                            );
+                                        }
+                                      },
+                                      itemBuilder: (context) => const [
+                                        PopupMenuItem(
+                                          value: 'poll',
+                                          child: Text('Poll'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'sticker',
+                                          child: Text('Sticker'),
+                                        ),
+                                      ],
+                                    ),
                                     IconButton(
                                       tooltip: 'Emoji',
                                       onPressed: encryptedWithoutSupport
@@ -1699,6 +1733,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
           const PopupMenuItem(value: 'thread', child: Text('Reply in thread')),
         if (ownMessage && sent && displayEvent.messageType == MessageTypes.Text)
           const PopupMenuItem(value: 'edit', child: Text('Edit')),
+        if (ownMessage && sent && displayEvent.type == pollStartType)
+          const PopupMenuItem(value: 'endpoll', child: Text('End poll')),
         const PopupMenuItem(value: 'copy', child: Text('Copy text')),
         if (sent) const PopupMenuItem(value: 'forward', child: Text('Forward')),
         if (canPin && sent)
@@ -1723,6 +1759,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
       onOpenThread(event);
     } else if (selected == 'edit') {
       onEdit(event);
+    } else if (selected == 'endpoll') {
+      try {
+        await endPoll(event);
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(e.toString())));
+        }
+      }
     } else if (selected == 'forward') {
       await showForwardDialog(context, displayEvent);
     } else if (selected == 'pin') {
@@ -2025,6 +2071,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final sending = event.status.isSending;
     final failed = event.status.isError;
 
+    final isPoll =
+        displayEvent.type == pollStartType ||
+        displayEvent.content.containsKey('org.matrix.msc3381.poll.start');
     final isImage =
         (displayEvent.messageType == MessageTypes.Image ||
             displayEvent.messageType == MessageTypes.Sticker) &&
@@ -2037,6 +2086,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         _attachmentTypes.contains(displayEvent.messageType) &&
         displayEvent.attachmentMxcUrl != null;
     final isHtml =
+        !isPoll &&
         !isImage &&
         !isAudio &&
         !isFile &&
@@ -2054,7 +2104,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final threadReplyCount = event
         .aggregatedEvents(timeline, RelationshipTypes.thread)
         .length;
-    final linkUrl = !isImage && !isFile && !isAudio
+    final linkUrl = !isImage && !isFile && !isAudio && !isPoll
         ? LinkPreview.firstLinkOf(displayEvent.body)
         : null;
     final timeText = DateFormat.Hm().format(event.originServerTs);
@@ -2073,7 +2123,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
       children: [
         if (inReplyToId != null)
           _ReplyQuote(timeline: timeline, eventId: inReplyToId),
-        if (isImage) ...[
+        if (isPoll)
+          PollBubble(event: event, timeline: timeline)
+        else if (isImage) ...[
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: GestureDetector(
@@ -2287,7 +2339,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
     }
 
     Widget textLayout() {
-      final showInline = !isImage && !isFile && !isAudio;
+      final showInline = !isImage && !isFile && !isAudio && !isPoll;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
         child: Opacity(

@@ -9,6 +9,7 @@ import '../widgets/mxc_avatar.dart';
 import '../widgets/new_chat_dialog.dart';
 import '../widgets/pinned_rooms_section.dart';
 import '../widgets/presence_indicator.dart';
+import '../widgets/room_directory_dialog.dart';
 import '../widgets/room_settings_dialog.dart';
 import '../widgets/user_profile_card.dart';
 import 'room_page.dart';
@@ -372,6 +373,11 @@ class _ChannelColumn extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                ),
+                IconButton(
+                  tooltip: 'Explore public rooms',
+                  icon: const Icon(Icons.explore_outlined, size: 20),
+                  onPressed: () => showRoomDirectory(context, client),
                 ),
                 IconButton(
                   tooltip: 'New chat',

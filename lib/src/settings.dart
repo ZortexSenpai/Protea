@@ -101,6 +101,13 @@ class AppSettings extends ChangeNotifier {
   Future<void> setMessageLayout(MessageLayout value) =>
       _set('messageLayout', value.name);
 
+  bool get autoAway => _prefs.getBool('autoAway') ?? true;
+
+  Future<void> setAutoAway(bool value) async {
+    await _prefs.setBool('autoAway', value);
+    notifyListeners();
+  }
+
   /// API key for the Klipy GIF search; empty when the feature is unused.
   String get klipyApiKey => _prefs.getString('klipyApiKey') ?? '';
 

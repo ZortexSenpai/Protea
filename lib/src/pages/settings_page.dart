@@ -250,6 +250,16 @@ class SettingsDialog extends StatelessWidget {
                     const SizedBox(height: 24),
                     _SectionHeader('Status'),
                     _StatusSection(client: client),
+                    SwitchListTile(
+                      secondary: const Icon(Icons.snooze_outlined),
+                      title: const Text('Auto-away'),
+                      subtitle: const Text(
+                        'Set the status to away after 10 minutes without '
+                        'keyboard or mouse input.',
+                      ),
+                      value: settings.autoAway,
+                      onChanged: (value) => settings.setAutoAway(value),
+                    ),
                     const SizedBox(height: 24),
                     _SectionHeader('Security'),
                     _BackupSection(client: client),
