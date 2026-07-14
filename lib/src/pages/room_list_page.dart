@@ -18,17 +18,16 @@ class RoomListPage extends StatelessWidget {
   Future<void> _onRoomTap(BuildContext context, Room room) async {
     if (!await confirmRoomTap(context, room)) return;
     if (context.mounted) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => RoomPage(room: room)),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => RoomPage(room: room)));
     }
   }
 
   String _formatTime(DateTime time) {
     final now = DateTime.now();
-    final isToday = time.year == now.year &&
-        time.month == now.month &&
-        time.day == now.day;
+    final isToday =
+        time.year == now.year && time.month == now.month && time.day == now.day;
     return isToday
         ? DateFormat.Hm().format(time)
         : DateFormat.MMMd().format(time);
@@ -44,29 +43,19 @@ class RoomListPage extends StatelessWidget {
             onSelected: (value) {
               switch (value) {
                 case 'settings':
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          SettingsPage(client: client, settings: settings),
-                    ),
+                  showSettingsDialog(
+                    context,
+                    client: client,
+                    settings: settings,
                   );
                 case 'logout':
                   confirmLogout(context, client);
               }
             },
             itemBuilder: (context) => [
-              PopupMenuItem(
-                enabled: false,
-                child: Text(client.userID ?? ''),
-              ),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Text('Settings'),
-              ),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Text('Sign out'),
-              ),
+              PopupMenuItem(enabled: false, child: Text(client.userID ?? '')),
+              const PopupMenuItem(value: 'settings', child: Text('Settings')),
+              const PopupMenuItem(value: 'logout', child: Text('Sign out')),
             ],
           ),
         ],
@@ -74,8 +63,7 @@ class RoomListPage extends StatelessWidget {
       body: StreamBuilder<SyncUpdate>(
         stream: client.onSync.stream,
         builder: (context, _) {
-          final rooms =
-              client.rooms.where((room) => !room.isSpace).toList();
+          final rooms = client.rooms.where((room) => !room.isSpace).toList();
           if (rooms.isEmpty) {
             return Center(
               child: Column(
@@ -123,13 +111,13 @@ class RoomListPage extends StatelessWidget {
                   isInvite
                       ? 'Invitation — tap to respond'
                       : lastEvent?.calcLocalizedBodyFallback(
-                            const MatrixDefaultLocalizations(),
-                            hideReply: true,
-                            plaintextBody: true,
-                            removeMarkdown: true,
-                            withSenderNamePrefix: true,
-                          ) ??
-                          'No messages yet',
+                              const MatrixDefaultLocalizations(),
+                              hideReply: true,
+                              plaintextBody: true,
+                              removeMarkdown: true,
+                              withSenderNamePrefix: true,
+                            ) ??
+                            'No messages yet',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),

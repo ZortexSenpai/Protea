@@ -19,11 +19,17 @@ class InitialsAvatar extends StatelessWidget {
     Color(0xFF5D4037),
   ];
 
+  /// The stable color derived from [name], also used for banner fallbacks.
+  static Color colorFor(String name) {
+    final cleaned = name.replaceAll(RegExp(r'^[@!#]'), '').trim();
+    return _palette[cleaned.hashCode.abs() % _palette.length];
+  }
+
   @override
   Widget build(BuildContext context) {
     final cleaned = name.replaceAll(RegExp(r'^[@!#]'), '').trim();
     final initial = cleaned.isEmpty ? '?' : cleaned[0].toUpperCase();
-    final color = _palette[cleaned.hashCode.abs() % _palette.length];
+    final color = colorFor(name);
     return CircleAvatar(
       radius: radius,
       backgroundColor: color,

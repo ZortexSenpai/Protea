@@ -8,11 +8,17 @@ import '../widgets/emoji_picker.dart';
 import '../widgets/event_image.dart';
 import '../widgets/mxc_avatar.dart';
 import '../widgets/presence_indicator.dart';
+import '../widgets/user_profile_card.dart';
 
 class RoomPage extends StatefulWidget {
-  const RoomPage({super.key, required this.room});
+  const RoomPage({super.key, required this.room, this.onOpenMenu});
 
   final Room room;
+
+  /// When set, the app bar shows a hamburger button that calls this instead
+  /// of a back button — used when the page is embedded without a navigation
+  /// sidebar (narrow windows).
+  final VoidCallback? onOpenMenu;
 
   @override
   State<RoomPage> createState() => _RoomPageState();
@@ -287,15 +293,31 @@ class _RoomPageState extends State<RoomPage> {
     final displayname = widget.room.getLocalizedDisplayname();
     return Scaffold(
       appBar: AppBar(
+        leading: widget.onOpenMenu != null
+            ? IconButton(
+                tooltip: 'Channels',
+                icon: const Icon(Icons.menu),
+                onPressed: widget.onOpenMenu,
+              )
+            : null,
         title: Row(
           children: [
             if (directUserId != null)
-              PresenceAvatar(
-                client: _client,
-                userId: directUserId,
-                name: displayname,
-                avatarUrl: widget.room.avatar,
-                radius: 16,
+              GestureDetector(
+                onTap: () => showUserProfileCard(
+                  context,
+                  client: _client,
+                  userId: directUserId,
+                  displayName: displayname,
+                  avatarUrl: widget.room.avatar,
+                ),
+                child: PresenceAvatar(
+                  client: _client,
+                  userId: directUserId,
+                  name: displayname,
+                  avatarUrl: widget.room.avatar,
+                  radius: 16,
+                ),
               )
             else
               MxcAvatar(
@@ -958,12 +980,22 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   children: [
                     if (!ownMessage) ...[
                       if (showSender)
-                        MxcAvatar(
-                          client: _client,
-                          name: sender,
-                          avatarUrl:
-                              event.senderFromMemoryOrFallback.avatarUrl,
-                          radius: 14,
+                        GestureDetector(
+                          onTap: () => showUserProfileCard(
+                            context,
+                            client: _client,
+                            userId: event.senderId,
+                            displayName: sender,
+                            avatarUrl:
+                                event.senderFromMemoryOrFallback.avatarUrl,
+                          ),
+                          child: MxcAvatar(
+                            client: _client,
+                            name: sender,
+                            avatarUrl:
+                                event.senderFromMemoryOrFallback.avatarUrl,
+                            radius: 14,
+                          ),
                         )
                       else
                         const SizedBox(width: 28),

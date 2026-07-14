@@ -4,136 +4,180 @@ import 'package:matrix/matrix.dart';
 
 import '../room_actions.dart';
 import '../settings.dart';
+import '../widgets/initials_avatar.dart';
 import '../widgets/key_verification_dialog.dart';
 import '../widgets/mxc_avatar.dart';
+import '../widgets/user_profile_card.dart';
 
-class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key, required this.client, required this.settings});
+/// Opens the settings as a modal dialog.
+Future<void> showSettingsDialog(
+  BuildContext context, {
+  required Client client,
+  required AppSettings settings,
+}) => showDialog(
+  context: context,
+  builder: (_) => SettingsDialog(client: client, settings: settings),
+);
+
+class SettingsDialog extends StatelessWidget {
+  const SettingsDialog({
+    super.key,
+    required this.client,
+    required this.settings,
+  });
 
   final Client client;
   final AppSettings settings;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: ListenableBuilder(
-        listenable: settings,
-        builder: (context, _) => ListView(
-          padding: const EdgeInsets.all(16),
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _SectionHeader('Layout'),
-            ListTile(
-              title: const Text('App layout'),
-              subtitle: const Text(
-                'Discord-style shows a spaces list on the left with a '
-                'channel view per space.',
-              ),
-            ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SegmentedButton<AppLayout>(
-                segments: const [
-                  ButtonSegment(
-                    value: AppLayout.discord,
-                    label: Text('Discord-style'),
-                    icon: Icon(Icons.view_sidebar_outlined),
-                  ),
-                  ButtonSegment(
-                    value: AppLayout.classic,
-                    label: Text('Classic list'),
-                    icon: Icon(Icons.view_list_outlined),
-                  ),
-                ],
-                selected: {settings.layout},
-                onSelectionChanged: (selection) =>
-                    settings.setLayout(selection.single),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              title: const Text('Spaces list position'),
-              enabled: settings.layout == AppLayout.discord,
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SegmentedButton<RailPosition>(
-                segments: const [
-                  ButtonSegment(
-                    value: RailPosition.left,
-                    label: Text('Left'),
-                    icon: Icon(Icons.align_horizontal_left),
-                  ),
-                  ButtonSegment(
-                    value: RailPosition.right,
-                    label: Text('Right'),
-                    icon: Icon(Icons.align_horizontal_right),
-                  ),
-                ],
-                selected: {settings.railPosition},
-                onSelectionChanged: settings.layout == AppLayout.discord
-                    ? (selection) => settings.setRailPosition(selection.single)
-                    : null,
-              ),
-            ),
-            const SizedBox(height: 24),
-            _SectionHeader('Appearance'),
-            ListTile(title: const Text('Theme')),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SegmentedButton<ThemeMode>(
-                segments: const [
-                  ButtonSegment(
-                    value: ThemeMode.system,
-                    label: Text('System'),
-                    icon: Icon(Icons.brightness_auto),
-                  ),
-                  ButtonSegment(
-                    value: ThemeMode.light,
-                    label: Text('Light'),
-                    icon: Icon(Icons.light_mode_outlined),
-                  ),
-                  ButtonSegment(
-                    value: ThemeMode.dark,
-                    label: Text('Dark'),
-                    icon: Icon(Icons.dark_mode_outlined),
-                  ),
-                ],
-                selected: {settings.themeMode},
-                onSelectionChanged: (selection) =>
-                    settings.setThemeMode(selection.single),
-              ),
-            ),
-            const SizedBox(height: 16),
-            ListTile(title: const Text('Color')),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 12,
+              padding: const EdgeInsets.fromLTRB(24, 12, 12, 8),
+              child: Row(
                 children: [
-                  for (final color in AppThemeColor.values)
-                    _ColorSwatch(
-                      color: color,
-                      selected: settings.themeColor == color,
-                      onTap: () => settings.setThemeColor(color),
-                    ),
+                  Text(
+                    'Settings',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: 'Close',
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
-            _SectionHeader('Status'),
-            _StatusSection(client: client),
-            const SizedBox(height: 24),
-            _SectionHeader('Security'),
-            _DevicesSection(client: client),
-            const SizedBox(height: 24),
-            _SectionHeader('Account'),
-            _ProfileSection(client: client),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('Sign out'),
-              onTap: () => confirmLogout(context, client),
+            const Divider(height: 1),
+            Flexible(
+              child: ListenableBuilder(
+                listenable: settings,
+                builder: (context, _) => ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    _SectionHeader('Layout'),
+                    ListTile(
+                      title: const Text('App layout'),
+                      subtitle: const Text(
+                        'Discord-style shows a spaces list on the left with a '
+                        'channel view per space.',
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: SegmentedButton<AppLayout>(
+                        segments: const [
+                          ButtonSegment(
+                            value: AppLayout.discord,
+                            label: Text('Discord-style'),
+                            icon: Icon(Icons.view_sidebar_outlined),
+                          ),
+                          ButtonSegment(
+                            value: AppLayout.classic,
+                            label: Text('Classic list'),
+                            icon: Icon(Icons.view_list_outlined),
+                          ),
+                        ],
+                        selected: {settings.layout},
+                        onSelectionChanged: (selection) =>
+                            settings.setLayout(selection.single),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      title: const Text('Spaces list position'),
+                      enabled: settings.layout == AppLayout.discord,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: SegmentedButton<RailPosition>(
+                        segments: const [
+                          ButtonSegment(
+                            value: RailPosition.left,
+                            label: Text('Left'),
+                            icon: Icon(Icons.align_horizontal_left),
+                          ),
+                          ButtonSegment(
+                            value: RailPosition.right,
+                            label: Text('Right'),
+                            icon: Icon(Icons.align_horizontal_right),
+                          ),
+                        ],
+                        selected: {settings.railPosition},
+                        onSelectionChanged: settings.layout == AppLayout.discord
+                            ? (selection) =>
+                                  settings.setRailPosition(selection.single)
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _SectionHeader('Appearance'),
+                    ListTile(title: const Text('Theme')),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: SegmentedButton<ThemeMode>(
+                        segments: const [
+                          ButtonSegment(
+                            value: ThemeMode.system,
+                            label: Text('System'),
+                            icon: Icon(Icons.brightness_auto),
+                          ),
+                          ButtonSegment(
+                            value: ThemeMode.light,
+                            label: Text('Light'),
+                            icon: Icon(Icons.light_mode_outlined),
+                          ),
+                          ButtonSegment(
+                            value: ThemeMode.dark,
+                            label: Text('Dark'),
+                            icon: Icon(Icons.dark_mode_outlined),
+                          ),
+                        ],
+                        selected: {settings.themeMode},
+                        onSelectionChanged: (selection) =>
+                            settings.setThemeMode(selection.single),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(title: const Text('Color')),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          for (final color in AppThemeColor.values)
+                            _ColorSwatch(
+                              color: color,
+                              selected: settings.themeColor == color,
+                              onTap: () => settings.setThemeColor(color),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _SectionHeader('Status'),
+                    _StatusSection(client: client),
+                    const SizedBox(height: 24),
+                    _SectionHeader('Security'),
+                    _DevicesSection(client: client),
+                    const SizedBox(height: 24),
+                    _SectionHeader('Account'),
+                    _ProfileSection(client: client),
+                    ListTile(
+                      leading: const Icon(Icons.logout),
+                      title: const Text('Sign out'),
+                      onTap: () => confirmLogout(context, client),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -174,11 +218,33 @@ class _DevicesSectionState extends State<_DevicesSection> {
       final request = await deviceKeys.startVerification();
       if (!mounted) return;
       await KeyVerificationDialog.show(context, request);
-      if (mounted) setState(() {});
+      await _loadDevices();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
+  /// Verifies this session against the user's cross-signing identity: sends
+  /// a verification request to all other own devices, to be confirmed on one
+  /// of them. On success the master key becomes trusted and every
+  /// cross-signed device turns verified here as well.
+  Future<void> _verifySession() async {
+    final keysList = widget.client.userDeviceKeys[widget.client.userID];
+    if (keysList == null) return;
+    try {
+      final request = await keysList.startVerification();
+      if (!mounted) return;
+      await KeyVerificationDialog.show(context, request);
+      await _loadDevices();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     }
   }
@@ -205,8 +271,8 @@ class _DevicesSectionState extends State<_DevicesSection> {
         title: Text('Loading devices…'),
       );
     }
-    final devices =
-        client.userDeviceKeys[client.userID]?.deviceKeys.values.toList() ?? [];
+    final keysList = client.userDeviceKeys[client.userID];
+    final devices = keysList?.deviceKeys.values.toList() ?? [];
     if (devices.isEmpty) {
       return const ListTile(
         leading: Icon(Icons.devices_outlined),
@@ -214,8 +280,26 @@ class _DevicesSectionState extends State<_DevicesSection> {
       );
     }
     final colorScheme = Theme.of(context).colorScheme;
+    const green = Color(0xFF43A047);
+    final masterKey = keysList?.masterKey;
+    final sessionTrusted = masterKey == null || masterKey.verified;
     return Column(
       children: [
+        if (!sessionTrusted)
+          ListTile(
+            leading: Icon(Icons.gpp_maybe_outlined, color: colorScheme.error),
+            title: const Text('This session is not verified'),
+            subtitle: const Text(
+              'Your other devices are cross-signed, but this session does '
+              'not trust your identity key yet, so they all show as '
+              'unverified. Verify this session from one of your other '
+              'devices to fix that.',
+            ),
+            trailing: FilledButton(
+              onPressed: _verifySession,
+              child: const Text('Verify session'),
+            ),
+          ),
         for (final device in devices)
           ListTile(
             leading: Icon(
@@ -228,20 +312,25 @@ class _DevicesSectionState extends State<_DevicesSection> {
               [
                 device.deviceId ?? '?',
                 if (device.deviceId == client.deviceID) 'this device',
-                device.verified ? 'verified' : 'unverified',
+                if (device.verified)
+                  'verified'
+                else if (!sessionTrusted && device.signed)
+                  'cross-signed · trusted once this session is verified'
+                else
+                  'unverified',
               ].join(' · '),
               style: TextStyle(
                 color: device.verified
-                    ? const Color(0xFF43A047)
+                    ? green
+                    : (!sessionTrusted && device.signed)
+                    ? const Color(0xFFF9A825)
                     : colorScheme.error,
               ),
             ),
             trailing: device.deviceId == client.deviceID || device.verified
                 ? Icon(
                     device.verified ? Icons.verified_user : Icons.computer,
-                    color: device.verified
-                        ? const Color(0xFF43A047)
-                        : null,
+                    color: device.verified ? green : null,
                   )
                 : TextButton(
                     onPressed: () => _verify(device),
@@ -264,7 +353,7 @@ class _ProfileSection extends StatefulWidget {
 }
 
 class _ProfileSectionState extends State<_ProfileSection> {
-  Profile? _profile;
+  ProfileInformation? _profile;
   bool _busy = false;
 
   @override
@@ -274,13 +363,25 @@ class _ProfileSectionState extends State<_ProfileSection> {
   }
 
   Future<void> _loadProfile() async {
+    final userId = widget.client.userID;
+    if (userId == null) return;
     try {
-      final profile = await widget.client.fetchOwnProfile();
+      final profile = await widget.client.getUserProfile(userId);
       if (mounted) setState(() => _profile = profile);
     } catch (_) {}
   }
 
-  Future<void> _changeAvatar() async {
+  Uri? get _bannerUrl {
+    final value = _profile?.additionalProperties[bannerProfileField];
+    if (value is String && value.startsWith('mxc://')) {
+      return Uri.tryParse(value);
+    }
+    return null;
+  }
+
+  /// Picks an image, uploads it and stores its mxc URI in the profile field
+  /// [fieldName].
+  Future<void> _uploadImageTo(String fieldName) async {
     final picked = await openFile(
       acceptedTypeGroups: [
         const XTypeGroup(
@@ -295,18 +396,15 @@ class _ProfileSectionState extends State<_ProfileSection> {
     try {
       final bytes = await picked.readAsBytes();
       final mxc = await client.uploadContent(bytes, filename: picked.name);
-      await client.setProfileField(
-        client.userID!,
-        'avatar_url',
-        {'avatar_url': mxc.toString()},
-      );
-      if (mounted) {
-        setState(() => _profile?.avatarUrl = mxc);
-      }
+      await client.setProfileField(client.userID!, fieldName, {
+        fieldName: mxc.toString(),
+      });
+      await _loadProfile();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -317,29 +415,70 @@ class _ProfileSectionState extends State<_ProfileSection> {
   Widget build(BuildContext context) {
     final client = widget.client;
     final userId = client.userID ?? 'Unknown user';
-    return ListTile(
-      leading: MxcAvatar(
-        client: client,
-        name: _profile?.displayName ?? userId,
-        avatarUrl: _profile?.avatarUrl,
-      ),
-      title: Text(_profile?.displayName ?? userId),
-      subtitle: Text(
-        '$userId · ${client.homeserver?.host ?? ''}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: _busy
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : IconButton(
-              tooltip: 'Change profile picture',
-              icon: const Icon(Icons.add_a_photo_outlined),
-              onPressed: _changeAvatar,
+    final displayName = _profile?.displayname ?? userId;
+    final bannerUrl = _bannerUrl;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 96,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (bannerUrl != null)
+                    MxcImage(
+                      client: client,
+                      uri: bannerUrl,
+                      placeholder: (_) => ColoredBox(
+                        color: InitialsAvatar.colorFor(displayName),
+                      ),
+                    )
+                  else
+                    ColoredBox(color: InitialsAvatar.colorFor(displayName)),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IconButton.filledTonal(
+                      tooltip: 'Change banner',
+                      icon: const Icon(Icons.panorama_outlined, size: 20),
+                      onPressed:
+                          _busy ? null : () => _uploadImageTo(bannerProfileField),
+                    ),
+                  ),
+                ],
+              ),
             ),
+          ),
+        ),
+        ListTile(
+          leading: MxcAvatar(
+            client: client,
+            name: displayName,
+            avatarUrl: _profile?.avatarUrl,
+          ),
+          title: Text(displayName),
+          subtitle: Text(
+            '$userId · ${client.homeserver?.host ?? ''}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: _busy
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : IconButton(
+                  tooltip: 'Change profile picture',
+                  icon: const Icon(Icons.add_a_photo_outlined),
+                  onPressed: () => _uploadImageTo('avatar_url'),
+                ),
+        ),
+      ],
     );
   }
 }
@@ -399,14 +538,15 @@ class _StatusSectionState extends State<_StatusSection> {
         statusMsg: message.isEmpty ? null : message,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Status updated')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Status updated')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -530,8 +670,8 @@ class _SectionHeader extends StatelessWidget {
       child: Text(
         title,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-            ),
+          color: Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }

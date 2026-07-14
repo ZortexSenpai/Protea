@@ -5,6 +5,7 @@ import '../room_actions.dart';
 import '../settings.dart';
 import '../widgets/mxc_avatar.dart';
 import '../widgets/presence_indicator.dart';
+import '../widgets/user_profile_card.dart';
 import 'room_page.dart';
 import 'settings_page.dart';
 
@@ -37,10 +38,10 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
 
   /// All room ids referenced as a child by any joined space.
   Set<String> get _roomIdsInSpaces => {
-        for (final space in _spaces)
-          for (final child in space.spaceChildren)
-            if (child.roomId != null) child.roomId!,
-      };
+    for (final space in _spaces)
+      for (final child in space.spaceChildren)
+        if (child.roomId != null) child.roomId!,
+  };
 
   List<Room> _roomsForSelection() {
     final spaceId = _selectedSpaceId;
@@ -61,74 +62,104 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
         .toList();
   }
 
-  Future<void> _openRoom(Room room, bool wideScreen) async {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  Future<void> _openRoom(Room room) async {
     if (!await confirmRoomTap(context, room)) return;
     if (!mounted) return;
-    if (wideScreen) {
-      setState(() => _selectedRoomId = room.id);
+    setState(() => _selectedRoomId = room.id);
+    // Close the drawer when navigating on a narrow window.
+    final scaffold = _scaffoldKey.currentState;
+    if (scaffold?.isDrawerOpen ?? false) scaffold!.closeDrawer();
+    if (scaffold?.isEndDrawerOpen ?? false) scaffold!.closeEndDrawer();
+  }
+
+  void _openMenu() {
+    final scaffold = _scaffoldKey.currentState;
+    if (widget.settings.railPosition == RailPosition.left) {
+      scaffold?.openDrawer();
     } else {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => RoomPage(room: room)),
-      );
+      scaffold?.openEndDrawer();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: StreamBuilder<SyncUpdate>(
-          stream: _client.onSync.stream,
-          builder: (context, _) => LayoutBuilder(
-            builder: (context, constraints) {
-              final wide = constraints.maxWidth >= 900;
-              final selectedRoom = _selectedRoomId == null
-                  ? null
-                  : _client.getRoomById(_selectedRoomId!);
+    return StreamBuilder<SyncUpdate>(
+      stream: _client.onSync.stream,
+      builder: (context, _) {
+        final wide = MediaQuery.sizeOf(context).width >= 900;
+        final selectedRoom = _selectedRoomId == null
+            ? null
+            : _client.getRoomById(_selectedRoomId!);
 
-              final rail = _SpaceRail(
-                spaces: _spaces,
-                selectedSpaceId: _selectedSpaceId,
-                onSelect: (spaceId) => setState(() {
-                  _selectedSpaceId = spaceId;
-                  _selectedRoomId = null;
-                }),
-              );
-              final channels = _ChannelColumn(
-                client: _client,
-                settings: widget.settings,
-                title: _selectedSpaceId == null
-                    ? 'Home'
-                    : _client
-                            .getRoomById(_selectedSpaceId!)
-                            ?.getLocalizedDisplayname() ??
-                        'Space',
-                rooms: _roomsForSelection(),
-                selectedRoomId: wide ? _selectedRoomId : null,
-                onRoomTap: (room) => _openRoom(room, wide),
-                fillWidth: !wide,
-              );
-              final chat = wide
-                  ? Expanded(
-                      child: selectedRoom == null
-                          ? const _NoRoomSelected()
-                          : RoomPage(
-                              key: ValueKey(selectedRoom.id),
-                              room: selectedRoom,
-                            ),
-                    )
-                  : null;
+        final rail = _SpaceRail(
+          spaces: _spaces,
+          selectedSpaceId: _selectedSpaceId,
+          onSelect: (spaceId) => setState(() {
+            _selectedSpaceId = spaceId;
+            _selectedRoomId = null;
+          }),
+        );
+        final channels = _ChannelColumn(
+          client: _client,
+          settings: widget.settings,
+          title: _selectedSpaceId == null
+              ? 'Home'
+              : _client
+                        .getRoomById(_selectedSpaceId!)
+                        ?.getLocalizedDisplayname() ??
+                    'Space',
+          rooms: _roomsForSelection(),
+          selectedRoomId: _selectedRoomId,
+          onRoomTap: _openRoom,
+          fillWidth: !wide,
+        );
 
-              final children = [rail, channels, ?chat];
-              return Row(
+        if (wide) {
+          // Wide window: the navigation stays open next to the chat.
+          final chat = Expanded(
+            child: selectedRoom == null
+                ? const _NoRoomSelected()
+                : RoomPage(key: ValueKey(selectedRoom.id), room: selectedRoom),
+          );
+          final children = [rail, channels, chat];
+          return Scaffold(
+            body: SafeArea(
+              child: Row(
                 children: widget.settings.railPosition == RailPosition.left
                     ? children
                     : children.reversed.toList(),
-              );
-            },
+              ),
+            ),
+          );
+        }
+
+        // Narrow window: the navigation moves into a drawer behind a
+        // hamburger menu.
+        final drawer = Drawer(
+          width: 352,
+          child: SafeArea(child: Row(children: [rail, channels])),
+        );
+        final leftRail = widget.settings.railPosition == RailPosition.left;
+        return Scaffold(
+          key: _scaffoldKey,
+          drawer: leftRail ? drawer : null,
+          endDrawer: leftRail ? null : drawer,
+          appBar: selectedRoom == null
+              ? AppBar(title: const Text('Protea'))
+              : null,
+          body: SafeArea(
+            child: selectedRoom == null
+                ? const _NoRoomSelected()
+                : RoomPage(
+                    key: ValueKey(selectedRoom.id),
+                    room: selectedRoom,
+                    onOpenMenu: _openMenu,
+                  ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -364,10 +395,7 @@ class _ChannelTile extends StatelessWidget {
                 ],
               ),
             )
-          : Icon(
-              isInvite ? Icons.mail_outline : Icons.tag,
-              size: 20,
-            ),
+          : Icon(isInvite ? Icons.mail_outline : Icons.tag, size: 20),
       title: Text(
         room.getLocalizedDisplayname(),
         maxLines: 1,
@@ -379,8 +407,8 @@ class _ChannelTile extends StatelessWidget {
       trailing: room.notificationCount > 0
           ? Badge(label: Text(room.notificationCount.toString()))
           : isInvite
-              ? const Badge(label: Text('!'))
-              : null,
+          ? const Badge(label: Text('!'))
+          : null,
       onTap: onTap,
     );
   }
@@ -401,12 +429,21 @@ class _UserFooter extends StatelessWidget {
         children: [
           FutureBuilder<Profile>(
             future: client.fetchOwnProfile(),
-            builder: (context, snapshot) => PresenceAvatar(
-              client: client,
-              userId: userId,
-              name: snapshot.data?.displayName ?? userId,
-              avatarUrl: snapshot.data?.avatarUrl,
-              radius: 16,
+            builder: (context, snapshot) => GestureDetector(
+              onTap: () => showUserProfileCard(
+                context,
+                client: client,
+                userId: userId,
+                displayName: snapshot.data?.displayName,
+                avatarUrl: snapshot.data?.avatarUrl,
+              ),
+              child: PresenceAvatar(
+                client: client,
+                userId: userId,
+                name: snapshot.data?.displayName ?? userId,
+                avatarUrl: snapshot.data?.avatarUrl,
+                radius: 16,
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -421,12 +458,8 @@ class _UserFooter extends StatelessWidget {
           IconButton(
             tooltip: 'Settings',
             icon: const Icon(Icons.settings_outlined, size: 20),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) =>
-                    SettingsPage(client: client, settings: settings),
-              ),
-            ),
+            onPressed: () =>
+                showSettingsDialog(context, client: client, settings: settings),
           ),
         ],
       ),
