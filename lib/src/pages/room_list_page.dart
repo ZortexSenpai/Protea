@@ -4,7 +4,8 @@ import 'package:matrix/matrix.dart';
 
 import '../room_actions.dart';
 import '../settings.dart';
-import '../widgets/initials_avatar.dart';
+import '../widgets/mxc_avatar.dart';
+import '../widgets/presence_indicator.dart';
 import 'room_page.dart';
 import 'settings_page.dart';
 
@@ -99,8 +100,20 @@ class RoomListPage extends StatelessWidget {
               final lastEvent = room.lastEvent;
               final displayname = room.getLocalizedDisplayname();
               final isInvite = room.membership == Membership.invite;
+              final directUserId = room.directChatMatrixID;
               return ListTile(
-                leading: InitialsAvatar(name: displayname),
+                leading: directUserId != null
+                    ? PresenceAvatar(
+                        client: client,
+                        userId: directUserId,
+                        name: displayname,
+                        avatarUrl: room.avatar,
+                      )
+                    : MxcAvatar(
+                        client: client,
+                        name: displayname,
+                        avatarUrl: room.avatar,
+                      ),
                 title: Text(
                   displayname,
                   maxLines: 1,

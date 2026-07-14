@@ -3,7 +3,8 @@ import 'package:matrix/matrix.dart';
 
 import '../room_actions.dart';
 import '../settings.dart';
-import '../widgets/initials_avatar.dart';
+import '../widgets/mxc_avatar.dart';
+import '../widgets/presence_indicator.dart';
 import 'room_page.dart';
 import 'settings_page.dart';
 
@@ -188,8 +189,10 @@ class _SpaceRail extends StatelessWidget {
                       return room?.isUnreadOrInvited ?? false;
                     }),
                     onTap: () => onSelect(space.id),
-                    child: InitialsAvatar(
+                    child: MxcAvatar(
+                      client: space.client,
                       name: space.getLocalizedDisplayname(),
+                      avatarUrl: space.avatar,
                       radius: 24,
                     ),
                   ),
@@ -337,17 +340,34 @@ class _ChannelTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isInvite = room.membership == Membership.invite;
+    final directUserId = room.directChatMatrixID;
     return ListTile(
       dense: true,
       selected: selected,
-      leading: Icon(
-        room.isDirectChat
-            ? Icons.person_outline
-            : isInvite
-                ? Icons.mail_outline
-                : Icons.tag,
-        size: 20,
-      ),
+      leading: directUserId != null
+          ? SizedBox(
+              width: 20,
+              height: 20,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.person_outline, size: 20),
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: PresenceDot(
+                      client: room.client,
+                      userId: directUserId,
+                      size: 9,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : Icon(
+              isInvite ? Icons.mail_outline : Icons.tag,
+              size: 20,
+            ),
       title: Text(
         room.getLocalizedDisplayname(),
         maxLines: 1,
@@ -379,7 +399,16 @@ class _UserFooter extends StatelessWidget {
       padding: const EdgeInsets.all(8),
       child: Row(
         children: [
-          InitialsAvatar(name: userId, radius: 16),
+          FutureBuilder<Profile>(
+            future: client.fetchOwnProfile(),
+            builder: (context, snapshot) => PresenceAvatar(
+              client: client,
+              userId: userId,
+              name: snapshot.data?.displayName ?? userId,
+              avatarUrl: snapshot.data?.avatarUrl,
+              radius: 16,
+            ),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:flutter_vodozemac/flutter_vodozemac.dart' as vod;
+import 'package:matrix/encryption.dart';
 import 'package:matrix/matrix.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -12,6 +14,14 @@ Future<Client> buildMatrixClient() async {
   final dir = await getApplicationSupportDirectory();
   final fileStorage = Directory(p.join(dir.path, 'media'));
   await fileStorage.create(recursive: true);
+
+  // Initialize the vodozemac crypto library. The SDK enables E2EE (and with
+  // it device verification) automatically when this succeeded.
+  try {
+    await vod.init();
+  } catch (e, s) {
+    Logs().e('Failed to initialize end-to-end encryption', e, s);
+  }
 
   final DatabaseFactory dbFactory;
   if (Platform.isAndroid || Platform.isIOS) {
@@ -40,6 +50,10 @@ Future<Client> buildMatrixClient() async {
     supportedLoginTypes: {
       AuthenticationTypes.password,
       AuthenticationTypes.sso,
+    },
+    verificationMethods: {
+      KeyVerificationMethod.emoji,
+      KeyVerificationMethod.numbers,
     },
   );
 

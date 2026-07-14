@@ -5,6 +5,7 @@ import 'src/matrix.dart';
 import 'src/pages/home_page.dart';
 import 'src/pages/login_page.dart';
 import 'src/settings.dart';
+import 'src/widgets/key_verification_dialog.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,8 +20,6 @@ class ProteaApp extends StatelessWidget {
   final Client client;
   final AppSettings settings;
 
-  static const _seed = Color(0xFFC2185B);
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -29,11 +28,13 @@ class ProteaApp extends StatelessWidget {
         title: 'Protea',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: _seed),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: settings.themeColor.seed,
+          ),
         ),
         darkTheme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
-            seedColor: _seed,
+            seedColor: settings.themeColor.seed,
             brightness: Brightness.dark,
           ),
         ),
@@ -43,7 +44,10 @@ class ProteaApp extends StatelessWidget {
           initialData:
               client.isLogged() ? LoginState.loggedIn : LoginState.loggedOut,
           builder: (context, snapshot) => snapshot.data == LoginState.loggedIn
-              ? HomePage(client: client, settings: settings)
+              ? KeyVerificationListener(
+                  client: client,
+                  child: HomePage(client: client, settings: settings),
+                )
               : LoginPage(client: client),
         ),
       ),
