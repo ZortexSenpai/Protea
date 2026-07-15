@@ -59,6 +59,7 @@ class _RoomPageState extends State<RoomPage> {
   Event? _replyTo;
   Event? _editing;
   Event? _threadRoot;
+  final _pageScaffoldKey = GlobalKey<ScaffoldState>();
   List<User> _mentionSuggestions = [];
   List<SlashCommand> _commandSuggestions = [];
 
@@ -1049,487 +1050,526 @@ class _RoomPageState extends State<RoomPage> {
         widget.room.encrypted && !_client.encryptionEnabled;
     final directUserId = widget.room.directChatMatrixID;
     final displayname = widget.room.getLocalizedDisplayname();
-    return Scaffold(
-      appBar: AppBar(
-        leading: widget.onOpenMenu != null
-            ? IconButton(
-                tooltip: context.l10n.channels,
-                icon: const Icon(Icons.menu),
-                onPressed: widget.onOpenMenu,
-              )
-            : null,
-        title: Row(
-          children: [
-            if (directUserId != null)
-              GestureDetector(
-                onTap: () => showUserProfileCard(
-                  context,
-                  client: _client,
-                  userId: directUserId,
-                  displayName: displayname,
-                  avatarUrl: widget.room.avatar,
-                ),
-                child: PresenceAvatar(
-                  client: _client,
-                  userId: directUserId,
-                  name: displayname,
-                  avatarUrl: widget.room.avatar,
-                  radius: 16,
-                ),
-              )
-            else
-              MxcAvatar(
-                client: _client,
-                name: displayname,
-                avatarUrl: widget.room.avatar,
-                radius: 16,
-              ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    displayname,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (directUserId != null)
-                    PresenceLabel(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // On narrow panes the member list overlays the chat as an end
+        // drawer instead of squeezing the content aside.
+        final overlayMembers = constraints.maxWidth < 600;
+        return Scaffold(
+          key: _pageScaffoldKey,
+          endDrawer: overlayMembers
+              ? Drawer(width: 280, child: _MemberListPanel(room: widget.room))
+              : null,
+          appBar: AppBar(
+            leading: widget.onOpenMenu != null
+                ? IconButton(
+                    tooltip: context.l10n.channels,
+                    icon: const Icon(Icons.menu),
+                    onPressed: widget.onOpenMenu,
+                  )
+                : null,
+            title: Row(
+              children: [
+                if (directUserId != null)
+                  GestureDetector(
+                    onTap: () => showUserProfileCard(
+                      context,
                       client: _client,
                       userId: directUserId,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      displayName: displayname,
+                      avatarUrl: widget.room.avatar,
                     ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: context.l10n.searchMessages,
-            icon: const Icon(Icons.search),
-            onPressed: () => showMessageSearch(
-              context,
-              widget.room,
-              onJumpToMessage: _jumpToEvent,
-            ),
-          ),
-          IconButton(
-            tooltip: context.l10n.pinnedMessages,
-            icon: const Icon(Icons.push_pin_outlined),
-            onPressed: () => showPinnedMessages(
-              context,
-              widget.room,
-              onJumpToMessage: _jumpToEvent,
-            ),
-          ),
-          IconButton(
-            tooltip: context.l10n.members,
-            icon: Icon(
-              SettingsScope.of(context).showMemberList
-                  ? Icons.people
-                  : Icons.people_outline,
-            ),
-            onPressed: () {
-              final settings = SettingsScope.of(context);
-              settings.setShowMemberList(!settings.showMemberList);
-            },
-          ),
-          IconButton(
-            tooltip: context.l10n.channelSettings,
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => showRoomSettingsDialog(context, widget.room),
-          ),
-        ],
-      ),
-      body: DropTarget(
-        onDragDone: _onDropFiles,
-        onDragEntered: (_) => setState(() => _dragging = true),
-        onDragExited: (_) => setState(() => _dragging = false),
-        child: Stack(
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+                    child: PresenceAvatar(
+                      client: _client,
+                      userId: directUserId,
+                      name: displayname,
+                      avatarUrl: widget.room.avatar,
+                      radius: 16,
+                    ),
+                  )
+                else
+                  MxcAvatar(
+                    client: _client,
+                    name: displayname,
+                    avatarUrl: widget.room.avatar,
+                    radius: 16,
+                  ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (encryptedWithoutSupport)
-                        MaterialBanner(
-                          content: Text(
-                            context.l10n.roomEncryptedNoE2eeSupport,
-                          ),
-                          leading: const Icon(Icons.lock_outline),
-                          actions: const [SizedBox.shrink()],
-                        ),
-                      Expanded(
-                        child: Stack(
-                          children: [
-                            timeline == null
-                                ? const Center(
-                                    child: CircularProgressIndicator(),
-                                  )
-                                : _TimelineList(
-                                    timeline: timeline,
-                                    events: _visibleEvents(timeline),
-                                    itemScrollController: _itemScrollController,
-                                    itemPositionsListener:
-                                        _itemPositionsListener,
-                                    client: _client,
-                                    highlightedEventId: _highlightedEventId,
-                                    unreadMarkerEventId: _unreadMarkerEventId,
-                                    receiptsByEvent: _receiptsByEvent(),
-                                    onReply: (event) => setState(() {
-                                      _replyTo = event;
-                                      _editing = null;
-                                    }),
-                                    onEdit: _startEdit,
-                                    onOpenThread: _openThread,
-                                    onSaveAttachment: _saveAttachment,
-                                  ),
-                            if (timeline?.canRequestFuture ?? false)
-                              Positioned(
-                                right: 16,
-                                bottom: 12,
-                                child: FloatingActionButton.small(
-                                  tooltip: context.l10n.jumpToLatestMessages,
-                                  onPressed: _returnToLive,
-                                  child: const Icon(
-                                    Icons.keyboard_double_arrow_down,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+                      Text(
+                        displayname,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      _buildPendingSends(),
-                      _buildTypingIndicator(),
-                      _buildEditBar(),
-                      _buildReplyBar(),
-                      if (_commandSuggestions.isNotEmpty)
-                        Container(
-                          margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          constraints: const BoxConstraints(maxHeight: 240),
-                          child: ListView(
-                            shrinkWrap: true,
-                            children: [
-                              for (final command in _commandSuggestions)
-                                ListTile(
-                                  dense: true,
-                                  title: Text(
-                                    '/${command.name} ${command.argsHint}'
-                                        .trim(),
-                                  ),
-                                  subtitle: Text(
-                                    localizedCommandDescription(
-                                      context.l10n,
-                                      command,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  onTap: () => _applyCommandSuggestion(command),
-                                ),
-                            ],
-                          ),
+                      if (directUserId != null)
+                        PresenceLabel(
+                          client: _client,
+                          userId: directUserId,
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
-                      if (_mentionSuggestions.isNotEmpty)
-                        Container(
-                          margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          constraints: const BoxConstraints(maxHeight: 240),
-                          child: ListView(
-                            shrinkWrap: true,
-                            children: [
-                              for (final user in _mentionSuggestions)
-                                ListTile(
-                                  dense: true,
-                                  leading: MxcAvatar(
-                                    client: _client,
-                                    name: user.calcDisplayname(),
-                                    avatarUrl: user.avatarUrl,
-                                    radius: 12,
-                                  ),
-                                  title: Text(
-                                    user.calcDisplayname(),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  subtitle: Text(
-                                    user.id,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  onTap: () => _insertMention(user),
-                                ),
-                            ],
-                          ),
-                        ),
-                      SafeArea(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                          child: _recording
-                              ? _buildRecordingBar()
-                              : Container(
-                                  // Discord-style composer: one rounded box
-                                  // with every control inside it.
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.surfaceContainerHigh,
-                                    borderRadius: BorderRadius.circular(26),
-                                  ),
-                                  child: Row(
-                                    // Icons hug the bottom while the field
-                                    // grows over multiple lines.
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      const SizedBox(width: 4),
-                                      SizedBox(
-                                        height: 48,
-                                        child: Center(
-                                          child: PopupMenuButton<String>(
-                                            tooltip: context.l10n.attachments,
-                                            enabled: !encryptedWithoutSupport,
-                                            icon: Icon(
-                                              Icons.add_circle_outline,
-                                              size: 22,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.onSurfaceVariant,
-                                            ),
-                                            onSelected: (value) {
-                                              switch (value) {
-                                                case 'file':
-                                                  _attachFile();
-                                                case 'poll':
-                                                  showCreatePollDialog(
-                                                    context,
-                                                    widget.room,
-                                                  );
-                                                case 'sticker':
-                                                  showStickerPicker(
-                                                    context,
-                                                    widget.room,
-                                                  );
-                                              }
-                                            },
-                                            itemBuilder: (context) => [
-                                              PopupMenuItem(
-                                                value: 'file',
-                                                child: Text(
-                                                  context.l10n.attachFile,
-                                                ),
-                                              ),
-                                              PopupMenuItem(
-                                                value: 'poll',
-                                                child: Text(context.l10n.poll),
-                                              ),
-                                              PopupMenuItem(
-                                                value: 'sticker',
-                                                child: Text(
-                                                  context.l10n.sticker,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Focus(
-                                          onKeyEvent: (node, event) {
-                                            if (event is! KeyDownEvent) {
-                                              return KeyEventResult.ignored;
-                                            }
-                                            // Enter sends, Shift+Enter (or any other
-                                            // modifier) inserts a line break.
-                                            if (event.logicalKey ==
-                                                    LogicalKeyboardKey.enter ||
-                                                event.logicalKey ==
-                                                    LogicalKeyboardKey
-                                                        .numpadEnter) {
-                                              final keyboard =
-                                                  HardwareKeyboard.instance;
-                                              if (!keyboard.isShiftPressed &&
-                                                  !keyboard.isAltPressed &&
-                                                  !keyboard.isControlPressed &&
-                                                  !keyboard.isMetaPressed) {
-                                                _send();
-                                                return KeyEventResult.handled;
-                                              }
-                                              return KeyEventResult.ignored;
-                                            }
-                                            // Sends a pasted image alongside the field's
-                                            // own (text) paste handling.
-                                            if (event.logicalKey ==
-                                                    LogicalKeyboardKey.keyV &&
-                                                (HardwareKeyboard
-                                                        .instance
-                                                        .isMetaPressed ||
-                                                    HardwareKeyboard
-                                                        .instance
-                                                        .isControlPressed)) {
-                                              _tryPasteImage();
-                                            }
-                                            return KeyEventResult.ignored;
-                                          },
-                                          child: TextField(
-                                            controller: _sendController,
-                                            enabled: !encryptedWithoutSupport,
-                                            decoration: InputDecoration(
-                                              hintText: context.l10n.message,
-                                              border: InputBorder.none,
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 12,
-                                                  ),
-                                            ),
-                                            keyboardType:
-                                                TextInputType.multiline,
-                                            textInputAction:
-                                                TextInputAction.newline,
-                                            onChanged: _onInputChanged,
-                                            minLines: 1,
-                                            maxLines: 8,
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        height: 48,
-                                        child: Center(
-                                          child: IconButton(
-                                            tooltip: context.l10n.gif,
-                                            onPressed: encryptedWithoutSupport
-                                                ? null
-                                                : _pickGif,
-                                            icon: Icon(
-                                              Icons.gif_box_outlined,
-                                              size: 22,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.onSurfaceVariant,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        height: 48,
-                                        child: Center(
-                                          child: IconButton(
-                                            tooltip: context.l10n.emoji,
-                                            onPressed: encryptedWithoutSupport
-                                                ? null
-                                                : _pickEmoji,
-                                            icon: Icon(
-                                              Icons.emoji_emotions_outlined,
-                                              size: 22,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.onSurfaceVariant,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        height: 48,
-                                        child: Center(
-                                          child: IconButton(
-                                            tooltip: context.l10n.voiceMessage,
-                                            onPressed: encryptedWithoutSupport
-                                                ? null
-                                                : _startRecording,
-                                            icon: Icon(
-                                              Icons.mic_none,
-                                              size: 22,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.onSurfaceVariant,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        height: 48,
-                                        child: Center(
-                                          child: IconButton(
-                                            tooltip: context.l10n.send,
-                                            onPressed: encryptedWithoutSupport
-                                                ? null
-                                                : _send,
-                                            icon: Icon(
-                                              Icons.send,
-                                              size: 22,
-                                              color: Theme.of(
-                                                context,
-                                              ).colorScheme.primary,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                    ],
-                                  ),
-                                ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
-                if (_threadRoot != null && timeline != null)
-                  _ThreadPanel(
-                    room: widget.room,
-                    timeline: timeline,
-                    root: _threadRoot!,
-                    onClose: () => setState(() => _threadRoot = null),
-                  ),
-                if (SettingsScope.of(context).showMemberList)
-                  _MemberListPanel(room: widget.room),
               ],
             ),
-            if (_dragging)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: Container(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.12),
-                    alignment: Alignment.center,
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.file_upload_outlined),
-                            const SizedBox(width: 8),
-                            Text(
-                              context.l10n.dropFilesToUpload,
-                              style: Theme.of(context).textTheme.titleMedium,
+            actions: [
+              IconButton(
+                tooltip: context.l10n.searchMessages,
+                icon: const Icon(Icons.search),
+                onPressed: () => showMessageSearch(
+                  context,
+                  widget.room,
+                  onJumpToMessage: _jumpToEvent,
+                ),
+              ),
+              IconButton(
+                tooltip: context.l10n.pinnedMessages,
+                icon: const Icon(Icons.push_pin_outlined),
+                onPressed: () => showPinnedMessages(
+                  context,
+                  widget.room,
+                  onJumpToMessage: _jumpToEvent,
+                ),
+              ),
+              IconButton(
+                tooltip: context.l10n.members,
+                icon: Icon(
+                  SettingsScope.of(context).showMemberList
+                      ? Icons.people
+                      : Icons.people_outline,
+                ),
+                onPressed: () {
+                  if (overlayMembers) {
+                    _pageScaffoldKey.currentState?.openEndDrawer();
+                    return;
+                  }
+                  final settings = SettingsScope.of(context);
+                  settings.setShowMemberList(!settings.showMemberList);
+                },
+              ),
+              IconButton(
+                tooltip: context.l10n.channelSettings,
+                icon: const Icon(Icons.settings_outlined),
+                onPressed: () => showRoomSettingsDialog(context, widget.room),
+              ),
+            ],
+          ),
+          body: DropTarget(
+            onDragDone: _onDropFiles,
+            onDragEntered: (_) => setState(() => _dragging = true),
+            onDragExited: (_) => setState(() => _dragging = false),
+            child: Stack(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [
+                          if (encryptedWithoutSupport)
+                            MaterialBanner(
+                              content: Text(
+                                context.l10n.roomEncryptedNoE2eeSupport,
+                              ),
+                              leading: const Icon(Icons.lock_outline),
+                              actions: const [SizedBox.shrink()],
                             ),
-                          ],
+                          Expanded(
+                            child: Stack(
+                              children: [
+                                timeline == null
+                                    ? const Center(
+                                        child: CircularProgressIndicator(),
+                                      )
+                                    : _TimelineList(
+                                        timeline: timeline,
+                                        events: _visibleEvents(timeline),
+                                        itemScrollController:
+                                            _itemScrollController,
+                                        itemPositionsListener:
+                                            _itemPositionsListener,
+                                        client: _client,
+                                        highlightedEventId: _highlightedEventId,
+                                        unreadMarkerEventId:
+                                            _unreadMarkerEventId,
+                                        receiptsByEvent: _receiptsByEvent(),
+                                        onReply: (event) => setState(() {
+                                          _replyTo = event;
+                                          _editing = null;
+                                        }),
+                                        onEdit: _startEdit,
+                                        onOpenThread: _openThread,
+                                        onSaveAttachment: _saveAttachment,
+                                      ),
+                                if (timeline?.canRequestFuture ?? false)
+                                  Positioned(
+                                    right: 16,
+                                    bottom: 12,
+                                    child: FloatingActionButton.small(
+                                      tooltip:
+                                          context.l10n.jumpToLatestMessages,
+                                      onPressed: _returnToLive,
+                                      child: const Icon(
+                                        Icons.keyboard_double_arrow_down,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          _buildPendingSends(),
+                          _buildTypingIndicator(),
+                          _buildEditBar(),
+                          _buildReplyBar(),
+                          if (_commandSuggestions.isNotEmpty)
+                            Container(
+                              margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              constraints: const BoxConstraints(maxHeight: 240),
+                              child: ListView(
+                                shrinkWrap: true,
+                                children: [
+                                  for (final command in _commandSuggestions)
+                                    ListTile(
+                                      dense: true,
+                                      title: Text(
+                                        '/${command.name} ${command.argsHint}'
+                                            .trim(),
+                                      ),
+                                      subtitle: Text(
+                                        localizedCommandDescription(
+                                          context.l10n,
+                                          command,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      onTap: () =>
+                                          _applyCommandSuggestion(command),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          if (_mentionSuggestions.isNotEmpty)
+                            Container(
+                              margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              constraints: const BoxConstraints(maxHeight: 240),
+                              child: ListView(
+                                shrinkWrap: true,
+                                children: [
+                                  for (final user in _mentionSuggestions)
+                                    ListTile(
+                                      dense: true,
+                                      leading: MxcAvatar(
+                                        client: _client,
+                                        name: user.calcDisplayname(),
+                                        avatarUrl: user.avatarUrl,
+                                        radius: 12,
+                                      ),
+                                      title: Text(
+                                        user.calcDisplayname(),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      subtitle: Text(
+                                        user.id,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      onTap: () => _insertMention(user),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          SafeArea(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                              child: _recording
+                                  ? _buildRecordingBar()
+                                  : Container(
+                                      // Discord-style composer: one rounded box
+                                      // with every control inside it.
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceContainerHigh,
+                                        borderRadius: BorderRadius.circular(26),
+                                      ),
+                                      child: Row(
+                                        // Icons hug the bottom while the field
+                                        // grows over multiple lines.
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          const SizedBox(width: 4),
+                                          SizedBox(
+                                            height: 48,
+                                            child: Center(
+                                              child: PopupMenuButton<String>(
+                                                tooltip:
+                                                    context.l10n.attachments,
+                                                enabled:
+                                                    !encryptedWithoutSupport,
+                                                icon: Icon(
+                                                  Icons.add_circle_outline,
+                                                  size: 22,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                                onSelected: (value) {
+                                                  switch (value) {
+                                                    case 'file':
+                                                      _attachFile();
+                                                    case 'poll':
+                                                      showCreatePollDialog(
+                                                        context,
+                                                        widget.room,
+                                                      );
+                                                    case 'sticker':
+                                                      showStickerPicker(
+                                                        context,
+                                                        widget.room,
+                                                      );
+                                                  }
+                                                },
+                                                itemBuilder: (context) => [
+                                                  PopupMenuItem(
+                                                    value: 'file',
+                                                    child: Text(
+                                                      context.l10n.attachFile,
+                                                    ),
+                                                  ),
+                                                  PopupMenuItem(
+                                                    value: 'poll',
+                                                    child: Text(
+                                                      context.l10n.poll,
+                                                    ),
+                                                  ),
+                                                  PopupMenuItem(
+                                                    value: 'sticker',
+                                                    child: Text(
+                                                      context.l10n.sticker,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Focus(
+                                              onKeyEvent: (node, event) {
+                                                if (event is! KeyDownEvent) {
+                                                  return KeyEventResult.ignored;
+                                                }
+                                                // Enter sends, Shift+Enter (or any other
+                                                // modifier) inserts a line break.
+                                                if (event.logicalKey ==
+                                                        LogicalKeyboardKey
+                                                            .enter ||
+                                                    event.logicalKey ==
+                                                        LogicalKeyboardKey
+                                                            .numpadEnter) {
+                                                  final keyboard =
+                                                      HardwareKeyboard.instance;
+                                                  if (!keyboard
+                                                          .isShiftPressed &&
+                                                      !keyboard.isAltPressed &&
+                                                      !keyboard
+                                                          .isControlPressed &&
+                                                      !keyboard.isMetaPressed) {
+                                                    _send();
+                                                    return KeyEventResult
+                                                        .handled;
+                                                  }
+                                                  return KeyEventResult.ignored;
+                                                }
+                                                // Sends a pasted image alongside the field's
+                                                // own (text) paste handling.
+                                                if (event.logicalKey ==
+                                                        LogicalKeyboardKey
+                                                            .keyV &&
+                                                    (HardwareKeyboard
+                                                            .instance
+                                                            .isMetaPressed ||
+                                                        HardwareKeyboard
+                                                            .instance
+                                                            .isControlPressed)) {
+                                                  _tryPasteImage();
+                                                }
+                                                return KeyEventResult.ignored;
+                                              },
+                                              child: TextField(
+                                                controller: _sendController,
+                                                enabled:
+                                                    !encryptedWithoutSupport,
+                                                decoration: InputDecoration(
+                                                  hintText:
+                                                      context.l10n.message,
+                                                  border: InputBorder.none,
+                                                  contentPadding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 12,
+                                                      ),
+                                                ),
+                                                keyboardType:
+                                                    TextInputType.multiline,
+                                                textInputAction:
+                                                    TextInputAction.newline,
+                                                onChanged: _onInputChanged,
+                                                minLines: 1,
+                                                maxLines: 8,
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            height: 48,
+                                            child: Center(
+                                              child: IconButton(
+                                                tooltip: context.l10n.gif,
+                                                onPressed:
+                                                    encryptedWithoutSupport
+                                                    ? null
+                                                    : _pickGif,
+                                                icon: Icon(
+                                                  Icons.gif_box_outlined,
+                                                  size: 22,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            height: 48,
+                                            child: Center(
+                                              child: IconButton(
+                                                tooltip: context.l10n.emoji,
+                                                onPressed:
+                                                    encryptedWithoutSupport
+                                                    ? null
+                                                    : _pickEmoji,
+                                                icon: Icon(
+                                                  Icons.emoji_emotions_outlined,
+                                                  size: 22,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            height: 48,
+                                            child: Center(
+                                              child: IconButton(
+                                                tooltip:
+                                                    context.l10n.voiceMessage,
+                                                onPressed:
+                                                    encryptedWithoutSupport
+                                                    ? null
+                                                    : _startRecording,
+                                                icon: Icon(
+                                                  Icons.mic_none,
+                                                  size: 22,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            height: 48,
+                                            child: Center(
+                                              child: IconButton(
+                                                tooltip: context.l10n.send,
+                                                onPressed:
+                                                    encryptedWithoutSupport
+                                                    ? null
+                                                    : _send,
+                                                icon: Icon(
+                                                  Icons.send,
+                                                  size: 22,
+                                                  color: Theme.of(
+                                                    context,
+                                                  ).colorScheme.primary,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                        ],
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_threadRoot != null && timeline != null)
+                      _ThreadPanel(
+                        room: widget.room,
+                        timeline: timeline,
+                        root: _threadRoot!,
+                        onClose: () => setState(() => _threadRoot = null),
+                      ),
+                    if (!overlayMembers &&
+                        SettingsScope.of(context).showMemberList)
+                      _MemberListPanel(room: widget.room),
+                  ],
+                ),
+                if (_dragging)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Container(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.12),
+                        alignment: Alignment.center,
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.file_upload_outlined),
+                                const SizedBox(width: 8),
+                                Text(
+                                  context.l10n.dropFilesToUpload,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
-          ],
-        ),
-      ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

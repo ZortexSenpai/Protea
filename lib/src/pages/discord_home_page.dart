@@ -558,6 +558,7 @@ class _SpaceRail extends StatelessWidget {
       onAcceptWithDetails: (details) => onReorder(details.data, space.id),
       builder: (context, candidates, _) => Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             height: 2,
@@ -737,61 +738,57 @@ class _RailButtonState extends State<_RailButton> {
     final colorScheme = Theme.of(context).colorScheme;
     final rounded = _hovered || widget.selected;
     final radius = BorderRadius.circular(rounded ? 14 : 24);
-    final icon = AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      curve: Curves.easeOut,
+    // Material animates shape changes itself and hosts the ink, so hover
+    // highlight and ripple stay clipped to the icon's morphing outline.
+    final icon = SizedBox(
       width: 48,
       height: 48,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
+      child: Material(
         color: widget.backgroundColor ?? colorScheme.surfaceContainerHighest,
-        borderRadius: radius,
+        animationDuration: const Duration(milliseconds: 150),
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(borderRadius: radius),
+        child: InkWell(onTap: widget.onTap, child: widget.child),
       ),
-      child: widget.child,
     );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Tooltip(
         message: widget.tooltip,
-        child: MouseRegion(
-          onEnter: (_) => setState(() => _hovered = true),
-          onExit: (_) => setState(() => _hovered = false),
-          child: InkWell(
-            onTap: widget.onTap,
-            borderRadius: radius,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Discord-style selection pill on the side of the rail.
-                Positioned(
-                  left: 0,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 4,
-                    height: widget.selected
-                        ? 36
-                        : _hovered
-                        ? 20
-                        : (widget.unread ? 8 : 0),
-                    decoration: BoxDecoration(
-                      color: colorScheme.onSurface,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            MouseRegion(
+              onEnter: (_) => setState(() => _hovered = true),
+              onExit: (_) => setState(() => _hovered = false),
+              child: Badge(
+                isLabelVisible: widget.badgeCount > 0,
+                label: Text(
+                  widget.badgeCount > 99 ? '99+' : widget.badgeCount.toString(),
                 ),
-                Badge(
-                  isLabelVisible: widget.badgeCount > 0,
-                  label: Text(
-                    widget.badgeCount > 99
-                        ? '99+'
-                        : widget.badgeCount.toString(),
-                  ),
-                  offset: const Offset(-2, 2),
-                  child: icon,
-                ),
-              ],
+                offset: const Offset(-2, 2),
+                child: icon,
+              ),
             ),
-          ),
+            // Discord-style selection pill on the side of the rail,
+            // painted above the icon so it stays visible.
+            Positioned(
+              left: 0,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 4,
+                height: widget.selected
+                    ? 36
+                    : _hovered
+                    ? 20
+                    : (widget.unread ? 8 : 0),
+                decoration: BoxDecoration(
+                  color: colorScheme.onSurface,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
