@@ -10,6 +10,7 @@ import '../widgets/bootstrap_dialog.dart';
 import '../widgets/initials_avatar.dart';
 import '../widgets/key_verification_dialog.dart';
 import '../widgets/mxc_avatar.dart';
+import '../widgets/text_prompt_dialog.dart';
 import '../widgets/user_banner.dart';
 
 /// Opens the settings as a modal dialog.
@@ -904,30 +905,11 @@ class _ProfileSectionState extends State<_ProfileSection> {
   }
 
   Future<void> _editDisplayName() async {
-    final controller = TextEditingController(text: _profile?.displayname ?? '');
-    final newName = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.l10n.displayName),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-          onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(context.l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: Text(context.l10n.save),
-          ),
-        ],
-      ),
+    final newName = await showTextPromptDialog(
+      context,
+      title: context.l10n.displayName,
+      initial: _profile?.displayname ?? '',
     );
-    controller.dispose();
     if (newName == null || newName.isEmpty) return;
     setState(() => _busy = true);
     try {

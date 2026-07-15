@@ -97,6 +97,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancel => 'Cancel';
 
   @override
+  String get categoryName => 'Category name';
+
+  @override
   String get changeBanner => 'Change banner';
 
   @override
@@ -686,6 +689,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get name => 'Name';
+
+  @override
+  String get newCategory => 'New category';
 
   @override
   String get newChat => 'New chat';

@@ -8,6 +8,7 @@ import 'package:matrix/matrix.dart';
 import '../l10n.dart';
 import 'mxc_avatar.dart';
 import 'space_banner.dart';
+import 'text_prompt_dialog.dart';
 
 /// Settings for a room or space: image, name, topic, notifications,
 /// invitations and leaving.
@@ -232,36 +233,12 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
     required String title,
     required String initial,
     bool multiline = false,
-  }) async {
-    final controller = TextEditingController(text: initial);
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLines: multiline ? 4 : 1,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-          onSubmitted: multiline
-              ? null
-              : (value) => Navigator.of(context).pop(value.trim()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(context.l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: Text(context.l10n.save),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    return result;
-  }
+  }) => showTextPromptDialog(
+    context,
+    title: title,
+    initial: initial,
+    multiline: multiline,
+  );
 
   Future<void> _rename() async {
     final name = await _promptText(

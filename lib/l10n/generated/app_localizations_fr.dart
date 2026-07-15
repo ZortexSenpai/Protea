@@ -97,6 +97,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get cancel => 'Annuler';
 
   @override
+  String get categoryName => 'Nom de la catégorie';
+
+  @override
   String get changeBanner => 'Changer la bannière';
 
   @override
@@ -695,6 +698,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get name => 'Nom';
+
+  @override
+  String get newCategory => 'Nouvelle catégorie';
 
   @override
   String get newChat => 'Nouvelle discussion';

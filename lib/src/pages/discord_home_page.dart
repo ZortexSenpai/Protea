@@ -14,6 +14,7 @@ import '../widgets/room_directory_dialog.dart';
 import '../widgets/room_settings_dialog.dart';
 import '../widgets/space_banner.dart';
 import '../widgets/space_lobby_dialog.dart';
+import '../widgets/text_prompt_dialog.dart';
 import '../widgets/user_banner.dart';
 import '../widgets/user_profile_card.dart';
 import 'room_page.dart';
@@ -154,6 +155,7 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
       if (insertAt < 0) insertAt = ids.length;
       ids.insert(insertAt, drag.room.id);
       final childById = {for (final child in children) child.roomId: child};
+      final writes = <String, Map<String, Object?>>{};
       for (var i = 0; i < ids.length; i++) {
         final id = ids[i];
         final order = i.toString().padLeft(4, '0');
@@ -164,21 +166,53 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
             : drag.via.isNotEmpty
             ? drag.via
             : [_client.userID!.domain!];
-        await _client
-            .setRoomStateWithKey(targetParent.id, EventTypes.SpaceChild, id, {
-              'via': via,
-              'order': order,
-              if (existing?.suggested != null) 'suggested': existing!.suggested,
-            });
+        writes[id] = {
+          'via': via,
+          'order': order,
+          if (existing?.suggested != null) 'suggested': existing!.suggested,
+        };
       }
-      if (drag.parent.id != targetParent.id) {
-        await _client.setRoomStateWithKey(
-          drag.parent.id,
-          EventTypes.SpaceChild,
-          drag.room.id,
-          {},
+      final crossParent = drag.parent.id != targetParent.id;
+      // Apply the new order to the local room state first so the list
+      // reorders instantly; the sync echo confirms it afterwards.
+      for (final entry in writes.entries) {
+        targetParent.setState(
+          StrippedStateEvent(
+            type: EventTypes.SpaceChild,
+            stateKey: entry.key,
+            senderId: _client.userID!,
+            content: entry.value,
+          ),
         );
       }
+      if (crossParent) {
+        drag.parent.setState(
+          StrippedStateEvent(
+            type: EventTypes.SpaceChild,
+            stateKey: drag.room.id,
+            senderId: _client.userID!,
+            content: {},
+          ),
+        );
+      }
+      setState(() {});
+      // Persist all changed child events concurrently.
+      await Future.wait([
+        for (final entry in writes.entries)
+          _client.setRoomStateWithKey(
+            targetParent.id,
+            EventTypes.SpaceChild,
+            entry.key,
+            entry.value,
+          ),
+        if (crossParent)
+          _client.setRoomStateWithKey(
+            drag.parent.id,
+            EventTypes.SpaceChild,
+            drag.room.id,
+            {},
+          ),
+      ]);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -540,6 +574,16 @@ class _ChannelColumn extends StatelessWidget {
                     icon: const Icon(Icons.travel_explore_outlined, size: 20),
                     onPressed: () => showSpaceLobby(context, space!),
                   ),
+                if (space != null &&
+                    space!.canChangeStateEvent(EventTypes.SpaceChild))
+                  IconButton(
+                    tooltip: context.l10n.newCategory,
+                    icon: const Icon(
+                      Icons.create_new_folder_outlined,
+                      size: 20,
+                    ),
+                    onPressed: () => _createCategory(context, space!),
+                  ),
                 IconButton(
                   tooltip: context.l10n.explorePublicRooms,
                   icon: const Icon(Icons.explore_outlined, size: 20),
@@ -620,6 +664,47 @@ class _ChannelColumn extends StatelessWidget {
     return fillWidth
         ? Expanded(child: column)
         : SizedBox(width: 280, child: column);
+  }
+
+  /// Creates a category: a sub-space restricted to members of [space],
+  /// appended as its last child.
+  Future<void> _createCategory(BuildContext context, Room space) async {
+    final name = await showTextPromptDialog(
+      context,
+      title: context.l10n.newCategory,
+      label: context.l10n.categoryName,
+      confirmLabel: context.l10n.create,
+    );
+    if (name == null || name.isEmpty || !context.mounted) return;
+    try {
+      final categoryId = await client.createRoom(
+        name: name,
+        creationContent: {'type': 'm.space'},
+        initialState: [
+          // Members of the parent space can join the category without an
+          // invite, so its channels stay reachable for everyone.
+          StateEvent(
+            type: EventTypes.RoomJoinRules,
+            content: {
+              'join_rule': 'restricted',
+              'allow': [
+                {'type': 'm.room_membership', 'room_id': space.id},
+              ],
+            },
+          ),
+        ],
+      );
+      await space.setSpaceChild(
+        categoryId,
+        order: _sortedSpaceChildren(space).length.toString().padLeft(4, '0'),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
   }
 
   /// Channel list of a space: loose channels first, then sub-spaces rendered
