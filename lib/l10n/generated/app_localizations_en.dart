@@ -12,6 +12,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accept => 'Accept';
 
   @override
+  String get accessToken => 'Access token';
+
+  @override
+  String get accessTokenWarning =>
+      'Never share your access token. It grants full control over your account.';
+
+  @override
   String get account => 'Account';
 
   @override
@@ -242,6 +249,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Compare a short list of emojis with the other device to verify it.';
 
   @override
+  String get copiedToClipboard => 'Copied to clipboard';
+
+  @override
   String get copy => 'Copy';
 
   @override
@@ -296,6 +306,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deletePack => 'Delete pack';
 
   @override
+  String get desktopNotificationsDescription =>
+      'Show system notifications for new messages while the window is in the background.';
+
+  @override
+  String get desktopNotificationsTitle => 'Desktop notifications';
+
+  @override
   String get direct => 'Direct';
 
   @override
@@ -333,6 +350,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get emoji => 'Emoji';
 
   @override
+  String get encryptNewDmsDescription =>
+      'Enable end-to-end encryption when starting a new direct chat.';
+
+  @override
+  String get encryptNewDmsTitle => 'Encrypt new direct chats';
+
+  @override
   String get encryptionNotAvailable => 'End-to-end encryption is not available';
 
   @override
@@ -356,6 +380,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get enterRecoveryKeyToVerify =>
       'Enter your recovery key to verify with your secure backup, or skip to compare emojis with the other device instead.';
+
+  @override
+  String get expert => 'Expert';
 
   @override
   String get explorePublicRooms => 'Explore public rooms';
@@ -415,6 +442,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get heartsAndSymbols => 'Hearts & symbols';
+
+  @override
+  String get hide => 'Hide';
 
   @override
   String get home => 'Home';
@@ -787,6 +817,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get privacy => 'Privacy';
+
+  @override
   String get question => 'Question';
 
   @override
@@ -943,7 +976,24 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get sendReadReceiptsDescription =>
+      'Let others see which messages you have read.';
+
+  @override
+  String get sendReadReceiptsTitle => 'Send read receipts';
+
+  @override
+  String get sendTypingNotificationsDescription =>
+      'Let others see when you are typing.';
+
+  @override
+  String get sendTypingNotificationsTitle => 'Send typing indicators';
+
+  @override
   String get sendVoiceMessage => 'Send voice message';
+
+  @override
+  String get sending => 'Sending…';
 
   @override
   String get server => 'Server';
@@ -969,6 +1019,37 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settings => 'Settings';
+
+  @override
+  String get show => 'Show';
+
+  @override
+  String get showDeletedMessagesDescription =>
+      'Keep a placeholder where a message was deleted.';
+
+  @override
+  String get showDeletedMessagesTitle => 'Deleted messages';
+
+  @override
+  String get showMembershipEventsDescription =>
+      'Show when members join, leave, or are invited.';
+
+  @override
+  String get showMembershipEventsTitle => 'Joins and leaves';
+
+  @override
+  String get showProfileChangeEventsDescription =>
+      'Show display name and profile picture changes.';
+
+  @override
+  String get showProfileChangeEventsTitle => 'Profile changes';
+
+  @override
+  String get showUrlPreviewsDescription =>
+      'Show a preview card under messages that contain links.';
+
+  @override
+  String get showUrlPreviewsTitle => 'Show link previews';
 
   @override
   String get signIn => 'Sign in';
@@ -1060,6 +1141,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get systemDefault => 'System';
+
+  @override
+  String get systemMessages => 'System messages';
+
+  @override
+  String get systemMessagesDescription =>
+      'Choose which room events appear in the timeline.';
 
   @override
   String get text => 'Text';

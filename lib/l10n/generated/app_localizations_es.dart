@@ -12,6 +12,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get accept => 'Aceptar';
 
   @override
+  String get accessToken => 'Token de acceso';
+
+  @override
+  String get accessTokenWarning =>
+      'Nunca compartas tu token de acceso. Otorga control total sobre tu cuenta.';
+
+  @override
   String get account => 'Cuenta';
 
   @override
@@ -245,6 +252,9 @@ class AppLocalizationsEs extends AppLocalizations {
       'Compara una breve lista de emojis con el otro dispositivo para verificarlo.';
 
   @override
+  String get copiedToClipboard => 'Copiado al portapapeles';
+
+  @override
   String get copy => 'Copiar';
 
   @override
@@ -298,6 +308,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get deletePack => 'Eliminar paquete';
 
   @override
+  String get desktopNotificationsDescription =>
+      'Muestra notificaciones del sistema para mensajes nuevos mientras la ventana está en segundo plano.';
+
+  @override
+  String get desktopNotificationsTitle => 'Notificaciones de escritorio';
+
+  @override
   String get direct => 'Directo';
 
   @override
@@ -335,6 +352,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get emoji => 'Emoji';
 
   @override
+  String get encryptNewDmsDescription =>
+      'Activa el cifrado de extremo a extremo al iniciar un nuevo chat directo.';
+
+  @override
+  String get encryptNewDmsTitle => 'Cifrar nuevos chats directos';
+
+  @override
   String get encryptionNotAvailable =>
       'El cifrado de extremo a extremo no está disponible';
 
@@ -359,6 +383,9 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get enterRecoveryKeyToVerify =>
       'Introduce tu clave de recuperación para verificarte con tu copia segura, u omite este paso y compara emojis con el otro dispositivo.';
+
+  @override
+  String get expert => 'Experto';
 
   @override
   String get explorePublicRooms => 'Explorar salas públicas';
@@ -418,6 +445,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get heartsAndSymbols => 'Corazones y símbolos';
+
+  @override
+  String get hide => 'Ocultar';
 
   @override
   String get home => 'Inicio';
@@ -792,6 +822,9 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get privacy => 'Privacidad';
+
+  @override
   String get question => 'Pregunta';
 
   @override
@@ -948,7 +981,24 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get sendReadReceiptsDescription =>
+      'Permite que otros vean qué mensajes has leído.';
+
+  @override
+  String get sendReadReceiptsTitle => 'Enviar confirmaciones de lectura';
+
+  @override
+  String get sendTypingNotificationsDescription =>
+      'Permite que otros vean cuando estás escribiendo.';
+
+  @override
+  String get sendTypingNotificationsTitle => 'Enviar indicadores de escritura';
+
+  @override
   String get sendVoiceMessage => 'Enviar mensaje de voz';
+
+  @override
+  String get sending => 'Enviando…';
 
   @override
   String get server => 'Servidor';
@@ -975,6 +1025,37 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get settings => 'Ajustes';
+
+  @override
+  String get show => 'Mostrar';
+
+  @override
+  String get showDeletedMessagesDescription =>
+      'Mantén un marcador donde se eliminó un mensaje.';
+
+  @override
+  String get showDeletedMessagesTitle => 'Mensajes eliminados';
+
+  @override
+  String get showMembershipEventsDescription =>
+      'Muestra cuando los miembros entran, salen o son invitados.';
+
+  @override
+  String get showMembershipEventsTitle => 'Entradas y salidas';
+
+  @override
+  String get showProfileChangeEventsDescription =>
+      'Muestra cambios de nombre visible y foto de perfil.';
+
+  @override
+  String get showProfileChangeEventsTitle => 'Cambios de perfil';
+
+  @override
+  String get showUrlPreviewsDescription =>
+      'Muestra una tarjeta de vista previa bajo los mensajes con enlaces.';
+
+  @override
+  String get showUrlPreviewsTitle => 'Mostrar vistas previas de enlaces';
 
   @override
   String get signIn => 'Iniciar sesión';
@@ -1068,6 +1149,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get systemDefault => 'Sistema';
+
+  @override
+  String get systemMessages => 'Mensajes del sistema';
+
+  @override
+  String get systemMessagesDescription =>
+      'Elige qué eventos de la sala aparecen en la conversación.';
 
   @override
   String get text => 'Texto';

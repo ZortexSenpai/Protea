@@ -1,5 +1,6 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:matrix/matrix.dart';
 
 import '../l10n.dart';
@@ -21,7 +22,18 @@ Future<void> showSettingsDialog(
   builder: (_) => SettingsDialog(client: client, settings: settings),
 );
 
-class SettingsDialog extends StatelessWidget {
+/// Settings categories shown in the navigation sidebar, Discord-style.
+enum _SettingsTab {
+  account,
+  appearance,
+  notifications,
+  privacy,
+  security,
+  integrations,
+  expert,
+}
+
+class SettingsDialog extends StatefulWidget {
   const SettingsDialog({
     super.key,
     required this.client,
@@ -32,291 +44,482 @@ class SettingsDialog extends StatelessWidget {
   final AppSettings settings;
 
   @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 12, 8),
-              child: Row(
-                children: [
-                  Text(
-                    context.l10n.settings,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: context.l10n.close,
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
+  State<SettingsDialog> createState() => _SettingsDialogState();
+}
+
+class _SettingsDialogState extends State<SettingsDialog> {
+  _SettingsTab _tab = _SettingsTab.account;
+
+  Client get client => widget.client;
+  AppSettings get settings => widget.settings;
+
+  String _tabLabel(BuildContext context, _SettingsTab tab) => switch (tab) {
+    _SettingsTab.account => context.l10n.account,
+    _SettingsTab.appearance => context.l10n.appearance,
+    _SettingsTab.notifications => context.l10n.notifications,
+    _SettingsTab.privacy => context.l10n.privacy,
+    _SettingsTab.security => context.l10n.security,
+    _SettingsTab.integrations => context.l10n.integrations,
+    _SettingsTab.expert => context.l10n.expert,
+  };
+
+  IconData _tabIcon(_SettingsTab tab) => switch (tab) {
+    _SettingsTab.account => Icons.person_outline,
+    _SettingsTab.appearance => Icons.palette_outlined,
+    _SettingsTab.notifications => Icons.notifications_outlined,
+    _SettingsTab.privacy => Icons.shield_outlined,
+    _SettingsTab.security => Icons.lock_outline,
+    _SettingsTab.integrations => Icons.extension_outlined,
+    _SettingsTab.expert => Icons.code,
+  };
+
+  List<Widget> _tabChildren(BuildContext context) => switch (_tab) {
+    _SettingsTab.account => _accountChildren(context),
+    _SettingsTab.appearance => _appearanceChildren(context),
+    _SettingsTab.notifications => _notificationsChildren(context),
+    _SettingsTab.privacy => _privacyChildren(context),
+    _SettingsTab.security => _securityChildren(context),
+    _SettingsTab.integrations => _integrationsChildren(context),
+    _SettingsTab.expert => _expertChildren(context),
+  };
+
+  List<Widget> _accountChildren(BuildContext context) => [
+    _ProfileSection(client: client),
+    const Divider(height: 32),
+    _SectionHeader(context.l10n.status),
+    _StatusSection(client: client),
+    SwitchListTile(
+      secondary: const Icon(Icons.snooze_outlined),
+      title: Text(context.l10n.autoAway),
+      subtitle: Text(context.l10n.autoAwayDescription),
+      value: settings.autoAway,
+      onChanged: (value) => settings.setAutoAway(value),
+    ),
+    const Divider(height: 32),
+    ListTile(
+      leading: Icon(Icons.logout, color: Theme.of(context).colorScheme.error),
+      title: Text(
+        context.l10n.signOut,
+        style: TextStyle(color: Theme.of(context).colorScheme.error),
+      ),
+      onTap: () => confirmLogout(context, client),
+    ),
+  ];
+
+  List<Widget> _appearanceChildren(BuildContext context) => [
+    ListTile(
+      leading: const Icon(Icons.language),
+      title: Text(context.l10n.language),
+      trailing: DropdownButton<String>(
+        value: settings.locale?.languageCode ?? '',
+        onChanged: (value) =>
+            settings.setLocale(value == null || value.isEmpty ? null : value),
+        items: [
+          DropdownMenuItem(value: '', child: Text(context.l10n.systemDefault)),
+          const DropdownMenuItem(value: 'en', child: Text('English')),
+          const DropdownMenuItem(value: 'de', child: Text('Deutsch')),
+          const DropdownMenuItem(value: 'es', child: Text('Español')),
+          const DropdownMenuItem(value: 'fr', child: Text('Français')),
+          const DropdownMenuItem(value: 'it', child: Text('Italiano')),
+        ],
+      ),
+    ),
+    const SizedBox(height: 16),
+    ListTile(title: Text(context.l10n.theme)),
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SegmentedButton<ThemeMode>(
+        segments: [
+          ButtonSegment(
+            value: ThemeMode.system,
+            label: Text(context.l10n.systemDefault),
+            icon: const Icon(Icons.brightness_auto),
+          ),
+          ButtonSegment(
+            value: ThemeMode.light,
+            label: Text(context.l10n.light),
+            icon: const Icon(Icons.light_mode_outlined),
+          ),
+          ButtonSegment(
+            value: ThemeMode.dark,
+            label: Text(context.l10n.dark),
+            icon: const Icon(Icons.dark_mode_outlined),
+          ),
+        ],
+        selected: {settings.themeMode},
+        onSelectionChanged: (selection) =>
+            settings.setThemeMode(selection.single),
+      ),
+    ),
+    const SizedBox(height: 16),
+    ListTile(title: Text(context.l10n.color)),
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          for (final color in AppThemeColor.values)
+            _ColorSwatch(
+              color: color,
+              selected: settings.themeColor == color,
+              onTap: () => settings.setThemeColor(color),
             ),
-            const Divider(height: 1),
-            Flexible(
-              child: ListenableBuilder(
-                listenable: settings,
-                builder: (context, _) => ListView(
-                  padding: const EdgeInsets.all(16),
+        ],
+      ),
+    ),
+    const SizedBox(height: 16),
+    ListTile(
+      title: Text(context.l10n.messageLayout),
+      subtitle: Text(context.l10n.messageLayoutDescription),
+    ),
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SegmentedButton<MessageLayout>(
+        segments: [
+          ButtonSegment(
+            value: MessageLayout.bubbles,
+            label: Text(context.l10n.bubbles),
+            icon: const Icon(Icons.chat_bubble_outline),
+          ),
+          ButtonSegment(
+            value: MessageLayout.cozy,
+            label: Text(context.l10n.cozy),
+            icon: const Icon(Icons.view_agenda_outlined),
+          ),
+          ButtonSegment(
+            value: MessageLayout.compact,
+            label: Text(context.l10n.compact),
+            icon: const Icon(Icons.view_headline),
+          ),
+          ButtonSegment(
+            value: MessageLayout.text,
+            label: Text(context.l10n.text),
+            icon: const Icon(Icons.terminal),
+          ),
+        ],
+        selected: {settings.messageLayout},
+        onSelectionChanged: (selection) =>
+            settings.setMessageLayout(selection.single),
+      ),
+    ),
+    const SizedBox(height: 16),
+    ListTile(title: Text(context.l10n.fontSize)),
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SegmentedButton<double>(
+        segments: [
+          ButtonSegment(value: 0.85, label: Text(context.l10n.small)),
+          ButtonSegment(value: 1.0, label: Text(context.l10n.normal)),
+          ButtonSegment(value: 1.15, label: Text(context.l10n.large)),
+          ButtonSegment(value: 1.3, label: Text(context.l10n.huge)),
+        ],
+        selected: {settings.textScale},
+        onSelectionChanged: (selection) =>
+            settings.setTextScale(selection.single),
+      ),
+    ),
+    const Divider(height: 32),
+    _SectionHeader(context.l10n.layout),
+    ListTile(
+      title: Text(context.l10n.appLayout),
+      subtitle: Text(context.l10n.appLayoutDescription),
+    ),
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SegmentedButton<AppLayout>(
+        segments: [
+          ButtonSegment(
+            value: AppLayout.workspace,
+            label: Text(context.l10n.workspace),
+            icon: const Icon(Icons.view_sidebar_outlined),
+          ),
+          ButtonSegment(
+            value: AppLayout.split,
+            label: Text(context.l10n.split),
+            icon: const Icon(Icons.vertical_split_outlined),
+          ),
+          ButtonSegment(
+            value: AppLayout.list,
+            label: Text(context.l10n.list),
+            icon: const Icon(Icons.view_list_outlined),
+          ),
+        ],
+        selected: {settings.layout},
+        onSelectionChanged: (selection) => settings.setLayout(selection.single),
+      ),
+    ),
+    const SizedBox(height: 16),
+    ListTile(
+      title: Text(context.l10n.spacesListPosition),
+      enabled: settings.layout == AppLayout.workspace,
+    ),
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SegmentedButton<RailPosition>(
+        segments: [
+          ButtonSegment(
+            value: RailPosition.left,
+            label: Text(context.l10n.left),
+            icon: const Icon(Icons.align_horizontal_left),
+          ),
+          ButtonSegment(
+            value: RailPosition.right,
+            label: Text(context.l10n.right),
+            icon: const Icon(Icons.align_horizontal_right),
+          ),
+        ],
+        selected: {settings.railPosition},
+        onSelectionChanged: settings.layout == AppLayout.workspace
+            ? (selection) => settings.setRailPosition(selection.single)
+            : null,
+      ),
+    ),
+  ];
+
+  List<Widget> _notificationsChildren(BuildContext context) => [
+    SwitchListTile(
+      secondary: const Icon(Icons.notifications_outlined),
+      title: Text(context.l10n.desktopNotificationsTitle),
+      subtitle: Text(context.l10n.desktopNotificationsDescription),
+      value: settings.desktopNotifications,
+      onChanged: (value) => settings.setDesktopNotifications(value),
+    ),
+    SwitchListTile(
+      secondary: const Icon(Icons.notifications_active_outlined),
+      title: Text(context.l10n.notificationSounds),
+      subtitle: Text(context.l10n.notificationSoundsDescription),
+      value: settings.notificationSounds,
+      onChanged: settings.desktopNotifications
+          ? (value) => settings.setNotificationSounds(value)
+          : null,
+    ),
+  ];
+
+  List<Widget> _privacyChildren(BuildContext context) => [
+    SwitchListTile(
+      secondary: const Icon(Icons.keyboard_outlined),
+      title: Text(context.l10n.sendTypingNotificationsTitle),
+      subtitle: Text(context.l10n.sendTypingNotificationsDescription),
+      value: settings.sendTypingNotifications,
+      onChanged: (value) => settings.setSendTypingNotifications(value),
+    ),
+    SwitchListTile(
+      secondary: const Icon(Icons.done_all),
+      title: Text(context.l10n.sendReadReceiptsTitle),
+      subtitle: Text(context.l10n.sendReadReceiptsDescription),
+      value: settings.sendReadReceipts,
+      onChanged: (value) => settings.setSendReadReceipts(value),
+    ),
+    SwitchListTile(
+      secondary: const Icon(Icons.link),
+      title: Text(context.l10n.showUrlPreviewsTitle),
+      subtitle: Text(context.l10n.showUrlPreviewsDescription),
+      value: settings.showUrlPreviews,
+      onChanged: (value) => settings.setShowUrlPreviews(value),
+    ),
+    const Divider(height: 32),
+    _SectionHeader(context.l10n.systemMessages),
+    ListTile(subtitle: Text(context.l10n.systemMessagesDescription)),
+    SwitchListTile(
+      secondary: const Icon(Icons.meeting_room_outlined),
+      title: Text(context.l10n.showMembershipEventsTitle),
+      subtitle: Text(context.l10n.showMembershipEventsDescription),
+      value: settings.showMembershipEvents,
+      onChanged: (value) => settings.setShowMembershipEvents(value),
+    ),
+    SwitchListTile(
+      secondary: const Icon(Icons.badge_outlined),
+      title: Text(context.l10n.showProfileChangeEventsTitle),
+      subtitle: Text(context.l10n.showProfileChangeEventsDescription),
+      value: settings.showProfileChangeEvents,
+      onChanged: (value) => settings.setShowProfileChangeEvents(value),
+    ),
+    SwitchListTile(
+      secondary: const Icon(Icons.delete_outline),
+      title: Text(context.l10n.showDeletedMessagesTitle),
+      subtitle: Text(context.l10n.showDeletedMessagesDescription),
+      value: settings.showDeletedMessages,
+      onChanged: (value) => settings.setShowDeletedMessages(value),
+    ),
+  ];
+
+  List<Widget> _securityChildren(BuildContext context) => [
+    _BackupSection(client: client),
+    _DevicesSection(client: client),
+  ];
+
+  List<Widget> _integrationsChildren(BuildContext context) => [
+    ListTile(
+      leading: const Icon(Icons.gif_box_outlined),
+      title: Text(context.l10n.gifSearchKlipy),
+      subtitle: Text(context.l10n.klipyApiKeyDescription),
+    ),
+    _KlipyKeyField(settings: settings),
+  ];
+
+  List<Widget> _expertChildren(BuildContext context) => [
+    SwitchListTile(
+      secondary: const Icon(Icons.enhanced_encryption_outlined),
+      title: Text(context.l10n.encryptNewDmsTitle),
+      subtitle: Text(context.l10n.encryptNewDmsDescription),
+      value: settings.encryptNewDirectChats,
+      onChanged: (value) => settings.setEncryptNewDirectChats(value),
+    ),
+    const Divider(height: 32),
+    _AccessTokenSection(client: client),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Dialog(
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 860, maxHeight: 680),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Category navigation, Discord-style.
+            Material(
+              color: colorScheme.surfaceContainerLow,
+              child: SizedBox(
+                width: 200,
+                child: ListView(
+                  padding: const EdgeInsets.all(8),
                   children: [
-                    _SectionHeader(context.l10n.layout),
-                    ListTile(
-                      title: Text(context.l10n.appLayout),
-                      subtitle: Text(context.l10n.appLayoutDescription),
-                    ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SegmentedButton<AppLayout>(
-                        segments: [
-                          ButtonSegment(
-                            value: AppLayout.workspace,
-                            label: Text(context.l10n.workspace),
-                            icon: const Icon(Icons.view_sidebar_outlined),
-                          ),
-                          ButtonSegment(
-                            value: AppLayout.split,
-                            label: Text(context.l10n.split),
-                            icon: const Icon(Icons.vertical_split_outlined),
-                          ),
-                          ButtonSegment(
-                            value: AppLayout.list,
-                            label: Text(context.l10n.list),
-                            icon: const Icon(Icons.view_list_outlined),
-                          ),
-                        ],
-                        selected: {settings.layout},
-                        onSelectionChanged: (selection) =>
-                            settings.setLayout(selection.single),
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                      child: Text(
+                        context.l10n.settings,
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    ListTile(
-                      title: Text(context.l10n.spacesListPosition),
-                      enabled: settings.layout == AppLayout.workspace,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SegmentedButton<RailPosition>(
-                        segments: [
-                          ButtonSegment(
-                            value: RailPosition.left,
-                            label: Text(context.l10n.left),
-                            icon: const Icon(Icons.align_horizontal_left),
+                    for (final tab in _SettingsTab.values)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 1),
+                        child: ListTile(
+                          dense: true,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          ButtonSegment(
-                            value: RailPosition.right,
-                            label: Text(context.l10n.right),
-                            icon: const Icon(Icons.align_horizontal_right),
+                          leading: Icon(_tabIcon(tab), size: 20),
+                          title: Text(
+                            _tabLabel(context, tab),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ],
-                        selected: {settings.railPosition},
-                        onSelectionChanged:
-                            settings.layout == AppLayout.workspace
-                            ? (selection) =>
-                                  settings.setRailPosition(selection.single)
-                            : null,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    _SectionHeader(context.l10n.appearance),
-                    ListTile(
-                      leading: const Icon(Icons.language),
-                      title: Text(context.l10n.language),
-                      trailing: DropdownButton<String>(
-                        value: settings.locale?.languageCode ?? '',
-                        onChanged: (value) => settings.setLocale(
-                          value == null || value.isEmpty ? null : value,
+                          selected: _tab == tab,
+                          selectedTileColor: colorScheme.secondaryContainer,
+                          onTap: () => setState(() => _tab = tab),
                         ),
-                        items: [
-                          DropdownMenuItem(
-                            value: '',
-                            child: Text(context.l10n.systemDefault),
-                          ),
-                          const DropdownMenuItem(
-                            value: 'en',
-                            child: Text('English'),
-                          ),
-                          const DropdownMenuItem(
-                            value: 'de',
-                            child: Text('Deutsch'),
-                          ),
-                          const DropdownMenuItem(
-                            value: 'es',
-                            child: Text('Español'),
-                          ),
-                          const DropdownMenuItem(
-                            value: 'fr',
-                            child: Text('Français'),
-                          ),
-                          const DropdownMenuItem(
-                            value: 'it',
-                            child: Text('Italiano'),
-                          ),
-                        ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(title: Text(context.l10n.theme)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SegmentedButton<ThemeMode>(
-                        segments: [
-                          ButtonSegment(
-                            value: ThemeMode.system,
-                            label: Text(context.l10n.systemDefault),
-                            icon: const Icon(Icons.brightness_auto),
-                          ),
-                          ButtonSegment(
-                            value: ThemeMode.light,
-                            label: Text(context.l10n.light),
-                            icon: const Icon(Icons.light_mode_outlined),
-                          ),
-                          ButtonSegment(
-                            value: ThemeMode.dark,
-                            label: Text(context.l10n.dark),
-                            icon: const Icon(Icons.dark_mode_outlined),
-                          ),
-                        ],
-                        selected: {settings.themeMode},
-                        onSelectionChanged: (selection) =>
-                            settings.setThemeMode(selection.single),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(title: Text(context.l10n.color)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          for (final color in AppThemeColor.values)
-                            _ColorSwatch(
-                              color: color,
-                              selected: settings.themeColor == color,
-                              onTap: () => settings.setThemeColor(color),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(
-                      title: Text(context.l10n.messageLayout),
-                      subtitle: Text(context.l10n.messageLayoutDescription),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SegmentedButton<MessageLayout>(
-                        segments: [
-                          ButtonSegment(
-                            value: MessageLayout.bubbles,
-                            label: Text(context.l10n.bubbles),
-                            icon: const Icon(Icons.chat_bubble_outline),
-                          ),
-                          ButtonSegment(
-                            value: MessageLayout.cozy,
-                            label: Text(context.l10n.cozy),
-                            icon: const Icon(Icons.view_agenda_outlined),
-                          ),
-                          ButtonSegment(
-                            value: MessageLayout.compact,
-                            label: Text(context.l10n.compact),
-                            icon: const Icon(Icons.view_headline),
-                          ),
-                          ButtonSegment(
-                            value: MessageLayout.text,
-                            label: Text(context.l10n.text),
-                            icon: const Icon(Icons.terminal),
-                          ),
-                        ],
-                        selected: {settings.messageLayout},
-                        onSelectionChanged: (selection) =>
-                            settings.setMessageLayout(selection.single),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(title: Text(context.l10n.fontSize)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SegmentedButton<double>(
-                        segments: [
-                          ButtonSegment(
-                            value: 0.85,
-                            label: Text(context.l10n.small),
-                          ),
-                          ButtonSegment(
-                            value: 1.0,
-                            label: Text(context.l10n.normal),
-                          ),
-                          ButtonSegment(
-                            value: 1.15,
-                            label: Text(context.l10n.large),
-                          ),
-                          ButtonSegment(
-                            value: 1.3,
-                            label: Text(context.l10n.huge),
-                          ),
-                        ],
-                        selected: {settings.textScale},
-                        onSelectionChanged: (selection) =>
-                            settings.setTextScale(selection.single),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    _SectionHeader(context.l10n.notifications),
-                    SwitchListTile(
-                      secondary: const Icon(
-                        Icons.notifications_active_outlined,
-                      ),
-                      title: Text(context.l10n.notificationSounds),
-                      subtitle: Text(
-                        context.l10n.notificationSoundsDescription,
-                      ),
-                      value: settings.notificationSounds,
-                      onChanged: (value) =>
-                          settings.setNotificationSounds(value),
-                    ),
-                    const SizedBox(height: 24),
-                    _SectionHeader(context.l10n.integrations),
-                    ListTile(
-                      leading: const Icon(Icons.gif_box_outlined),
-                      title: Text(context.l10n.gifSearchKlipy),
-                      subtitle: Text(context.l10n.klipyApiKeyDescription),
-                    ),
-                    _KlipyKeyField(settings: settings),
-                    const SizedBox(height: 24),
-                    _SectionHeader(context.l10n.status),
-                    _StatusSection(client: client),
-                    SwitchListTile(
-                      secondary: const Icon(Icons.snooze_outlined),
-                      title: Text(context.l10n.autoAway),
-                      subtitle: Text(context.l10n.autoAwayDescription),
-                      value: settings.autoAway,
-                      onChanged: (value) => settings.setAutoAway(value),
-                    ),
-                    const SizedBox(height: 24),
-                    _SectionHeader(context.l10n.security),
-                    _BackupSection(client: client),
-                    _DevicesSection(client: client),
-                    const SizedBox(height: 24),
-                    _SectionHeader(context.l10n.account),
-                    _ProfileSection(client: client),
-                    ListTile(
-                      leading: const Icon(Icons.logout),
-                      title: Text(context.l10n.signOut),
-                      onTap: () => confirmLogout(context, client),
-                    ),
                   ],
                 ),
+              ),
+            ),
+            const VerticalDivider(width: 1),
+            Expanded(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 12, 12, 8),
+                    child: Row(
+                      children: [
+                        Text(
+                          _tabLabel(context, _tab),
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          tooltip: context.l10n.close,
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: ListenableBuilder(
+                      listenable: settings,
+                      builder: (context, _) => ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: _tabChildren(context),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Shows the account's access token, hidden until revealed, with a copy
+/// button — for use with bots, scripts, and debugging tools.
+class _AccessTokenSection extends StatefulWidget {
+  const _AccessTokenSection({required this.client});
+
+  final Client client;
+
+  @override
+  State<_AccessTokenSection> createState() => _AccessTokenSectionState();
+}
+
+class _AccessTokenSectionState extends State<_AccessTokenSection> {
+  bool _revealed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final token = widget.client.accessToken ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ListTile(
+          leading: const Icon(Icons.key_outlined),
+          title: Text(context.l10n.accessToken),
+          subtitle: Text(context.l10n.accessTokenWarning),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _revealed ? token : '•' * 24,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontFamily: 'monospace'),
+                ),
+              ),
+              IconButton(
+                tooltip: _revealed ? context.l10n.hide : context.l10n.show,
+                icon: Icon(
+                  _revealed
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  size: 20,
+                ),
+                onPressed: () => setState(() => _revealed = !_revealed),
+              ),
+              IconButton(
+                tooltip: context.l10n.copy,
+                icon: const Icon(Icons.copy, size: 18),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: token));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(context.l10n.copiedToClipboard)),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -655,6 +858,18 @@ class _ProfileSectionState extends State<_ProfileSection> {
 
   Uri? get _bannerUrl => bannerUrlFromProfile(_profile);
 
+  /// The SDK caches profiles for up to a day and does not notice our own
+  /// setProfileField writes; mark ours outdated so every consumer (this
+  /// preview, the user footer, banner widgets) refetches fresh data.
+  Future<void> _invalidateProfileCaches() async {
+    final userId = widget.client.userID;
+    if (userId == null) return;
+    try {
+      await widget.client.database.markUserProfileAsOutdated(userId);
+    } catch (_) {}
+    invalidateUserProfile(userId);
+  }
+
   /// Picks an image, uploads it and stores its mxc URI in the profile field
   /// [fieldName].
   Future<void> _uploadImageTo(String fieldName) async {
@@ -675,9 +890,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
       await client.setProfileField(client.userID!, fieldName, {
         fieldName: mxc.toString(),
       });
-      if (fieldName == bannerWriteField) {
-        invalidateUserProfile(client.userID!);
-      }
+      await _invalidateProfileCaches();
       await _loadProfile();
     } catch (e) {
       if (mounted) {
@@ -723,6 +936,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
         'displayname',
         {'displayname': newName},
       );
+      await _invalidateProfileCaches();
       await _loadProfile();
     } catch (e) {
       if (mounted) {
@@ -753,16 +967,19 @@ class _ProfileSectionState extends State<_ProfileSection> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
+                  // Underlay so the letterbox bars of a contained banner
+                  // keep the fallback color.
+                  ColoredBox(color: InitialsAvatar.colorFor(displayName)),
                   if (bannerUrl != null)
                     MxcImage(
                       client: client,
                       uri: bannerUrl,
-                      placeholder: (_) => ColoredBox(
-                        color: InitialsAvatar.colorFor(displayName),
-                      ),
-                    )
-                  else
-                    ColoredBox(color: InitialsAvatar.colorFor(displayName)),
+                      // Scale (not crop) keeps the whole image; contain
+                      // letterboxes it instead of cutting it off.
+                      thumbnailMethod: ThumbnailMethod.scale,
+                      fit: BoxFit.contain,
+                      placeholder: (_) => const SizedBox.shrink(),
+                    ),
                   Positioned(
                     top: 8,
                     right: 8,

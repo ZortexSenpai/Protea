@@ -110,6 +110,18 @@ abstract class AppLocalizations {
   /// **'Accept'**
   String get accept;
 
+  /// No description provided for @accessToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Access token'**
+  String get accessToken;
+
+  /// No description provided for @accessTokenWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Never share your access token. It grants full control over your account.'**
+  String get accessTokenWarning;
+
   /// No description provided for @account.
   ///
   /// In en, this message translates to:
@@ -548,6 +560,12 @@ abstract class AppLocalizations {
   /// **'Compare a short list of emojis with the other device to verify it.'**
   String get compareEmojisToVerify;
 
+  /// No description provided for @copiedToClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied to clipboard'**
+  String get copiedToClipboard;
+
   /// No description provided for @copy.
   ///
   /// In en, this message translates to:
@@ -644,6 +662,18 @@ abstract class AppLocalizations {
   /// **'Delete pack'**
   String get deletePack;
 
+  /// No description provided for @desktopNotificationsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Show system notifications for new messages while the window is in the background.'**
+  String get desktopNotificationsDescription;
+
+  /// No description provided for @desktopNotificationsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Desktop notifications'**
+  String get desktopNotificationsTitle;
+
   /// No description provided for @direct.
   ///
   /// In en, this message translates to:
@@ -716,6 +746,18 @@ abstract class AppLocalizations {
   /// **'Emoji'**
   String get emoji;
 
+  /// No description provided for @encryptNewDmsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable end-to-end encryption when starting a new direct chat.'**
+  String get encryptNewDmsDescription;
+
+  /// No description provided for @encryptNewDmsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypt new direct chats'**
+  String get encryptNewDmsTitle;
+
   /// No description provided for @encryptionNotAvailable.
   ///
   /// In en, this message translates to:
@@ -757,6 +799,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enter your recovery key to verify with your secure backup, or skip to compare emojis with the other device instead.'**
   String get enterRecoveryKeyToVerify;
+
+  /// No description provided for @expert.
+  ///
+  /// In en, this message translates to:
+  /// **'Expert'**
+  String get expert;
 
   /// No description provided for @explorePublicRooms.
   ///
@@ -853,6 +901,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Hearts & symbols'**
   String get heartsAndSymbols;
+
+  /// No description provided for @hide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get hide;
 
   /// No description provided for @home.
   ///
@@ -1478,6 +1532,12 @@ abstract class AppLocalizations {
   /// **'{presence} — {status}'**
   String presenceWithStatus(String presence, String status);
 
+  /// No description provided for @privacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy'**
+  String get privacy;
+
   /// No description provided for @question.
   ///
   /// In en, this message translates to:
@@ -1724,11 +1784,41 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{Send file?} other{Send {count} files?}}'**
   String sendFilesTitle(int count);
 
+  /// No description provided for @sendReadReceiptsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Let others see which messages you have read.'**
+  String get sendReadReceiptsDescription;
+
+  /// No description provided for @sendReadReceiptsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Send read receipts'**
+  String get sendReadReceiptsTitle;
+
+  /// No description provided for @sendTypingNotificationsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Let others see when you are typing.'**
+  String get sendTypingNotificationsDescription;
+
+  /// No description provided for @sendTypingNotificationsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Send typing indicators'**
+  String get sendTypingNotificationsTitle;
+
   /// No description provided for @sendVoiceMessage.
   ///
   /// In en, this message translates to:
   /// **'Send voice message'**
   String get sendVoiceMessage;
+
+  /// No description provided for @sending.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending…'**
+  String get sending;
 
   /// No description provided for @server.
   ///
@@ -1777,6 +1867,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Settings'**
   String get settings;
+
+  /// No description provided for @show.
+  ///
+  /// In en, this message translates to:
+  /// **'Show'**
+  String get show;
+
+  /// No description provided for @showDeletedMessagesDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep a placeholder where a message was deleted.'**
+  String get showDeletedMessagesDescription;
+
+  /// No description provided for @showDeletedMessagesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted messages'**
+  String get showDeletedMessagesTitle;
+
+  /// No description provided for @showMembershipEventsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Show when members join, leave, or are invited.'**
+  String get showMembershipEventsDescription;
+
+  /// No description provided for @showMembershipEventsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Joins and leaves'**
+  String get showMembershipEventsTitle;
+
+  /// No description provided for @showProfileChangeEventsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Show display name and profile picture changes.'**
+  String get showProfileChangeEventsDescription;
+
+  /// No description provided for @showProfileChangeEventsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile changes'**
+  String get showProfileChangeEventsTitle;
+
+  /// No description provided for @showUrlPreviewsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Show a preview card under messages that contain links.'**
+  String get showUrlPreviewsDescription;
+
+  /// No description provided for @showUrlPreviewsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show link previews'**
+  String get showUrlPreviewsTitle;
 
   /// No description provided for @signIn.
   ///
@@ -1939,6 +2083,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'System'**
   String get systemDefault;
+
+  /// No description provided for @systemMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'System messages'**
+  String get systemMessages;
+
+  /// No description provided for @systemMessagesDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose which room events appear in the timeline.'**
+  String get systemMessagesDescription;
 
   /// No description provided for @text.
   ///

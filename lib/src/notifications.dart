@@ -98,6 +98,7 @@ class NotificationService with WidgetsBindingObserver {
   }
 
   Future<void> _showNotification(Client client, Event event) async {
+    if (!(settings?.desktopNotifications ?? true)) return;
     // On desktop the lifecycle reflects window focus: only notify when the
     // app is in the background.
     if (_lifecycle == AppLifecycleState.resumed) return;

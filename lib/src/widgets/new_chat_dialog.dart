@@ -3,6 +3,7 @@ import 'package:matrix/matrix.dart';
 
 import '../l10n.dart';
 import '../pages/room_page.dart';
+import '../settings.dart';
 
 enum _NewChatMode { dm, group, join }
 
@@ -49,7 +50,10 @@ class _NewChatDialogState extends State<NewChatDialog> {
       final String roomId;
       switch (_mode) {
         case _NewChatMode.dm:
-          roomId = await widget.client.startDirectChat(input);
+          roomId = await widget.client.startDirectChat(
+            input,
+            enableEncryption: SettingsScope.of(context).encryptNewDirectChats,
+          );
         case _NewChatMode.group:
           roomId = await widget.client.createGroupChat(
             groupName: input,

@@ -29,6 +29,7 @@ import '../widgets/pinned_messages_dialog.dart';
 import '../widgets/poll.dart';
 import '../widgets/presence_indicator.dart';
 import '../widgets/sticker_picker.dart';
+import '../widgets/user_banner.dart';
 import '../widgets/room_settings_dialog.dart';
 import '../widgets/user_profile_card.dart';
 import '../widgets/voice_message.dart';
@@ -57,6 +58,9 @@ class _RoomPageState extends State<RoomPage> {
   Event? _threadRoot;
   List<User> _mentionSuggestions = [];
   List<SlashCommand> _commandSuggestions = [];
+
+  /// File/GIF sends in flight, shown as skeleton bubbles above the composer.
+  final List<_PendingSend> _pendingSends = [];
   bool _showMembers = false;
   DateTime? _typingLastSent;
   String? _highlightedEventId;
@@ -148,6 +152,7 @@ class _RoomPageState extends State<RoomPage> {
       return;
     }
     _lastMarkedReadEventId = lastEvent.eventId;
+    if (!SettingsScope.of(context).sendReadReceipts) return;
     timeline.setReadMarker().catchError((_) {});
   }
 
@@ -172,6 +177,7 @@ class _RoomPageState extends State<RoomPage> {
       }
     }
     setState(() => _timeline = timeline);
+    if (!mounted || !SettingsScope.of(context).sendReadReceipts) return;
     try {
       await timeline.setReadMarker();
     } catch (_) {}
@@ -358,6 +364,7 @@ class _RoomPageState extends State<RoomPage> {
     _saveDraft(text);
     _updateMentionSuggestions();
     _updateCommandSuggestions();
+    if (!SettingsScope.of(context).sendTypingNotifications) return;
     if (text.isEmpty) {
       _typingLastSent = null;
       widget.room.setTyping(false).catchError((_) {});
@@ -622,19 +629,27 @@ class _RoomPageState extends State<RoomPage> {
   Future<void> _pickGif() async {
     final gif = await showGifPicker(context, _client);
     if (gif == null) return;
+    final title = gif.title.trim();
+    final name = '${title.isEmpty ? 'gif' : title}.gif';
+    // One pending entry spans the whole pipeline (Klipy download, upload,
+    // send), so the skeleton appears the moment the GIF is picked.
+    final pending = _PendingSend(name: name, isImage: true);
+    setState(() => _pendingSends.add(pending));
     try {
       final response = await _client.httpClient.get(Uri.parse(gif.url));
       if (response.statusCode != 200) {
         throw Exception('GIF download failed (HTTP ${response.statusCode})');
       }
-      final title = gif.title.trim();
       await _sendBytes(
         response.bodyBytes,
-        '${title.isEmpty ? 'gif' : title}.gif',
+        name,
         mimeType: 'image/gif',
+        showPending: false,
       );
     } catch (e) {
       _showError(e);
+    } finally {
+      if (mounted) setState(() => _pendingSends.remove(pending));
     }
   }
 
@@ -654,12 +669,17 @@ class _RoomPageState extends State<RoomPage> {
     Uint8List bytes,
     String name, {
     String? mimeType,
+    bool showPending = true,
   }) async {
+    final extension = name.split('.').last.toLowerCase();
+    final isImage =
+        (mimeType?.startsWith('image/') ?? false) ||
+        _imageExtensions.contains(extension);
+    final pending = showPending
+        ? _PendingSend(name: name, isImage: isImage)
+        : null;
+    if (pending != null) setState(() => _pendingSends.add(pending));
     try {
-      final extension = name.split('.').last.toLowerCase();
-      final isImage =
-          (mimeType?.startsWith('image/') ?? false) ||
-          _imageExtensions.contains(extension);
       MatrixFile file;
       if (isImage) {
         int? width;
@@ -683,6 +703,10 @@ class _RoomPageState extends State<RoomPage> {
       await widget.room.sendFileEvent(file);
     } catch (e) {
       _showError(e);
+    } finally {
+      if (pending != null && mounted) {
+        setState(() => _pendingSends.remove(pending));
+      }
     }
   }
 
@@ -731,17 +755,32 @@ class _RoomPageState extends State<RoomPage> {
     }
   }
 
-  List<Event> _visibleEvents(Timeline timeline) => timeline.events
-      .where(
-        (event) =>
-            (_bubbleTypes.contains(event.type) ||
-                event.type == EventTypes.RoomMember) &&
-            event.relationshipType != RelationshipTypes.edit &&
+  List<Event> _visibleEvents(Timeline timeline) =>
+      timeline.events.where((event) {
+        if (!_bubbleTypes.contains(event.type) &&
+            event.type != EventTypes.RoomMember) {
+          return false;
+        }
+        if (event.relationshipType == RelationshipTypes.edit ||
             // Thread replies only show in the thread panel.
-            event.relationshipType != RelationshipTypes.thread &&
-            event.type != EventTypes.Reaction,
-      )
-      .toList();
+            event.relationshipType == RelationshipTypes.thread ||
+            event.type == EventTypes.Reaction) {
+          return false;
+        }
+        final settings = SettingsScope.of(context);
+        if (event.type == EventTypes.RoomMember) {
+          // A member event that keeps membership 'join' is a display name
+          // or avatar change; everything else is a join/leave/invite/ban.
+          final isProfileChange =
+              event.content['membership'] == 'join' &&
+              event.prevContent?['membership'] == 'join';
+          return isProfileChange
+              ? settings.showProfileChangeEvents
+              : settings.showMembershipEvents;
+        }
+        if (event.redacted && !settings.showDeletedMessages) return false;
+        return true;
+      }).toList();
 
   void _openThread(Event event) {
     setState(() => _threadRoot = event);
@@ -863,6 +902,26 @@ class _RoomPageState extends State<RoomPage> {
             onPressed: () => Navigator.of(context).pop(),
             child: Text(context.l10n.close),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// Skeleton bubbles for uploads in flight, right-aligned like own
+  /// messages, so picking a GIF or file gives immediate feedback.
+  Widget _buildPendingSends() {
+    if (_pendingSends.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final pending in _pendingSends)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: _PendingSendBubble(pending: pending),
+            ),
         ],
       ),
     );
@@ -1130,6 +1189,7 @@ class _RoomPageState extends State<RoomPage> {
                           ],
                         ),
                       ),
+                      _buildPendingSends(),
                       _buildTypingIndicator(),
                       _buildEditBar(),
                       _buildReplyBar(),
@@ -1527,89 +1587,97 @@ class _MemberListPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      width: 240,
-      decoration: BoxDecoration(
-        border: Border(left: BorderSide(color: colorScheme.outlineVariant)),
-        color: colorScheme.surfaceContainerLow,
-      ),
-      child: FutureBuilder<List<User>>(
-        future: room.requestParticipants(),
-        initialData: room.getParticipants(),
-        builder: (context, snapshot) {
-          final members =
-              (snapshot.data ?? [])
-                  .where((user) => user.membership == Membership.join)
-                  .toList()
-                ..sort(
-                  (a, b) => a.calcDisplayname().toLowerCase().compareTo(
-                    b.calcDisplayname().toLowerCase(),
+    // Material (not a decorated box) so the tiles' ink and the banner
+    // backgrounds render on top of the panel color.
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      child: Container(
+        width: 240,
+        decoration: BoxDecoration(
+          border: Border(left: BorderSide(color: colorScheme.outlineVariant)),
+        ),
+        child: FutureBuilder<List<User>>(
+          future: room.requestParticipants(),
+          initialData: room.getParticipants(),
+          builder: (context, snapshot) {
+            final members =
+                (snapshot.data ?? [])
+                    .where((user) => user.membership == Membership.join)
+                    .toList()
+                  ..sort(
+                    (a, b) => a.calcDisplayname().toLowerCase().compareTo(
+                      b.calcDisplayname().toLowerCase(),
+                    ),
+                  );
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Text(
+                    context.l10n.membersWithCount(members.length),
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
-                );
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: Text(
-                  context.l10n.membersWithCount(members.length),
-                  style: Theme.of(context).textTheme.titleSmall,
                 ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: members.length,
-                  itemBuilder: (context, index) {
-                    final user = members[index];
-                    final name = user.calcDisplayname();
-                    return GestureDetector(
-                      onSecondaryTapUp: (details) => _showMemberMenu(
-                        context,
-                        user,
-                        details.globalPosition,
-                      ),
-                      onLongPressStart: (details) => _showMemberMenu(
-                        context,
-                        user,
-                        details.globalPosition,
-                      ),
-                      child: ListTile(
-                        dense: true,
-                        leading: PresenceAvatar(
-                          client: room.client,
-                          userId: user.id,
-                          name: name,
-                          avatarUrl: user.avatarUrl,
-                          radius: 14,
-                        ),
-                        title: Text(
-                          name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: switch (user.powerLevel.role) {
-                          PowerLevelRole.owner => Text(context.l10n.owner),
-                          PowerLevelRole.admin => Text(context.l10n.admin),
-                          PowerLevelRole.moderator => Text(
-                            context.l10n.moderator,
-                          ),
-                          PowerLevelRole.user => null,
-                        },
-                        onTap: () => showUserProfileCard(
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: members.length,
+                    itemBuilder: (context, index) {
+                      final user = members[index];
+                      final name = user.calcDisplayname();
+                      return GestureDetector(
+                        onSecondaryTapUp: (details) => _showMemberMenu(
                           context,
+                          user,
+                          details.globalPosition,
+                        ),
+                        onLongPressStart: (details) => _showMemberMenu(
+                          context,
+                          user,
+                          details.globalPosition,
+                        ),
+                        child: UserBannerBackground(
                           client: room.client,
                           userId: user.id,
-                          displayName: name,
-                          avatarUrl: user.avatarUrl,
+                          child: ListTile(
+                            dense: true,
+                            leading: PresenceAvatar(
+                              client: room.client,
+                              userId: user.id,
+                              name: name,
+                              avatarUrl: user.avatarUrl,
+                              radius: 14,
+                            ),
+                            title: Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: switch (user.powerLevel.role) {
+                              PowerLevelRole.owner => Text(context.l10n.owner),
+                              PowerLevelRole.admin => Text(context.l10n.admin),
+                              PowerLevelRole.moderator => Text(
+                                context.l10n.moderator,
+                              ),
+                              PowerLevelRole.user => null,
+                            },
+                            onTap: () => showUserProfileCard(
+                              context,
+                              client: room.client,
+                              userId: user.id,
+                              displayName: name,
+                              avatarUrl: user.avatarUrl,
+                            ),
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -2334,7 +2402,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final threadReplyCount = event
         .aggregatedEvents(timeline, RelationshipTypes.thread)
         .length;
-    final linkUrl = !isImage && !isFile && !isAudio && !isPoll
+    final linkUrl =
+        !isImage &&
+            !isFile &&
+            !isAudio &&
+            !isPoll &&
+            SettingsScope.of(context).showUrlPreviews
         ? LinkPreview.firstLinkOf(displayEvent.body)
         : null;
     final timeText = DateFormat.Hm().format(event.originServerTs);
@@ -2677,6 +2750,101 @@ class _MessageBubbleState extends State<_MessageBubble> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [const _UnreadMarker(), messageRow],
+    );
+  }
+}
+
+/// A file or GIF send in flight.
+class _PendingSend {
+  _PendingSend({required this.name, required this.isImage});
+
+  final String name;
+  final bool isImage;
+}
+
+/// Pulsing skeleton bubble shown while a file/GIF is downloaded, uploaded
+/// and sent.
+class _PendingSendBubble extends StatefulWidget {
+  const _PendingSendBubble({required this.pending});
+
+  final _PendingSend pending;
+
+  @override
+  State<_PendingSendBubble> createState() => _PendingSendBubbleState();
+}
+
+class _PendingSendBubbleState extends State<_PendingSendBubble>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final label = Text(
+      '${widget.pending.name} · ${context.l10n.sending}',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(
+        context,
+      ).textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
+    );
+    return FadeTransition(
+      opacity: Tween(
+        begin: 0.45,
+        end: 1.0,
+      ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 260),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: widget.pending.isImage
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 180,
+                    height: 100,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  label,
+                ],
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(child: label),
+                ],
+              ),
+      ),
     );
   }
 }

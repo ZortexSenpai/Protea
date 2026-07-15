@@ -89,10 +89,61 @@ class AppSettings extends ChangeNotifier {
 
   bool get notificationSounds => _prefs.getBool('notificationSounds') ?? true;
 
-  Future<void> setNotificationSounds(bool value) async {
-    await _prefs.setBool('notificationSounds', value);
-    notifyListeners();
-  }
+  Future<void> setNotificationSounds(bool value) =>
+      _setBool('notificationSounds', value);
+
+  /// Master switch for desktop notifications.
+  bool get desktopNotifications =>
+      _prefs.getBool('desktopNotifications') ?? true;
+
+  Future<void> setDesktopNotifications(bool value) =>
+      _setBool('desktopNotifications', value);
+
+  /// Whether others get to see that we are typing.
+  bool get sendTypingNotifications =>
+      _prefs.getBool('sendTypingNotifications') ?? true;
+
+  Future<void> setSendTypingNotifications(bool value) =>
+      _setBool('sendTypingNotifications', value);
+
+  /// Whether others get to see which messages we have read.
+  bool get sendReadReceipts => _prefs.getBool('sendReadReceipts') ?? true;
+
+  Future<void> setSendReadReceipts(bool value) =>
+      _setBool('sendReadReceipts', value);
+
+  /// Whether link preview cards are fetched and shown under messages.
+  bool get showUrlPreviews => _prefs.getBool('showUrlPreviews') ?? true;
+
+  Future<void> setShowUrlPreviews(bool value) =>
+      _setBool('showUrlPreviews', value);
+
+  /// Whether join/leave/invite state messages show in the timeline.
+  bool get showMembershipEvents =>
+      _prefs.getBool('showMembershipEvents') ?? true;
+
+  Future<void> setShowMembershipEvents(bool value) =>
+      _setBool('showMembershipEvents', value);
+
+  /// Whether display name and avatar changes show in the timeline.
+  bool get showProfileChangeEvents =>
+      _prefs.getBool('showProfileChangeEvents') ?? true;
+
+  Future<void> setShowProfileChangeEvents(bool value) =>
+      _setBool('showProfileChangeEvents', value);
+
+  /// Whether deleted messages leave a placeholder in the timeline.
+  bool get showDeletedMessages => _prefs.getBool('showDeletedMessages') ?? true;
+
+  Future<void> setShowDeletedMessages(bool value) =>
+      _setBool('showDeletedMessages', value);
+
+  /// Whether newly started direct chats enable end-to-end encryption.
+  bool get encryptNewDirectChats =>
+      _prefs.getBool('encryptNewDirectChats') ?? true;
+
+  Future<void> setEncryptNewDirectChats(bool value) =>
+      _setBool('encryptNewDirectChats', value);
 
   MessageLayout get messageLayout =>
       MessageLayout.values.asNameMap()[_prefs.getString('messageLayout')] ??
@@ -137,6 +188,11 @@ class AppSettings extends ChangeNotifier {
 
   Future<void> _set(String key, String value) async {
     await _prefs.setString(key, value);
+    notifyListeners();
+  }
+
+  Future<void> _setBool(String key, bool value) async {
+    await _prefs.setBool(key, value);
     notifyListeners();
   }
 }

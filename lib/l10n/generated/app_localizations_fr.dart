@@ -12,6 +12,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get accept => 'Accepter';
 
   @override
+  String get accessToken => 'Jeton d\'accès';
+
+  @override
+  String get accessTokenWarning =>
+      'Ne partagez jamais votre jeton d\'accès. Il donne un contrôle total sur votre compte.';
+
+  @override
   String get account => 'Compte';
 
   @override
@@ -246,6 +253,9 @@ class AppLocalizationsFr extends AppLocalizations {
       'Comparez une courte liste d\'émojis avec l\'autre appareil pour le vérifier.';
 
   @override
+  String get copiedToClipboard => 'Copié dans le presse-papiers';
+
+  @override
   String get copy => 'Copier';
 
   @override
@@ -300,6 +310,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get deletePack => 'Supprimer le pack';
 
   @override
+  String get desktopNotificationsDescription =>
+      'Affiche des notifications système pour les nouveaux messages lorsque la fenêtre est en arrière-plan.';
+
+  @override
+  String get desktopNotificationsTitle => 'Notifications de bureau';
+
+  @override
   String get direct => 'Direct';
 
   @override
@@ -337,6 +354,14 @@ class AppLocalizationsFr extends AppLocalizations {
   String get emoji => 'Émoji';
 
   @override
+  String get encryptNewDmsDescription =>
+      'Active le chiffrement de bout en bout lors du démarrage d\'une nouvelle discussion directe.';
+
+  @override
+  String get encryptNewDmsTitle =>
+      'Chiffrer les nouvelles discussions directes';
+
+  @override
   String get encryptionNotAvailable =>
       'Le chiffrement de bout en bout n\'est pas disponible';
 
@@ -361,6 +386,9 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get enterRecoveryKeyToVerify =>
       'Saisissez votre clé de récupération pour vous vérifier via votre sauvegarde sécurisée, ou passez cette étape et comparez plutôt des émojis avec l\'autre appareil.';
+
+  @override
+  String get expert => 'Expert';
 
   @override
   String get explorePublicRooms => 'Explorer les salons publics';
@@ -420,6 +448,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get heartsAndSymbols => 'Cœurs et symboles';
+
+  @override
+  String get hide => 'Masquer';
 
   @override
   String get home => 'Accueil';
@@ -795,6 +826,9 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get privacy => 'Confidentialité';
+
+  @override
   String get question => 'Question';
 
   @override
@@ -954,7 +988,25 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get sendReadReceiptsDescription =>
+      'Permet aux autres de voir quels messages vous avez lus.';
+
+  @override
+  String get sendReadReceiptsTitle => 'Envoyer les accusés de lecture';
+
+  @override
+  String get sendTypingNotificationsDescription =>
+      'Permet aux autres de voir quand vous écrivez.';
+
+  @override
+  String get sendTypingNotificationsTitle =>
+      'Envoyer les indicateurs de saisie';
+
+  @override
   String get sendVoiceMessage => 'Envoyer un message vocal';
+
+  @override
+  String get sending => 'Envoi…';
 
   @override
   String get server => 'Serveur';
@@ -981,6 +1033,37 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settings => 'Paramètres';
+
+  @override
+  String get show => 'Afficher';
+
+  @override
+  String get showDeletedMessagesDescription =>
+      'Conserve un espace réservé là où un message a été supprimé.';
+
+  @override
+  String get showDeletedMessagesTitle => 'Messages supprimés';
+
+  @override
+  String get showMembershipEventsDescription =>
+      'Affiche quand des membres rejoignent, quittent ou sont invités.';
+
+  @override
+  String get showMembershipEventsTitle => 'Arrivées et départs';
+
+  @override
+  String get showProfileChangeEventsDescription =>
+      'Affiche les changements de nom d\'affichage et de photo de profil.';
+
+  @override
+  String get showProfileChangeEventsTitle => 'Changements de profil';
+
+  @override
+  String get showUrlPreviewsDescription =>
+      'Affiche une carte d’aperçu sous les messages contenant des liens.';
+
+  @override
+  String get showUrlPreviewsTitle => 'Afficher les aperçus de liens';
 
   @override
   String get signIn => 'Se connecter';
@@ -1075,6 +1158,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get systemDefault => 'Système';
+
+  @override
+  String get systemMessages => 'Messages système';
+
+  @override
+  String get systemMessagesDescription =>
+      'Choisissez quels événements du salon apparaissent dans le fil.';
 
   @override
   String get text => 'Texte';
