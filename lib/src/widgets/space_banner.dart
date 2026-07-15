@@ -1,23 +1,57 @@
-import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
-import '../l10n.dart';
 import 'mxc_avatar.dart';
 
 /// Space banner state event — the key Commet, Sable and VirtualChat use.
 const spaceBannerEventType = 'page.codeberg.everypizza.room.banner';
 
-/// The banner mxc URL of [room], or null when none is set.
-Uri? spaceBannerUrl(Room room) {
-  final url = room.getState(spaceBannerEventType)?.content['url'];
+/// Server-fetched banner URLs by room id. Rooms synced before the banner
+/// event type was whitelisted in [Client.importantStateEvents] have no local
+/// copy of the state event, so it is fetched once from the server. Shared by
+/// the banner strip and the space settings actions.
+final _serverBanner = <String, Uri?>{};
+final _fetchInFlight = <String>{};
+
+Uri? _urlFrom(Map<String, Object?> content) {
+  final url = content['url'];
   if (url is String && url.startsWith('mxc://')) return Uri.tryParse(url);
   return null;
 }
 
+/// The banner of [room] as currently known: the local state event when it
+/// arrived through sync, otherwise the server-fetched cache.
+Uri? currentSpaceBanner(Room room) {
+  final stateEvent = room.getState(spaceBannerEventType);
+  if (stateEvent != null) return _urlFrom(stateEvent.content);
+  return _serverBanner[room.id];
+}
+
+/// Writes [mxc] as the banner state event of [space].
+Future<void> setSpaceBanner(Room space, Uri mxc, {String? mimeType}) async {
+  await space.client.setRoomStateWithKey(space.id, spaceBannerEventType, '', {
+    'url': mxc.toString(),
+    'mimetype': ?mimeType,
+  });
+  // Optimistic: reflect the change before the sync echo arrives.
+  _serverBanner[space.id] = mxc;
+}
+
+/// Removes the banner of [space] (empty state event content, the convention
+/// the other clients use).
+Future<void> removeSpaceBanner(Room space) async {
+  await space.client.setRoomStateWithKey(
+    space.id,
+    spaceBannerEventType,
+    '',
+    {},
+  );
+  _serverBanner[space.id] = null;
+}
+
 /// Discord-style banner strip shown at the top of a space's channel list.
-/// Users with permission for the banner state event get upload/remove
-/// controls; for everyone else the strip only appears when a banner is set.
+/// Display only — changing or removing the banner lives in the space
+/// settings dialog.
 class SpaceBanner extends StatefulWidget {
   const SpaceBanner({super.key, required this.space});
 
@@ -28,14 +62,6 @@ class SpaceBanner extends StatefulWidget {
 }
 
 class _SpaceBannerState extends State<SpaceBanner> {
-  bool _busy = false;
-
-  /// Server-fetched banner URLs by room id. Rooms synced before the banner
-  /// event type was whitelisted in [Client.importantStateEvents] have no
-  /// local copy of the state event, so it is fetched once from the server.
-  static final _serverBanner = <String, Uri?>{};
-  static final _fetchInFlight = <String>{};
-
   @override
   void initState() {
     super.initState();
@@ -46,12 +72,6 @@ class _SpaceBannerState extends State<SpaceBanner> {
   void didUpdateWidget(SpaceBanner oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.space.id != widget.space.id) _maybeFetchFromServer();
-  }
-
-  static Uri? _urlFrom(Map<String, Object?> content) {
-    final url = content['url'];
-    if (url is String && url.startsWith('mxc://')) return Uri.tryParse(url);
-    return null;
   }
 
   Future<void> _maybeFetchFromServer() async {
@@ -77,117 +97,19 @@ class _SpaceBannerState extends State<SpaceBanner> {
     if (mounted) setState(() {});
   }
 
-  void _showError(Object error) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(error.toString())));
-  }
-
-  Future<void> _upload() async {
-    final picked = await openFile(
-      acceptedTypeGroups: [
-        XTypeGroup(
-          label: context.l10n.images,
-          extensions: const ['png', 'jpg', 'jpeg', 'gif', 'webp'],
-        ),
-      ],
-    );
-    if (picked == null) return;
-    setState(() => _busy = true);
-    try {
-      final bytes = await picked.readAsBytes();
-      final client = widget.space.client;
-      final mxc = await client.uploadContent(bytes, filename: picked.name);
-      await client.setRoomStateWithKey(
-        widget.space.id,
-        spaceBannerEventType,
-        '',
-        {'url': mxc.toString(), 'mimetype': picked.mimeType},
-      );
-      // Optimistic: show the new banner before the sync echo arrives.
-      _serverBanner[widget.space.id] = Uri.tryParse(mxc.toString());
-    } catch (e) {
-      _showError(e);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _remove() async {
-    setState(() => _busy = true);
-    try {
-      await widget.space.client.setRoomStateWithKey(
-        widget.space.id,
-        spaceBannerEventType,
-        '',
-        {},
-      );
-      _serverBanner[widget.space.id] = null;
-    } catch (e) {
-      _showError(e);
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final stateEvent = widget.space.getState(spaceBannerEventType);
-    final bannerUrl = stateEvent != null
-        ? _urlFrom(stateEvent.content)
-        : _serverBanner[widget.space.id];
-    final canEdit = widget.space.canChangeStateEvent(spaceBannerEventType);
-    if (bannerUrl == null && !canEdit) return const SizedBox.shrink();
+    final bannerUrl = currentSpaceBanner(widget.space);
+    if (bannerUrl == null) return const SizedBox.shrink();
     return SizedBox(
-      height: bannerUrl != null ? 96 : 44,
+      height: 96,
       width: double.infinity,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (bannerUrl != null)
-            MxcImage(
-              client: widget.space.client,
-              uri: bannerUrl,
-              thumbnailWidth: 600,
-              thumbnailHeight: 200,
-              thumbnailMethod: ThumbnailMethod.scale,
-            )
-          else
-            ColoredBox(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            ),
-          if (canEdit)
-            Positioned(
-              top: 4,
-              right: 4,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_busy)
-                    const Padding(
-                      padding: EdgeInsets.only(right: 8),
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  IconButton.filledTonal(
-                    tooltip: context.l10n.changeBanner,
-                    icon: const Icon(Icons.panorama_outlined, size: 18),
-                    onPressed: _busy ? null : _upload,
-                  ),
-                  if (bannerUrl != null)
-                    IconButton.filledTonal(
-                      tooltip: context.l10n.removeBanner,
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      onPressed: _busy ? null : _remove,
-                    ),
-                ],
-              ),
-            ),
-        ],
+      child: MxcImage(
+        client: widget.space.client,
+        uri: bannerUrl,
+        thumbnailWidth: 600,
+        thumbnailHeight: 200,
+        thumbnailMethod: ThumbnailMethod.scale,
       ),
     );
   }

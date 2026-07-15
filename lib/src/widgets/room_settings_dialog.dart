@@ -7,6 +7,7 @@ import 'package:matrix/matrix.dart';
 
 import '../l10n.dart';
 import 'mxc_avatar.dart';
+import 'space_banner.dart';
 
 /// Settings for a room or space: image, name, topic, notifications,
 /// invitations and leaving.
@@ -297,6 +298,25 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
     });
   }
 
+  Future<void> _changeSpaceBanner() async {
+    final picked = await openFile(
+      acceptedTypeGroups: [
+        XTypeGroup(
+          label: context.l10n.images,
+          extensions: const ['png', 'jpg', 'jpeg', 'gif', 'webp'],
+        ),
+      ],
+    );
+    if (picked == null) return;
+    await _run(() async {
+      final bytes = await picked.readAsBytes();
+      final mxc = await room.client.uploadContent(bytes, filename: picked.name);
+      await setSpaceBanner(room, mxc, mimeType: picked.mimeType);
+    });
+  }
+
+  Future<void> _removeSpaceBanner() => _run(() => removeSpaceBanner(room));
+
   /// Current room version from the create event.
   String get _roomVersion =>
       room.getState(EventTypes.RoomCreate)?.content['room_version']
@@ -426,6 +446,8 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
     final canRename = room.canChangeStateEvent(EventTypes.RoomName);
     final canTopic = room.canChangeStateEvent(EventTypes.RoomTopic);
     final canAvatar = room.canChangeStateEvent(EventTypes.RoomAvatar);
+    final canBanner =
+        room.isSpace && room.canChangeStateEvent(spaceBannerEventType);
     return Dialog(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480, maxHeight: 640),
@@ -485,11 +507,12 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
                           Clipboard.setData(ClipboardData(text: room.id)),
                     ),
                   ),
-                  if (canAvatar || canRename)
+                  if (canAvatar || canRename || canBanner)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Wrap(
                         spacing: 8,
+                        runSpacing: 8,
                         children: [
                           if (canAvatar)
                             OutlinedButton.icon(
@@ -506,6 +529,21 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
                               onPressed: _busy ? null : _rename,
                               icon: const Icon(Icons.edit_outlined, size: 18),
                               label: Text(context.l10n.rename),
+                            ),
+                          if (canBanner)
+                            OutlinedButton.icon(
+                              onPressed: _busy ? null : _changeSpaceBanner,
+                              icon: const Icon(
+                                Icons.panorama_outlined,
+                                size: 18,
+                              ),
+                              label: Text(context.l10n.changeBanner),
+                            ),
+                          if (canBanner && currentSpaceBanner(room) != null)
+                            OutlinedButton.icon(
+                              onPressed: _busy ? null : _removeSpaceBanner,
+                              icon: const Icon(Icons.delete_outline, size: 18),
+                              label: Text(context.l10n.removeBanner),
                             ),
                         ],
                       ),
