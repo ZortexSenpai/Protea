@@ -844,6 +844,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get reject => 'Rifiuta';
 
   @override
+  String get removeBanner => 'Rimuovi banner';
+
+  @override
   String get removeOption => 'Rimuovi opzione';
 
   @override

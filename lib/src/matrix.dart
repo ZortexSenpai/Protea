@@ -9,6 +9,7 @@ import 'package:sqflite/sqflite.dart' as sqflite;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'commands.dart';
+import 'widgets/space_banner.dart';
 
 bool _vodozemacInitialized = false;
 
@@ -62,6 +63,9 @@ Future<Client> buildMatrixClient({String name = 'Protea'}) async {
       AuthenticationTypes.password,
       AuthenticationTypes.sso,
     },
+    // Custom state events are dropped from partially-loaded rooms unless
+    // they are listed here (the SDK adds its own defaults to this set).
+    importantStateEvents: {spaceBannerEventType},
     verificationMethods: {
       KeyVerificationMethod.emoji,
       KeyVerificationMethod.numbers,

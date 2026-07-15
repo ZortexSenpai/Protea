@@ -245,6 +245,7 @@
   "recoveryKey": "Clé de récupération",
   "refresh": "Actualiser",
   "reject": "Refuser",
+  "removeBanner": "Supprimer la bannière",
   "removeOption": "Retirer l'option",
   "rename": "Renommer",
   "repliesCount": "{count, plural, =1{1 réponse} other{{count} réponses}}",

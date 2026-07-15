@@ -26,7 +26,14 @@ class NotificationService with WidgetsBindingObserver {
     EventTypes.Message,
     EventTypes.Encrypted,
     EventTypes.Sticker,
+    // Invites arrive as m.room.member events (the SDK only forwards the
+    // ones addressed to us).
+    EventTypes.RoomMember,
   };
+
+  /// The room currently open in the UI, set by the room page. While the
+  /// window is focused, no notifications are shown for this room.
+  static String? activeRoomId;
 
   Future<void> init() async {
     WidgetsBinding.instance.addObserver(this);
@@ -99,9 +106,13 @@ class NotificationService with WidgetsBindingObserver {
 
   Future<void> _showNotification(Client client, Event event) async {
     if (!(settings?.desktopNotifications ?? true)) return;
-    // On desktop the lifecycle reflects window focus: only notify when the
-    // app is in the background.
-    if (_lifecycle == AppLifecycleState.resumed) return;
+    // Suppress only what the user is actively reading: the room open in a
+    // focused window. Messages for other rooms notify even while focused
+    // (and everything notifies while the window is in the background).
+    if (_lifecycle == AppLifecycleState.resumed &&
+        event.room.id == activeRoomId) {
+      return;
+    }
     if (event.senderId == client.userID) return;
     if (!_notifiableTypes.contains(event.type)) return;
     final room = event.room;

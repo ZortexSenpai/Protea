@@ -391,6 +391,7 @@
   "recoveryKey": "Recovery key",
   "refresh": "Refresh",
   "reject": "Reject",
+  "removeBanner": "Remove banner",
   "removeOption": "Remove option",
   "rename": "Rename",
   "repliesCount": "{count, plural, =1{1 reply} other{{count} replies}}",

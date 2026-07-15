@@ -1574,6 +1574,12 @@ abstract class AppLocalizations {
   /// **'Reject'**
   String get reject;
 
+  /// No description provided for @removeBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove banner'**
+  String get removeBanner;
+
   /// No description provided for @removeOption.
   ///
   /// In en, this message translates to:

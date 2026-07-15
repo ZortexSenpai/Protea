@@ -851,6 +851,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get reject => 'Refuser';
 
   @override
+  String get removeBanner => 'Supprimer la bannière';
+
+  @override
   String get removeOption => 'Retirer l\'option';
 
   @override

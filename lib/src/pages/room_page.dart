@@ -15,9 +15,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../commands.dart';
 import '../l10n.dart';
+import '../notifications.dart';
 import '../settings.dart';
 import '../widgets/emoji_picker.dart';
 import '../widgets/event_image.dart';
+import '../widgets/file_preview.dart';
 import '../widgets/forward_message_dialog.dart';
 import '../widgets/gif_picker_dialog.dart';
 import '../widgets/html_message.dart';
@@ -93,6 +95,7 @@ class _RoomPageState extends State<RoomPage> {
   @override
   void initState() {
     super.initState();
+    NotificationService.activeRoomId = widget.room.id;
     _itemPositionsListener.itemPositions.addListener(_onPositionsChanged);
     // Receipts and typing arrive as ephemeral sync data that does not
     // trigger timeline updates, so rebuild on every sync as well.
@@ -126,6 +129,11 @@ class _RoomPageState extends State<RoomPage> {
 
   @override
   void dispose() {
+    // Another room may already have claimed the slot (its initState runs
+    // before this dispose when switching rooms) — only clear our own claim.
+    if (NotificationService.activeRoomId == widget.room.id) {
+      NotificationService.activeRoomId = null;
+    }
     _recordingTimer?.cancel();
     _recorder?.dispose();
     _syncSubscription?.cancel();
@@ -2240,7 +2248,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
       MessageTypes.Video => Icons.videocam_outlined,
       _ => Icons.insert_drive_file_outlined,
     };
-    return InkWell(
+    final chip = InkWell(
       onTap: () => onSaveAttachment(displayEvent),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2264,6 +2272,18 @@ class _MessageBubbleState extends State<_MessageBubble> {
           ),
         ],
       ),
+    );
+    if (!TextFilePreview.isPreviewable(displayEvent)) return chip;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        chip,
+        TextFilePreview(
+          event: displayEvent,
+          onSave: () => onSaveAttachment(displayEvent),
+        ),
+      ],
     );
   }
 

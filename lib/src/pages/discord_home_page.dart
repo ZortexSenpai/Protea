@@ -12,11 +12,61 @@ import '../widgets/pinned_rooms_section.dart';
 import '../widgets/presence_indicator.dart';
 import '../widgets/room_directory_dialog.dart';
 import '../widgets/room_settings_dialog.dart';
+import '../widgets/space_banner.dart';
 import '../widgets/space_lobby_dialog.dart';
 import '../widgets/user_banner.dart';
 import '../widgets/user_profile_card.dart';
 import 'room_page.dart';
 import 'settings_page.dart';
+
+/// A space child's fields relevant for ordering (the SDK's SpaceChild type
+/// is not exported).
+typedef _ChildEntry = ({
+  String roomId,
+  String order,
+  List<String> via,
+  bool? suggested,
+});
+
+/// Children of [space] sorted per spec: explicit `order` strings first
+/// (lexicographic), children without an order after them, original state
+/// order as the stable tie-breaker.
+List<_ChildEntry> _sortedSpaceChildren(Room space) {
+  final children = [
+    for (final child in space.spaceChildren)
+      if (child.roomId != null)
+        (
+          roomId: child.roomId!,
+          order: child.order,
+          via: child.via,
+          suggested: child.suggested,
+        ),
+  ];
+  final indexed = children.asMap().entries.toList();
+  indexed.sort((a, b) {
+    final orderA = a.value.order;
+    final orderB = b.value.order;
+    if (orderA.isEmpty && orderB.isEmpty) return a.key.compareTo(b.key);
+    if (orderA.isEmpty) return 1;
+    if (orderB.isEmpty) return -1;
+    final compared = orderA.compareTo(orderB);
+    return compared != 0 ? compared : a.key.compareTo(b.key);
+  });
+  return indexed.map((entry) => entry.value).toList();
+}
+
+/// Payload of a channel drag: the room and the space it currently lives in.
+class _ChannelDrag {
+  const _ChannelDrag({
+    required this.room,
+    required this.parent,
+    required this.via,
+  });
+
+  final Room room;
+  final Room parent;
+  final List<String> via;
+}
 
 /// Discord-style home: a vertical spaces rail, a channel list for the
 /// selected space and — on wide screens — the chat pane next to it.
@@ -75,6 +125,69 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  /// Category (sub-space) ids collapsed in the channel list this session.
+  final _collapsedCategories = <String>{};
+
+  void _toggleCategory(String spaceId) {
+    setState(() {
+      _collapsedCategories.contains(spaceId)
+          ? _collapsedCategories.remove(spaceId)
+          : _collapsedCategories.add(spaceId);
+    });
+  }
+
+  /// Moves [_ChannelDrag.room] into [targetParent] (before [beforeRoomId],
+  /// or appended) and persists the new ordering as `order` fields on the
+  /// m.space.child state events, so it is visible to every member.
+  Future<void> _moveChannel(
+    _ChannelDrag drag,
+    Room targetParent,
+    String? beforeRoomId,
+  ) async {
+    try {
+      final children = _sortedSpaceChildren(targetParent);
+      final ids = [for (final child in children) child.roomId];
+      ids.remove(drag.room.id);
+      var insertAt = beforeRoomId == null
+          ? ids.length
+          : ids.indexOf(beforeRoomId);
+      if (insertAt < 0) insertAt = ids.length;
+      ids.insert(insertAt, drag.room.id);
+      final childById = {for (final child in children) child.roomId: child};
+      for (var i = 0; i < ids.length; i++) {
+        final id = ids[i];
+        final order = i.toString().padLeft(4, '0');
+        final existing = childById[id];
+        if (existing != null && existing.order == order) continue;
+        final via = existing != null && existing.via.isNotEmpty
+            ? existing.via
+            : drag.via.isNotEmpty
+            ? drag.via
+            : [_client.userID!.domain!];
+        await _client
+            .setRoomStateWithKey(targetParent.id, EventTypes.SpaceChild, id, {
+              'via': via,
+              'order': order,
+              if (existing?.suggested != null) 'suggested': existing!.suggested,
+            });
+      }
+      if (drag.parent.id != targetParent.id) {
+        await _client.setRoomStateWithKey(
+          drag.parent.id,
+          EventTypes.SpaceChild,
+          drag.room.id,
+          {},
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
   Future<void> _openRoom(Room room) async {
     if (!await confirmRoomTap(context, room)) return;
     if (!mounted) return;
@@ -127,6 +240,9 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
           selectedRoomId: _selectedRoomId,
           onRoomTap: _openRoom,
           fillWidth: !wide,
+          collapsedCategories: _collapsedCategories,
+          onToggleCategory: _toggleCategory,
+          onMoveChannel: _moveChannel,
         );
 
         if (wide) {
@@ -366,6 +482,9 @@ class _ChannelColumn extends StatelessWidget {
     required this.selectedRoomId,
     required this.onRoomTap,
     required this.fillWidth,
+    required this.collapsedCategories,
+    required this.onToggleCategory,
+    required this.onMoveChannel,
   });
 
   final Client client;
@@ -375,6 +494,16 @@ class _ChannelColumn extends StatelessWidget {
 
   /// The selected space, or null in the "Home" section.
   final Room? space;
+
+  /// Collapsed category (sub-space) ids.
+  final Set<String> collapsedCategories;
+  final void Function(String spaceId) onToggleCategory;
+  final void Function(
+    _ChannelDrag drag,
+    Room targetParent,
+    String? beforeRoomId,
+  )
+  onMoveChannel;
   final List<Room> rooms;
   final String? selectedRoomId;
   final void Function(Room room) onRoomTap;
@@ -425,8 +554,11 @@ class _ChannelColumn extends StatelessWidget {
             ),
           ),
           const Divider(height: 1),
+          if (space != null) SpaceBanner(space: space!),
           Expanded(
-            child: rooms.isEmpty
+            child: space != null
+                ? _buildSpaceList(context, space!)
+                : rooms.isEmpty
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -488,6 +620,201 @@ class _ChannelColumn extends StatelessWidget {
     return fillWidth
         ? Expanded(child: column)
         : SizedBox(width: 280, child: column);
+  }
+
+  /// Channel list of a space: loose channels first, then sub-spaces rendered
+  /// as collapsible Discord-style categories. Channels can be reordered and
+  /// moved between categories via drag & drop when the user may edit the
+  /// space's child events.
+  Widget _buildSpaceList(BuildContext context, Room space) {
+    final canReorder = space.canChangeStateEvent(EventTypes.SpaceChild);
+
+    List<(_ChildEntry, Room)> joinedEntries(Room parent, {bool? spaces}) => [
+      for (final child in _sortedSpaceChildren(parent))
+        if (client.getRoomById(child.roomId) case final Room room)
+          if (room.membership != Membership.leave &&
+              room.membership != Membership.ban &&
+              (spaces == null || room.isSpace == spaces))
+            (child, room),
+    ];
+
+    final rootChannels = joinedEntries(space, spaces: false);
+    final categories = joinedEntries(space, spaces: true);
+    if (rootChannels.isEmpty && categories.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(context.l10n.noRoomsHereYet),
+        ),
+      );
+    }
+
+    Widget draggable((_ChildEntry, Room) entry, Room parent) =>
+        _DraggableChannelTile(
+          tile: _ChannelTile(
+            room: entry.$2,
+            selected: entry.$2.id == selectedRoomId,
+            onTap: () => onRoomTap(entry.$2),
+          ),
+          room: entry.$2,
+          parent: parent,
+          via: entry.$1.via,
+          enabled: canReorder,
+          onMove: onMoveChannel,
+        );
+
+    return ListView(
+      children: [
+        if (rootChannels.isNotEmpty)
+          _SectionDropTarget(
+            enabled: canReorder,
+            onDrop: (drag) => onMoveChannel(drag, space, null),
+            child: _SectionLabel(context.l10n.channels),
+          ),
+        for (final entry in rootChannels) draggable(entry, space),
+        for (final categoryEntry in categories) ...[
+          const SizedBox(height: 12),
+          _SectionDropTarget(
+            enabled: canReorder,
+            onDrop: (drag) => onMoveChannel(drag, categoryEntry.$2, null),
+            child: InkWell(
+              onTap: () => onToggleCategory(categoryEntry.$2.id),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 10, 16, 4),
+                child: Row(
+                  children: [
+                    Icon(
+                      collapsedCategories.contains(categoryEntry.$2.id)
+                          ? Icons.chevron_right
+                          : Icons.expand_more,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 2),
+                    Expanded(
+                      child: Text(
+                        categoryEntry.$2
+                            .getLocalizedDisplayname()
+                            .toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          letterSpacing: 0.8,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (!collapsedCategories.contains(categoryEntry.$2.id))
+            for (final childEntry in joinedEntries(
+              categoryEntry.$2,
+              spaces: false,
+            ))
+              draggable(childEntry, categoryEntry.$2),
+        ],
+      ],
+    );
+  }
+}
+
+/// Highlights and accepts channel drops for a whole section (the top-level
+/// label or a category header).
+class _SectionDropTarget extends StatelessWidget {
+  const _SectionDropTarget({
+    required this.enabled,
+    required this.onDrop,
+    required this.child,
+  });
+
+  final bool enabled;
+  final void Function(_ChannelDrag drag) onDrop;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled) return child;
+    return DragTarget<_ChannelDrag>(
+      onAcceptWithDetails: (details) => onDrop(details.data),
+      builder: (context, candidates, _) => ColoredBox(
+        color: candidates.isNotEmpty
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+            : Colors.transparent,
+        child: child,
+      ),
+    );
+  }
+}
+
+/// Makes a channel tile draggable and a drop target: dropping another
+/// channel on it inserts that channel right before this one.
+class _DraggableChannelTile extends StatelessWidget {
+  const _DraggableChannelTile({
+    required this.tile,
+    required this.room,
+    required this.parent,
+    required this.via,
+    required this.enabled,
+    required this.onMove,
+  });
+
+  final Widget tile;
+  final Room room;
+  final Room parent;
+  final List<String> via;
+  final bool enabled;
+  final void Function(
+    _ChannelDrag drag,
+    Room targetParent,
+    String? beforeRoomId,
+  )
+  onMove;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled) return tile;
+    final colorScheme = Theme.of(context).colorScheme;
+    return DragTarget<_ChannelDrag>(
+      onWillAcceptWithDetails: (details) => details.data.room.id != room.id,
+      onAcceptWithDetails: (details) => onMove(details.data, parent, room.id),
+      builder: (context, candidates, _) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Insertion indicator while another channel hovers above.
+          Container(
+            height: 2,
+            margin: const EdgeInsets.symmetric(horizontal: 8),
+            color: candidates.isNotEmpty
+                ? colorScheme.primary
+                : Colors.transparent,
+          ),
+          Draggable<_ChannelDrag>(
+            data: _ChannelDrag(room: room, parent: parent, via: via),
+            feedback: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(8),
+              color: colorScheme.surfaceContainerHigh,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                child: Text(
+                  room.getLocalizedDisplayname(),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ),
+            childWhenDragging: Opacity(opacity: 0.35, child: tile),
+            child: tile,
+          ),
+        ],
+      ),
+    );
   }
 }
 
