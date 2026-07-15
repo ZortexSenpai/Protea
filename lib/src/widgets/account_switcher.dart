@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
 import '../client_manager.dart';
+import '../l10n.dart';
 import '../pages/login_page.dart';
 import 'mxc_avatar.dart';
 
@@ -30,7 +31,7 @@ class AccountSwitcherDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Accounts'),
+      title: Text(context.l10n.accounts),
       contentPadding: const EdgeInsets.symmetric(vertical: 8),
       content: SizedBox(
         width: 360,
@@ -51,7 +52,7 @@ class AccountSwitcherDialog extends StatelessWidget {
               const Divider(height: 8),
               ListTile(
                 leading: const Icon(Icons.person_add_outlined),
-                title: const Text('Add account'),
+                title: Text(context.l10n.addAccount),
                 onTap: () => _addAccount(context),
               ),
             ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
 import '../pages/room_page.dart';
 import 'mxc_avatar.dart';
 
@@ -112,10 +113,10 @@ class _QuickSwitcherDialogState extends State<QuickSwitcherDialog> {
               padding: const EdgeInsets.all(12),
               child: TextField(
                 autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'Jump to room…',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  hintText: context.l10n.jumpToRoomHint,
+                  prefixIcon: const Icon(Icons.search),
+                  border: const OutlineInputBorder(),
                   isDense: true,
                 ),
                 onChanged: (value) => setState(() => _query = value.trim()),
@@ -127,9 +128,9 @@ class _QuickSwitcherDialogState extends State<QuickSwitcherDialog> {
             const Divider(height: 1),
             Flexible(
               child: rooms.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text('No matching rooms.'),
+                  ? Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(context.l10n.noMatchingRooms),
                     )
                   : ListView.builder(
                       shrinkWrap: true,

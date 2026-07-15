@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
 import 'mxc_avatar.dart';
 
 /// Settings for a room or space: image, name, topic, notifications,
@@ -77,9 +78,9 @@ class _InviteDialogState extends State<InviteDialog> {
       await widget.room.invite(userId);
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Invited $userId')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.invitedUser(userId))),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -106,12 +107,14 @@ class _InviteDialogState extends State<InviteDialog> {
               child: Row(
                 children: [
                   Text(
-                    widget.room.isSpace ? 'Invite to space' : 'Invite to room',
+                    widget.room.isSpace
+                        ? context.l10n.inviteToSpace
+                        : context.l10n.inviteToRoom,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const Spacer(),
                   IconButton(
-                    tooltip: 'Close',
+                    tooltip: context.l10n.close,
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -125,7 +128,7 @@ class _InviteDialogState extends State<InviteDialog> {
                 autofocus: true,
                 enabled: !_busy,
                 decoration: InputDecoration(
-                  hintText: 'Search by name, or enter @user:server',
+                  hintText: context.l10n.searchUserHint,
                   prefixIcon: const Icon(Icons.search),
                   border: const OutlineInputBorder(),
                   isDense: true,
@@ -151,7 +154,7 @@ class _InviteDialogState extends State<InviteDialog> {
                   if (looksLikeUserId)
                     ListTile(
                       leading: const Icon(Icons.person_add_outlined),
-                      title: Text('Invite $input'),
+                      title: Text(context.l10n.inviteUser(input)),
                       enabled: !_busy,
                       onTap: () => _invite(input),
                     ),
@@ -178,12 +181,9 @@ class _InviteDialogState extends State<InviteDialog> {
                       onTap: () => _invite(profile.userId),
                     ),
                   if (!looksLikeUserId && _results.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text(
-                        'Type at least two characters to search the user '
-                        'directory.',
-                      ),
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(context.l10n.typeTwoCharactersToSearch),
                     ),
                 ],
               ),
@@ -249,11 +249,11 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: const Text('Save'),
+            child: Text(context.l10n.save),
           ),
         ],
       ),
@@ -263,14 +263,17 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
   }
 
   Future<void> _rename() async {
-    final name = await _promptText(title: 'Name', initial: room.name);
+    final name = await _promptText(
+      title: context.l10n.name,
+      initial: room.name,
+    );
     if (name == null || name.isEmpty) return;
     await _run(() => room.setName(name));
   }
 
   Future<void> _editTopic() async {
     final topic = await _promptText(
-      title: 'Topic',
+      title: context.l10n.topic,
       initial: room.topic,
       multiline: true,
     );
@@ -281,9 +284,9 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
   Future<void> _changeImage() async {
     final picked = await openFile(
       acceptedTypeGroups: [
-        const XTypeGroup(
-          label: 'Images',
-          extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'],
+        XTypeGroup(
+          label: context.l10n.images,
+          extensions: const ['png', 'jpg', 'jpeg', 'gif', 'webp'],
         ),
       ],
     );
@@ -294,22 +297,113 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
     });
   }
 
-  Future<void> _leave() async {
+  /// Current room version from the create event.
+  String get _roomVersion =>
+      room.getState(EventTypes.RoomCreate)?.content['room_version']
+          as String? ??
+      '1';
+
+  Future<void> _upgrade() async {
+    final client = room.client;
+    List<String> versions;
+    String? defaultVersion;
+    setState(() => _busy = true);
+    try {
+      final capabilities = await client.getCapabilities();
+      final roomVersions = capabilities.mRoomVersions;
+      versions = roomVersions?.available.keys.toList() ?? [];
+      defaultVersion = roomVersions?.default$;
+    } catch (e) {
+      _showError(e);
+      versions = [];
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    if (!mounted || versions.isEmpty) return;
+    versions.sort((a, b) {
+      final numA = int.tryParse(a);
+      final numB = int.tryParse(b);
+      if (numA != null && numB != null) return numA.compareTo(numB);
+      if (numA != null) return -1;
+      if (numB != null) return 1;
+      return a.compareTo(b);
+    });
+    var selected = defaultVersion ?? versions.last;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(room.isSpace ? 'Leave space?' : 'Leave room?'),
-        content: Text(
-          'You will no longer see ${room.getLocalizedDisplayname()}.',
+        title: Text(context.l10n.upgradeRoomTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(context.l10n.upgradeRoomExplanation(selected, _roomVersion)),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: selected,
+              decoration: InputDecoration(
+                labelText: context.l10n.newRoomVersion,
+                border: const OutlineInputBorder(),
+              ),
+              items: [
+                for (final version in versions)
+                  DropdownMenuItem(
+                    value: version,
+                    child: Text(
+                      version == defaultVersion
+                          ? context.l10n.versionDefault(version)
+                          : version,
+                    ),
+                  ),
+              ],
+              onChanged: (value) => selected = value ?? selected,
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Leave'),
+            child: Text(context.l10n.upgrade),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _run(() async {
+      await client.upgradeRoom(room.id, selected);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.roomUpgradedNotice)),
+        );
+        Navigator.of(context).pop();
+      }
+    });
+  }
+
+  Future<void> _leave() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          room.isSpace
+              ? context.l10n.leaveSpaceTitle
+              : context.l10n.leaveRoomTitle,
+        ),
+        content: Text(
+          context.l10n.youWillNoLongerSee(room.getLocalizedDisplayname()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(context.l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(context.l10n.leave),
           ),
         ],
       ),
@@ -343,7 +437,9 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
               child: Row(
                 children: [
                   Text(
-                    room.isSpace ? 'Space settings' : 'Channel settings',
+                    room.isSpace
+                        ? context.l10n.spaceSettings
+                        : context.l10n.channelSettings,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const Spacer(),
@@ -357,7 +453,7 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
                       ),
                     ),
                   IconButton(
-                    tooltip: 'Close',
+                    tooltip: context.l10n.close,
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -383,7 +479,7 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     trailing: IconButton(
-                      tooltip: 'Copy room ID',
+                      tooltip: context.l10n.copyRoomId,
                       icon: const Icon(Icons.copy, size: 18),
                       onPressed: () =>
                           Clipboard.setData(ClipboardData(text: room.id)),
@@ -401,30 +497,30 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
                               icon: const Icon(Icons.image_outlined, size: 18),
                               label: Text(
                                 room.isSpace
-                                    ? 'Change space image'
-                                    : 'Change image',
+                                    ? context.l10n.changeSpaceImage
+                                    : context.l10n.changeImage,
                               ),
                             ),
                           if (canRename)
                             OutlinedButton.icon(
                               onPressed: _busy ? null : _rename,
                               icon: const Icon(Icons.edit_outlined, size: 18),
-                              label: const Text('Rename'),
+                              label: Text(context.l10n.rename),
                             ),
                         ],
                       ),
                     ),
                   ListTile(
                     leading: const Icon(Icons.notes_outlined),
-                    title: const Text('Topic'),
+                    title: Text(context.l10n.topic),
                     subtitle: Text(
-                      room.topic.isEmpty ? 'No topic set' : room.topic,
+                      room.topic.isEmpty ? context.l10n.noTopicSet : room.topic,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                     ),
                     trailing: canTopic
                         ? IconButton(
-                            tooltip: 'Edit topic',
+                            tooltip: context.l10n.editTopic,
                             icon: const Icon(Icons.edit_outlined, size: 18),
                             onPressed: _busy ? null : _editTopic,
                           )
@@ -433,23 +529,23 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
                   const Divider(),
                   ListTile(
                     leading: const Icon(Icons.notifications_outlined),
-                    title: const Text('Notifications'),
+                    title: Text(context.l10n.notifications),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: SegmentedButton<PushRuleState>(
-                      segments: const [
+                      segments: [
                         ButtonSegment(
                           value: PushRuleState.notify,
-                          label: Text('All'),
+                          label: Text(context.l10n.all),
                         ),
                         ButtonSegment(
                           value: PushRuleState.mentionsOnly,
-                          label: Text('Mentions'),
+                          label: Text(context.l10n.mentions),
                         ),
                         ButtonSegment(
                           value: PushRuleState.dontNotify,
-                          label: Text('Muted'),
+                          label: Text(context.l10n.muted),
                         ),
                       ],
                       selected: {room.pushRuleState},
@@ -466,21 +562,37 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
                       room.encrypted ? Icons.lock_outline : Icons.lock_open,
                     ),
                     title: Text(
-                      room.encrypted ? 'End-to-end encrypted' : 'Not encrypted',
+                      room.encrypted
+                          ? context.l10n.endToEndEncrypted
+                          : context.l10n.notEncrypted,
                     ),
                   ),
                   ListTile(
                     leading: const Icon(Icons.person_add_outlined),
                     title: Text(
-                      room.isSpace ? 'Invite to space' : 'Invite to room',
+                      room.isSpace
+                          ? context.l10n.inviteToSpace
+                          : context.l10n.inviteToRoom,
                     ),
                     enabled: room.canInvite && !_busy,
                     onTap: () => showInviteDialog(context, room),
                   ),
+                  if (room.canChangeStateEvent(EventTypes.RoomTombstone))
+                    ListTile(
+                      leading: const Icon(Icons.upgrade),
+                      title: Text(context.l10n.upgradeRoom),
+                      subtitle: Text(
+                        context.l10n.currentRoomVersion(_roomVersion),
+                      ),
+                      enabled: !_busy,
+                      onTap: _upgrade,
+                    ),
                   ListTile(
                     leading: Icon(Icons.logout, color: colorScheme.error),
                     title: Text(
-                      room.isSpace ? 'Leave space' : 'Leave room',
+                      room.isSpace
+                          ? context.l10n.leaveSpace
+                          : context.l10n.leaveRoomAction,
                       style: TextStyle(color: colorScheme.error),
                     ),
                     enabled: !_busy,

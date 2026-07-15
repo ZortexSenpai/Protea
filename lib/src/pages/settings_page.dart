@@ -2,13 +2,14 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
 import '../room_actions.dart';
 import '../settings.dart';
 import '../widgets/bootstrap_dialog.dart';
 import '../widgets/initials_avatar.dart';
 import '../widgets/key_verification_dialog.dart';
 import '../widgets/mxc_avatar.dart';
-import '../widgets/user_profile_card.dart';
+import '../widgets/user_banner.dart';
 
 /// Opens the settings as a modal dialog.
 Future<void> showSettingsDialog(
@@ -43,12 +44,12 @@ class SettingsDialog extends StatelessWidget {
               child: Row(
                 children: [
                   Text(
-                    'Settings',
+                    context.l10n.settings,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const Spacer(),
                   IconButton(
-                    tooltip: 'Close',
+                    tooltip: context.l10n.close,
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -62,33 +63,29 @@ class SettingsDialog extends StatelessWidget {
                 builder: (context, _) => ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    _SectionHeader('Layout'),
+                    _SectionHeader(context.l10n.layout),
                     ListTile(
-                      title: const Text('App layout'),
-                      subtitle: const Text(
-                        'Workspace shows a spaces rail with a channel list '
-                        'per space, Split pairs the room list with the chat, '
-                        'List opens chats as their own page.',
-                      ),
+                      title: Text(context.l10n.appLayout),
+                      subtitle: Text(context.l10n.appLayoutDescription),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: SegmentedButton<AppLayout>(
-                        segments: const [
+                        segments: [
                           ButtonSegment(
                             value: AppLayout.workspace,
-                            label: Text('Workspace'),
-                            icon: Icon(Icons.view_sidebar_outlined),
+                            label: Text(context.l10n.workspace),
+                            icon: const Icon(Icons.view_sidebar_outlined),
                           ),
                           ButtonSegment(
                             value: AppLayout.split,
-                            label: Text('Split'),
-                            icon: Icon(Icons.vertical_split_outlined),
+                            label: Text(context.l10n.split),
+                            icon: const Icon(Icons.vertical_split_outlined),
                           ),
                           ButtonSegment(
                             value: AppLayout.list,
-                            label: Text('List'),
-                            icon: Icon(Icons.view_list_outlined),
+                            label: Text(context.l10n.list),
+                            icon: const Icon(Icons.view_list_outlined),
                           ),
                         ],
                         selected: {settings.layout},
@@ -98,22 +95,22 @@ class SettingsDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     ListTile(
-                      title: const Text('Spaces list position'),
+                      title: Text(context.l10n.spacesListPosition),
                       enabled: settings.layout == AppLayout.workspace,
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: SegmentedButton<RailPosition>(
-                        segments: const [
+                        segments: [
                           ButtonSegment(
                             value: RailPosition.left,
-                            label: Text('Left'),
-                            icon: Icon(Icons.align_horizontal_left),
+                            label: Text(context.l10n.left),
+                            icon: const Icon(Icons.align_horizontal_left),
                           ),
                           ButtonSegment(
                             value: RailPosition.right,
-                            label: Text('Right'),
-                            icon: Icon(Icons.align_horizontal_right),
+                            label: Text(context.l10n.right),
+                            icon: const Icon(Icons.align_horizontal_right),
                           ),
                         ],
                         selected: {settings.railPosition},
@@ -125,26 +122,63 @@ class SettingsDialog extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    _SectionHeader('Appearance'),
-                    ListTile(title: const Text('Theme')),
+                    _SectionHeader(context.l10n.appearance),
+                    ListTile(
+                      leading: const Icon(Icons.language),
+                      title: Text(context.l10n.language),
+                      trailing: DropdownButton<String>(
+                        value: settings.locale?.languageCode ?? '',
+                        onChanged: (value) => settings.setLocale(
+                          value == null || value.isEmpty ? null : value,
+                        ),
+                        items: [
+                          DropdownMenuItem(
+                            value: '',
+                            child: Text(context.l10n.systemDefault),
+                          ),
+                          const DropdownMenuItem(
+                            value: 'en',
+                            child: Text('English'),
+                          ),
+                          const DropdownMenuItem(
+                            value: 'de',
+                            child: Text('Deutsch'),
+                          ),
+                          const DropdownMenuItem(
+                            value: 'es',
+                            child: Text('Español'),
+                          ),
+                          const DropdownMenuItem(
+                            value: 'fr',
+                            child: Text('Français'),
+                          ),
+                          const DropdownMenuItem(
+                            value: 'it',
+                            child: Text('Italiano'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(title: Text(context.l10n.theme)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: SegmentedButton<ThemeMode>(
-                        segments: const [
+                        segments: [
                           ButtonSegment(
                             value: ThemeMode.system,
-                            label: Text('System'),
-                            icon: Icon(Icons.brightness_auto),
+                            label: Text(context.l10n.systemDefault),
+                            icon: const Icon(Icons.brightness_auto),
                           ),
                           ButtonSegment(
                             value: ThemeMode.light,
-                            label: Text('Light'),
-                            icon: Icon(Icons.light_mode_outlined),
+                            label: Text(context.l10n.light),
+                            icon: const Icon(Icons.light_mode_outlined),
                           ),
                           ButtonSegment(
                             value: ThemeMode.dark,
-                            label: Text('Dark'),
-                            icon: Icon(Icons.dark_mode_outlined),
+                            label: Text(context.l10n.dark),
+                            icon: const Icon(Icons.dark_mode_outlined),
                           ),
                         ],
                         selected: {settings.themeMode},
@@ -153,7 +187,7 @@ class SettingsDialog extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    ListTile(title: const Text('Color')),
+                    ListTile(title: Text(context.l10n.color)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Wrap(
@@ -171,34 +205,32 @@ class SettingsDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     ListTile(
-                      title: const Text('Message layout'),
-                      subtitle: const Text(
-                        'How messages are displayed in chats.',
-                      ),
+                      title: Text(context.l10n.messageLayout),
+                      subtitle: Text(context.l10n.messageLayoutDescription),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: SegmentedButton<MessageLayout>(
-                        segments: const [
+                        segments: [
                           ButtonSegment(
                             value: MessageLayout.bubbles,
-                            label: Text('Bubbles'),
-                            icon: Icon(Icons.chat_bubble_outline),
+                            label: Text(context.l10n.bubbles),
+                            icon: const Icon(Icons.chat_bubble_outline),
                           ),
                           ButtonSegment(
                             value: MessageLayout.cozy,
-                            label: Text('Cozy'),
-                            icon: Icon(Icons.view_agenda_outlined),
+                            label: Text(context.l10n.cozy),
+                            icon: const Icon(Icons.view_agenda_outlined),
                           ),
                           ButtonSegment(
                             value: MessageLayout.compact,
-                            label: Text('Compact'),
-                            icon: Icon(Icons.view_headline),
+                            label: Text(context.l10n.compact),
+                            icon: const Icon(Icons.view_headline),
                           ),
                           ButtonSegment(
                             value: MessageLayout.text,
-                            label: Text('Text'),
-                            icon: Icon(Icons.terminal),
+                            label: Text(context.l10n.text),
+                            icon: const Icon(Icons.terminal),
                           ),
                         ],
                         selected: {settings.messageLayout},
@@ -207,15 +239,27 @@ class SettingsDialog extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    ListTile(title: const Text('Font size')),
+                    ListTile(title: Text(context.l10n.fontSize)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: SegmentedButton<double>(
-                        segments: const [
-                          ButtonSegment(value: 0.85, label: Text('Small')),
-                          ButtonSegment(value: 1.0, label: Text('Normal')),
-                          ButtonSegment(value: 1.15, label: Text('Large')),
-                          ButtonSegment(value: 1.3, label: Text('Huge')),
+                        segments: [
+                          ButtonSegment(
+                            value: 0.85,
+                            label: Text(context.l10n.small),
+                          ),
+                          ButtonSegment(
+                            value: 1.0,
+                            label: Text(context.l10n.normal),
+                          ),
+                          ButtonSegment(
+                            value: 1.15,
+                            label: Text(context.l10n.large),
+                          ),
+                          ButtonSegment(
+                            value: 1.3,
+                            label: Text(context.l10n.huge),
+                          ),
                         ],
                         selected: {settings.textScale},
                         onSelectionChanged: (selection) =>
@@ -223,53 +267,47 @@ class SettingsDialog extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    _SectionHeader('Notifications'),
+                    _SectionHeader(context.l10n.notifications),
                     SwitchListTile(
                       secondary: const Icon(
                         Icons.notifications_active_outlined,
                       ),
-                      title: const Text('Notification sounds'),
-                      subtitle: const Text(
-                        'Play the system sound with desktop notifications.',
+                      title: Text(context.l10n.notificationSounds),
+                      subtitle: Text(
+                        context.l10n.notificationSoundsDescription,
                       ),
                       value: settings.notificationSounds,
                       onChanged: (value) =>
                           settings.setNotificationSounds(value),
                     ),
                     const SizedBox(height: 24),
-                    _SectionHeader('Integrations'),
-                    const ListTile(
-                      leading: Icon(Icons.gif_box_outlined),
-                      title: Text('GIF search (Klipy)'),
-                      subtitle: Text(
-                        'The GIF picker uses the Klipy API. Get a free API '
-                        'key at klipy.com and paste it here.',
-                      ),
+                    _SectionHeader(context.l10n.integrations),
+                    ListTile(
+                      leading: const Icon(Icons.gif_box_outlined),
+                      title: Text(context.l10n.gifSearchKlipy),
+                      subtitle: Text(context.l10n.klipyApiKeyDescription),
                     ),
                     _KlipyKeyField(settings: settings),
                     const SizedBox(height: 24),
-                    _SectionHeader('Status'),
+                    _SectionHeader(context.l10n.status),
                     _StatusSection(client: client),
                     SwitchListTile(
                       secondary: const Icon(Icons.snooze_outlined),
-                      title: const Text('Auto-away'),
-                      subtitle: const Text(
-                        'Set the status to away after 10 minutes without '
-                        'keyboard or mouse input.',
-                      ),
+                      title: Text(context.l10n.autoAway),
+                      subtitle: Text(context.l10n.autoAwayDescription),
                       value: settings.autoAway,
                       onChanged: (value) => settings.setAutoAway(value),
                     ),
                     const SizedBox(height: 24),
-                    _SectionHeader('Security'),
+                    _SectionHeader(context.l10n.security),
                     _BackupSection(client: client),
                     _DevicesSection(client: client),
                     const SizedBox(height: 24),
-                    _SectionHeader('Account'),
+                    _SectionHeader(context.l10n.account),
                     _ProfileSection(client: client),
                     ListTile(
                       leading: const Icon(Icons.logout),
-                      title: const Text('Sign out'),
+                      title: Text(context.l10n.signOut),
                       onTap: () => confirmLogout(context, client),
                     ),
                   ],
@@ -317,13 +355,13 @@ class _KlipyKeyFieldState extends State<_KlipyKeyField> {
       child: TextField(
         controller: _controller,
         decoration: InputDecoration(
-          labelText: 'Klipy API key',
+          labelText: context.l10n.klipyApiKey,
           border: const OutlineInputBorder(),
           isDense: true,
           suffixIcon: _saved
               ? const Icon(Icons.check, color: Color(0xFF43A047))
               : IconButton(
-                  tooltip: 'Save',
+                  tooltip: context.l10n.save,
                   icon: const Icon(Icons.save_outlined),
                   onPressed: _save,
                 ),
@@ -354,21 +392,16 @@ class _BackupSectionState extends State<_BackupSection> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Reset chat backup?'),
-          content: const Text(
-            'This discards the existing cross-signing keys and key backup '
-            'and creates new ones. Devices verified before will need to be '
-            'verified again, and history encrypted with lost keys stays '
-            'unreadable.',
-          ),
+          title: Text(context.l10n.resetChatBackup),
+          content: Text(context.l10n.resetChatBackupWarning),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: Text(context.l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Reset'),
+              child: Text(context.l10n.reset),
             ),
           ],
         ),
@@ -388,14 +421,11 @@ class _BackupSectionState extends State<_BackupSection> {
     if (!configured) {
       return ListTile(
         leading: const Icon(Icons.backup_outlined),
-        title: const Text('Chat backup is not set up'),
-        subtitle: const Text(
-          'Set up cross-signing and key backup so encrypted messages '
-          'survive on new devices.',
-        ),
+        title: Text(context.l10n.chatBackupNotSetUp),
+        subtitle: Text(context.l10n.chatBackupNotSetUpDescription),
         trailing: FilledButton(
           onPressed: () => _openBootstrap(),
-          child: const Text('Set up'),
+          child: Text(context.l10n.setUp),
         ),
       );
     }
@@ -407,38 +437,36 @@ class _BackupSectionState extends State<_BackupSection> {
       builder: (context, snapshot) {
         final cached = snapshot.data?.every((value) => value) ?? false;
         if (!snapshot.hasData) {
-          return const ListTile(
-            leading: Icon(Icons.backup_outlined),
-            title: Text('Chat backup'),
-            subtitle: Text('Checking…'),
+          return ListTile(
+            leading: const Icon(Icons.backup_outlined),
+            title: Text(context.l10n.chatBackup),
+            subtitle: Text(context.l10n.checking),
           );
         }
         if (!cached) {
           return ListTile(
             leading: Icon(Icons.lock_clock, color: const Color(0xFFF9A825)),
-            title: const Text('Chat backup is locked'),
-            subtitle: const Text(
-              'Unlock it with your recovery key to read old encrypted '
-              'messages on this device.',
-            ),
+            title: Text(context.l10n.chatBackupLocked),
+            subtitle: Text(context.l10n.chatBackupLockedDescription),
             trailing: FilledButton(
               onPressed: () => _openBootstrap(),
-              child: const Text('Unlock'),
+              child: Text(context.l10n.unlock),
             ),
           );
         }
         return ListTile(
           leading: const Icon(Icons.verified_user, color: Color(0xFF43A047)),
-          title: const Text('Chat backup enabled'),
-          subtitle: const Text(
-            'Cross-signing and key backup are active on this device.',
-          ),
+          title: Text(context.l10n.chatBackupEnabled),
+          subtitle: Text(context.l10n.chatBackupEnabledDescription),
           trailing: PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'reset') _openBootstrap(wipe: true);
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(value: 'reset', child: Text('Reset backup')),
+              PopupMenuItem(
+                value: 'reset',
+                child: Text(context.l10n.resetBackup),
+              ),
             ],
           ),
         );
@@ -514,30 +542,28 @@ class _DevicesSectionState extends State<_DevicesSection> {
   Widget build(BuildContext context) {
     final client = widget.client;
     if (!client.encryptionEnabled) {
-      return const ListTile(
-        leading: Icon(Icons.no_encryption_outlined),
-        title: Text('End-to-end encryption is not available'),
-        subtitle: Text(
-          'The crypto library could not be initialized on this platform.',
-        ),
+      return ListTile(
+        leading: const Icon(Icons.no_encryption_outlined),
+        title: Text(context.l10n.encryptionNotAvailable),
+        subtitle: Text(context.l10n.encryptionNotAvailableDescription),
       );
     }
     if (_loading) {
-      return const ListTile(
-        leading: SizedBox(
+      return ListTile(
+        leading: const SizedBox(
           width: 24,
           height: 24,
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
-        title: Text('Loading devices…'),
+        title: Text(context.l10n.loadingDevices),
       );
     }
     final keysList = client.userDeviceKeys[client.userID];
     final devices = keysList?.deviceKeys.values.toList() ?? [];
     if (devices.isEmpty) {
-      return const ListTile(
-        leading: Icon(Icons.devices_outlined),
-        title: Text('No devices with encryption keys found'),
+      return ListTile(
+        leading: const Icon(Icons.devices_outlined),
+        title: Text(context.l10n.noDevicesWithEncryptionKeys),
       );
     }
     final colorScheme = Theme.of(context).colorScheme;
@@ -549,16 +575,11 @@ class _DevicesSectionState extends State<_DevicesSection> {
         if (!sessionTrusted)
           ListTile(
             leading: Icon(Icons.gpp_maybe_outlined, color: colorScheme.error),
-            title: const Text('This session is not verified'),
-            subtitle: const Text(
-              'Your other devices are cross-signed, but this session does '
-              'not trust your identity key yet, so they all show as '
-              'unverified. Verify this session from one of your other '
-              'devices to fix that.',
-            ),
+            title: Text(context.l10n.sessionNotVerified),
+            subtitle: Text(context.l10n.sessionNotVerifiedDescription),
             trailing: FilledButton(
               onPressed: _verifySession,
-              child: const Text('Verify session'),
+              child: Text(context.l10n.verifySession),
             ),
           ),
         for (final device in devices)
@@ -572,13 +593,13 @@ class _DevicesSectionState extends State<_DevicesSection> {
             subtitle: Text(
               [
                 device.deviceId ?? '?',
-                if (device.deviceId == client.deviceID) 'this device',
+                if (device.deviceId == client.deviceID) context.l10n.thisDevice,
                 if (device.verified)
-                  'verified'
+                  context.l10n.verified
                 else if (!sessionTrusted && device.signed)
-                  'cross-signed · trusted once this session is verified'
+                  context.l10n.crossSignedPendingVerification
                 else
-                  'unverified',
+                  context.l10n.unverified,
               ].join(' · '),
               style: TextStyle(
                 color: device.verified
@@ -595,7 +616,7 @@ class _DevicesSectionState extends State<_DevicesSection> {
                   )
                 : TextButton(
                     onPressed: () => _verify(device),
-                    child: const Text('Verify'),
+                    child: Text(context.l10n.verify),
                   ),
           ),
       ],
@@ -632,22 +653,16 @@ class _ProfileSectionState extends State<_ProfileSection> {
     } catch (_) {}
   }
 
-  Uri? get _bannerUrl {
-    final value = _profile?.additionalProperties[bannerProfileField];
-    if (value is String && value.startsWith('mxc://')) {
-      return Uri.tryParse(value);
-    }
-    return null;
-  }
+  Uri? get _bannerUrl => bannerUrlFromProfile(_profile);
 
   /// Picks an image, uploads it and stores its mxc URI in the profile field
   /// [fieldName].
   Future<void> _uploadImageTo(String fieldName) async {
     final picked = await openFile(
       acceptedTypeGroups: [
-        const XTypeGroup(
-          label: 'Images',
-          extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'],
+        XTypeGroup(
+          label: context.l10n.images,
+          extensions: const ['png', 'jpg', 'jpeg', 'gif', 'webp'],
         ),
       ],
     );
@@ -660,6 +675,9 @@ class _ProfileSectionState extends State<_ProfileSection> {
       await client.setProfileField(client.userID!, fieldName, {
         fieldName: mxc.toString(),
       });
+      if (fieldName == bannerWriteField) {
+        invalidateUserProfile(client.userID!);
+      }
       await _loadProfile();
     } catch (e) {
       if (mounted) {
@@ -677,7 +695,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     final newName = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Display name'),
+        title: Text(context.l10n.displayName),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -687,11 +705,11 @@ class _ProfileSectionState extends State<_ProfileSection> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: const Text('Save'),
+            child: Text(context.l10n.save),
           ),
         ],
       ),
@@ -720,7 +738,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
   @override
   Widget build(BuildContext context) {
     final client = widget.client;
-    final userId = client.userID ?? 'Unknown user';
+    final userId = client.userID ?? context.l10n.unknownUser;
     final displayName = _profile?.displayname ?? userId;
     final bannerUrl = _bannerUrl;
     return Column(
@@ -749,11 +767,11 @@ class _ProfileSectionState extends State<_ProfileSection> {
                     top: 8,
                     right: 8,
                     child: IconButton.filledTonal(
-                      tooltip: 'Change banner',
+                      tooltip: context.l10n.changeBanner,
                       icon: const Icon(Icons.panorama_outlined, size: 20),
                       onPressed: _busy
                           ? null
-                          : () => _uploadImageTo(bannerProfileField),
+                          : () => _uploadImageTo(bannerWriteField),
                     ),
                   ),
                 ],
@@ -783,12 +801,12 @@ class _ProfileSectionState extends State<_ProfileSection> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      tooltip: 'Edit display name',
+                      tooltip: context.l10n.editDisplayName,
                       icon: const Icon(Icons.edit_outlined),
                       onPressed: _editDisplayName,
                     ),
                     IconButton(
-                      tooltip: 'Change profile picture',
+                      tooltip: context.l10n.changeProfilePicture,
                       icon: const Icon(Icons.add_a_photo_outlined),
                       onPressed: () => _uploadImageTo('avatar_url'),
                     ),
@@ -857,7 +875,7 @@ class _StatusSectionState extends State<_StatusSection> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Status updated')));
+        ).showSnackBar(SnackBar(content: Text(context.l10n.statusUpdated)));
       }
     } catch (e) {
       if (mounted) {
@@ -878,21 +896,29 @@ class _StatusSectionState extends State<_StatusSection> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: SegmentedButton<PresenceType>(
-            segments: const [
+            segments: [
               ButtonSegment(
                 value: PresenceType.online,
-                label: Text('Online'),
-                icon: Icon(Icons.circle, color: Color(0xFF43A047), size: 12),
+                label: Text(context.l10n.online),
+                icon: const Icon(
+                  Icons.circle,
+                  color: Color(0xFF43A047),
+                  size: 12,
+                ),
               ),
               ButtonSegment(
                 value: PresenceType.unavailable,
-                label: Text('Away'),
-                icon: Icon(Icons.circle, color: Color(0xFFF9A825), size: 12),
+                label: Text(context.l10n.away),
+                icon: const Icon(
+                  Icons.circle,
+                  color: Color(0xFFF9A825),
+                  size: 12,
+                ),
               ),
               ButtonSegment(
                 value: PresenceType.offline,
-                label: Text('Invisible'),
-                icon: Icon(Icons.circle_outlined, size: 12),
+                label: Text(context.l10n.invisible),
+                icon: const Icon(Icons.circle_outlined, size: 12),
               ),
             ],
             selected: {_presence},
@@ -912,10 +938,10 @@ class _StatusSectionState extends State<_StatusSection> {
                 child: TextField(
                   controller: _statusController,
                   enabled: !_busy,
-                  decoration: const InputDecoration(
-                    labelText: 'Status message',
-                    hintText: "What's happening?",
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.statusMessage,
+                    hintText: context.l10n.whatsHappening,
+                    border: const OutlineInputBorder(),
                     isDense: true,
                   ),
                   onSubmitted: (_) => _apply(),
@@ -923,7 +949,7 @@ class _StatusSectionState extends State<_StatusSection> {
               ),
               const SizedBox(width: 8),
               IconButton.filled(
-                tooltip: 'Set status',
+                tooltip: context.l10n.setStatus,
                 onPressed: _busy ? null : _apply,
                 icon: const Icon(Icons.check),
               ),

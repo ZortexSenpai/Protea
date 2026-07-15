@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
+
 /// MSC3381 poll event types (unstable prefixes, as used by Element).
 const pollStartType = 'org.matrix.msc3381.poll.start';
 const pollResponseType = 'org.matrix.msc3381.poll.response';
@@ -47,9 +49,7 @@ class _CreatePollDialogState extends State<_CreatePollDialog> {
         .toList();
     if (question.isEmpty || options.length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('A poll needs a question and at least two options.'),
-        ),
+        SnackBar(content: Text(context.l10n.pollNeedsQuestionAndOptions)),
       );
       return;
     }
@@ -93,7 +93,7 @@ class _CreatePollDialogState extends State<_CreatePollDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Create poll'),
+      title: Text(context.l10n.createPoll),
       content: SizedBox(
         width: 400,
         child: SingleChildScrollView(
@@ -105,9 +105,9 @@ class _CreatePollDialogState extends State<_CreatePollDialog> {
                 controller: _questionController,
                 autofocus: true,
                 enabled: !_busy,
-                decoration: const InputDecoration(
-                  labelText: 'Question',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.l10n.question,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
@@ -118,12 +118,12 @@ class _CreatePollDialogState extends State<_CreatePollDialog> {
                     controller: _optionControllers[i],
                     enabled: !_busy,
                     decoration: InputDecoration(
-                      labelText: 'Option ${i + 1}',
+                      labelText: context.l10n.optionNumber(i + 1),
                       border: const OutlineInputBorder(),
                       isDense: true,
                       suffixIcon: _optionControllers.length > 2
                           ? IconButton(
-                              tooltip: 'Remove option',
+                              tooltip: context.l10n.removeOption,
                               icon: const Icon(Icons.close, size: 16),
                               onPressed: () => setState(
                                 () => _optionControllers.removeAt(i),
@@ -141,7 +141,7 @@ class _CreatePollDialogState extends State<_CreatePollDialog> {
                           () => _optionControllers.add(TextEditingController()),
                         ),
                   icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add option'),
+                  label: Text(context.l10n.addOption),
                 ),
             ],
           ),
@@ -150,11 +150,11 @@ class _CreatePollDialogState extends State<_CreatePollDialog> {
       actions: [
         TextButton(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
           onPressed: _busy ? null : _send,
-          child: const Text('Create'),
+          child: Text(context.l10n.create),
         ),
       ],
     );
@@ -312,9 +312,8 @@ class PollBubble extends StatelessWidget {
           ),
         Text(
           ended
-              ? 'Final results · $totalVotes '
-                    '${totalVotes == 1 ? 'vote' : 'votes'}'
-              : '$totalVotes ${totalVotes == 1 ? 'vote' : 'votes'}',
+              ? context.l10n.finalResults(totalVotes)
+              : context.l10n.voteCount(totalVotes),
           style: Theme.of(context).textTheme.labelSmall,
         ),
       ],

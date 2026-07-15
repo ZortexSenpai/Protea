@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n.dart';
+
 /// Opens a dialog with an emoji grid and returns the picked emoji, or null.
 Future<String?> showEmojiPicker(BuildContext context) {
   return showDialog<String>(
@@ -19,35 +21,33 @@ class _EmojiGrid extends StatelessWidget {
 
   final ValueChanged<String> onSelected;
 
-  static const _categories = <(String, String)>[
-    (
-      'Smileys',
+  static const _smileysEmoji =
       '😀😃😄😁😆😅😂🤣🙂😉😊😇🥰😍🤩😘😋😛😜🤪😝🤗🤭🤫🤔🤨'
-          '😐😑😶😏😒🙄😬😌😔😪🤤😴😷🤒🤕🤢🤮🥵🥶🥴😵🤯🤠🥳😎🤓🧐'
-          '😕🙁😮😯😲😳🥺😦😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬'
-          '😈💀💩🤡👻👽🤖',
-    ),
-    ('Gestures', '👍👎👌🤌✌️🤞🤟🤘🤙👈👉👆👇☝️✋🤚🖐️🖖👋🤝👏🙌👐🤲🙏💪✊👊🤛🤜'),
-    (
-      'Hearts & symbols',
+      '😐😑😶😏😒🙄😬😌😔😪🤤😴😷🤒🤕🤢🤮🥵🥶🥴😵🤯🤠🥳😎🤓🧐'
+      '😕🙁😮😯😲😳🥺😦😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬'
+      '😈💀💩🤡👻👽🤖';
+  static const _gesturesEmoji =
+      '👍👎👌🤌✌️🤞🤟🤘🤙👈👉👆👇☝️✋🤚🖐️🖖👋🤝👏🙌👐🤲🙏💪✊👊🤛🤜';
+  static const _heartsSymbolsEmoji =
       '❤️🧡💛💚💙💜🖤🤍🤎💔❣️💕💞💓💗💖💘💝💯💢💥💫💦💨'
-          '🎉🎊✨⭐🌟🔥⚡☀️🌈✅❌❓❗',
-    ),
-    (
-      'Animals & nature',
+      '🎉🎊✨⭐🌟🔥⚡☀️🌈✅❌❓❗';
+  static const _animalsNatureEmoji =
       '🐶🐱🐭🐹🐰🦊🐻🐼🐨🐯🦁🐮🐷🐸🐵🐔🐧🐦🦆🦅🦉🐺🐴🦄🐝🐛🦋'
-          '🐌🐞🐢🐍🦖🐙🦀🐠🐬🐳🌸🌹🌻🌲🍀🌍',
-    ),
-    (
-      'Food & drink',
+      '🐌🐞🐢🐍🦖🐙🦀🐠🐬🐳🌸🌹🌻🌲🍀🌍';
+  static const _foodDrinkEmoji =
       '🍏🍎🍐🍊🍋🍌🍉🍇🍓🫐🍒🍑🥭🍍🥥🥝🍅🥑🥦🥕🌽🍞🧀🍗🍔🍟🍕'
-          '🌭🌮🍣🍜🍦🍩🍪🎂🍫🍿☕🍵🍺🍷🥂',
-    ),
-    (
-      'Activities & objects',
+      '🌭🌮🍣🍜🍦🍩🍪🎂🍫🍿☕🍵🍺🍷🥂';
+  static const _activitiesObjectsEmoji =
       '⚽🏀🏈⚾🎾🏐🎱🏓🎮🎲🎯🎸🎹🎺🎻🥁🎤🎧🎬🏆🥇🚗🚲✈️🚀'
-          '⌚📱💻🖥️📷🔋💡🔑🔨🧲💰💎📌✏️📚✉️📅🔒🎁',
-    ),
+      '⌚📱💻🖥️📷🔋💡🔑🔨🧲💰💎📌✏️📚✉️📅🔒🎁';
+
+  static List<(String, String)> _categories(BuildContext context) => [
+    (context.l10n.smileys, _smileysEmoji),
+    (context.l10n.gestures, _gesturesEmoji),
+    (context.l10n.heartsAndSymbols, _heartsSymbolsEmoji),
+    (context.l10n.animalsAndNature, _animalsNatureEmoji),
+    (context.l10n.foodAndDrink, _foodDrinkEmoji),
+    (context.l10n.activitiesAndObjects, _activitiesObjectsEmoji),
   ];
 
   /// Splits a category string into individual emoji, keeping multi-code-unit
@@ -72,7 +72,7 @@ class _EmojiGrid extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
-        for (final (title, emojis) in _categories) ...[
+        for (final (title, emojis) in _categories(context)) ...[
           Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 4),
             child: Text(title, style: Theme.of(context).textTheme.labelMedium),

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
 import '../settings.dart';
 import '../pages/settings_page.dart';
 
@@ -142,9 +143,8 @@ class _GifPickerDialogState extends State<GifPickerDialog> {
         children: [
           const Icon(Icons.gif_box_outlined, size: 48),
           const SizedBox(height: 12),
-          const Text(
-            'GIF search needs a free Klipy API key.\n'
-            'Get one at klipy.com and add it in the settings.',
+          Text(
+            context.l10n.gifSearchNeedsKlipyKey,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
@@ -157,7 +157,7 @@ class _GifPickerDialogState extends State<GifPickerDialog> {
                 settings: settings,
               );
             },
-            child: const Text('Open settings'),
+            child: Text(context.l10n.openSettings),
           ),
         ],
       ),
@@ -182,17 +182,17 @@ class _GifPickerDialogState extends State<GifPickerDialog> {
                       controller: _queryController,
                       autofocus: true,
                       enabled: hasKey,
-                      decoration: const InputDecoration(
-                        hintText: 'Search GIFs…',
-                        prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        hintText: context.l10n.searchGifs,
+                        prefixIcon: const Icon(Icons.search),
+                        border: const OutlineInputBorder(),
                         isDense: true,
                       ),
                       onChanged: _onQueryChanged,
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Close',
+                    tooltip: context.l10n.close,
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -208,7 +208,7 @@ class _GifPickerDialogState extends State<GifPickerDialog> {
                       padding: const EdgeInsets.all(32),
                       child: _loading
                           ? const CircularProgressIndicator()
-                          : const Text('No GIFs found.'),
+                          : Text(context.l10n.noGifsFound),
                     )
                   : GridView.builder(
                       controller: _scrollController,

@@ -1,24 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import 'l10n.dart';
+
 /// Handles tapping a room in any list: shows a join/reject dialog for
 /// invitations. Returns true if the room should be opened afterwards.
 Future<bool> confirmRoomTap(BuildContext context, Room room) async {
+  if (room.membership == Membership.knock) {
+    final withdraw = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(room.getLocalizedDisplayname()),
+        content: Text(context.l10n.knockPendingWaiting),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(context.l10n.withdrawKnock),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(context.l10n.ok),
+          ),
+        ],
+      ),
+    );
+    if (withdraw == true) {
+      try {
+        await room.leave();
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(e.toString())));
+        }
+      }
+    }
+    return false;
+  }
   if (room.membership != Membership.invite) return true;
 
   final join = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
       title: Text(room.getLocalizedDisplayname()),
-      content: const Text('You have been invited to this room.'),
+      content: Text(context.l10n.youHaveBeenInvited),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Reject'),
+          child: Text(context.l10n.reject),
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Join'),
+          child: Text(context.l10n.join),
         ),
       ],
     ),
@@ -42,16 +75,16 @@ Future<void> confirmLogout(BuildContext context, Client client) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Sign out'),
-      content: const Text('Do you want to sign out of your account?'),
+      title: Text(context.l10n.signOut),
+      content: Text(context.l10n.signOutConfirmation),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Sign out'),
+          child: Text(context.l10n.signOut),
         ),
       ],
     ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
 import '../pages/room_page.dart';
 
 enum _NewChatMode { dm, group, join }
@@ -35,9 +36,9 @@ class _NewChatDialogState extends State<NewChatDialog> {
   }
 
   String get _label => switch (_mode) {
-    _NewChatMode.dm => 'User ID (@user:server)',
-    _NewChatMode.group => 'Group name',
-    _NewChatMode.join => 'Room ID or alias (#room:server)',
+    _NewChatMode.dm => context.l10n.userIdLabel,
+    _NewChatMode.group => context.l10n.groupName,
+    _NewChatMode.join => context.l10n.roomIdOrAliasLabel,
   };
 
   Future<void> _submit() async {
@@ -77,7 +78,7 @@ class _NewChatDialogState extends State<NewChatDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('New chat'),
+      title: Text(context.l10n.newChat),
       content: SizedBox(
         width: 400,
         child: Column(
@@ -85,21 +86,21 @@ class _NewChatDialogState extends State<NewChatDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SegmentedButton<_NewChatMode>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: _NewChatMode.dm,
-                  label: Text('Direct'),
-                  icon: Icon(Icons.person_outline),
+                  label: Text(context.l10n.direct),
+                  icon: const Icon(Icons.person_outline),
                 ),
                 ButtonSegment(
                   value: _NewChatMode.group,
-                  label: Text('Group'),
-                  icon: Icon(Icons.group_outlined),
+                  label: Text(context.l10n.group),
+                  icon: const Icon(Icons.group_outlined),
                 ),
                 ButtonSegment(
                   value: _NewChatMode.join,
-                  label: Text('Join'),
-                  icon: Icon(Icons.tag),
+                  label: Text(context.l10n.join),
+                  icon: const Icon(Icons.tag),
                 ),
               ],
               selected: {_mode},
@@ -121,7 +122,7 @@ class _NewChatDialogState extends State<NewChatDialog> {
             if (_mode == _NewChatMode.group)
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('End-to-end encrypted'),
+                title: Text(context.l10n.endToEndEncrypted),
                 value: _encrypted,
                 onChanged: _busy
                     ? null
@@ -133,7 +134,7 @@ class _NewChatDialogState extends State<NewChatDialog> {
       actions: [
         TextButton(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(context.l10n.cancel),
         ),
         FilledButton(
           onPressed: _busy ? null : _submit,
@@ -144,9 +145,9 @@ class _NewChatDialogState extends State<NewChatDialog> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : Text(switch (_mode) {
-                  _NewChatMode.dm => 'Start chat',
-                  _NewChatMode.group => 'Create',
-                  _NewChatMode.join => 'Join',
+                  _NewChatMode.dm => context.l10n.startChat,
+                  _NewChatMode.group => context.l10n.create,
+                  _NewChatMode.join => context.l10n.join,
                 }),
         ),
       ],

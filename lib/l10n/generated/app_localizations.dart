@@ -1,0 +1,2240 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/intl.dart' as intl;
+
+import 'app_localizations_de.dart';
+import 'app_localizations_en.dart';
+import 'app_localizations_es.dart';
+import 'app_localizations_fr.dart';
+import 'app_localizations_it.dart';
+
+// ignore_for_file: type=lint
+
+/// Callers can lookup localized strings with an instance of AppLocalizations
+/// returned by `AppLocalizations.of(context)`.
+///
+/// Applications need to include `AppLocalizations.delegate()` in their app's
+/// `localizationDelegates` list, and the locales they support in the app's
+/// `supportedLocales` list. For example:
+///
+/// ```dart
+/// import 'generated/app_localizations.dart';
+///
+/// return MaterialApp(
+///   localizationsDelegates: AppLocalizations.localizationsDelegates,
+///   supportedLocales: AppLocalizations.supportedLocales,
+///   home: MyApplicationHome(),
+/// );
+/// ```
+///
+/// ## Update pubspec.yaml
+///
+/// Please make sure to update your pubspec.yaml to include the following
+/// packages:
+///
+/// ```yaml
+/// dependencies:
+///   # Internationalization support.
+///   flutter_localizations:
+///     sdk: flutter
+///   intl: any # Use the pinned version from flutter_localizations
+///
+///   # Rest of dependencies
+/// ```
+///
+/// ## iOS Applications
+///
+/// iOS applications define key application metadata, including supported
+/// locales, in an Info.plist file that is built into the application bundle.
+/// To configure the locales supported by your app, you’ll need to edit this
+/// file.
+///
+/// First, open your project’s ios/Runner.xcworkspace Xcode workspace file.
+/// Then, in the Project Navigator, open the Info.plist file under the Runner
+/// project’s Runner folder.
+///
+/// Next, select the Information Property List item, select Add Item from the
+/// Editor menu, then select Localizations from the pop-up menu.
+///
+/// Select and expand the newly-created Localizations item then, for each
+/// locale your application supports, add a new item and select the locale
+/// you wish to add from the pop-up menu in the Value field. This list should
+/// be consistent with the languages listed in the AppLocalizations.supportedLocales
+/// property.
+abstract class AppLocalizations {
+  AppLocalizations(String locale)
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+
+  final String localeName;
+
+  static AppLocalizations of(BuildContext context) {
+    return Localizations.of<AppLocalizations>(context, AppLocalizations)!;
+  }
+
+  static const LocalizationsDelegate<AppLocalizations> delegate =
+      _AppLocalizationsDelegate();
+
+  /// A list of this localizations delegate along with the default localizations
+  /// delegates.
+  ///
+  /// Returns a list of localizations delegates containing this delegate along with
+  /// GlobalMaterialLocalizations.delegate, GlobalCupertinoLocalizations.delegate,
+  /// and GlobalWidgetsLocalizations.delegate.
+  ///
+  /// Additional delegates can be added by appending to this list in
+  /// MaterialApp. This list does not have to be used at all if a custom list
+  /// of delegates is preferred or required.
+  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
+      <LocalizationsDelegate<dynamic>>[
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
+
+  /// A list of this localizations delegate's supported locales.
+  static const List<Locale> supportedLocales = <Locale>[
+    Locale('de'),
+    Locale('en'),
+    Locale('es'),
+    Locale('fr'),
+    Locale('it'),
+  ];
+
+  /// No description provided for @accept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get accept;
+
+  /// No description provided for @account.
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get account;
+
+  /// No description provided for @accounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounts'**
+  String get accounts;
+
+  /// No description provided for @activitiesAndObjects.
+  ///
+  /// In en, this message translates to:
+  /// **'Activities & objects'**
+  String get activitiesAndObjects;
+
+  /// No description provided for @addAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Add account'**
+  String get addAccount;
+
+  /// No description provided for @addOption.
+  ///
+  /// In en, this message translates to:
+  /// **'Add option'**
+  String get addOption;
+
+  /// No description provided for @addReaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Add reaction'**
+  String get addReaction;
+
+  /// No description provided for @addSticker.
+  ///
+  /// In en, this message translates to:
+  /// **'Add sticker'**
+  String get addSticker;
+
+  /// No description provided for @admin.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin'**
+  String get admin;
+
+  /// No description provided for @all.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get all;
+
+  /// No description provided for @animalsAndNature.
+  ///
+  /// In en, this message translates to:
+  /// **'Animals & nature'**
+  String get animalsAndNature;
+
+  /// No description provided for @appLayout.
+  ///
+  /// In en, this message translates to:
+  /// **'App layout'**
+  String get appLayout;
+
+  /// No description provided for @appLayoutDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspace shows a spaces rail with a channel list per space, Split pairs the room list with the chat, List opens chats as their own page.'**
+  String get appLayoutDescription;
+
+  /// No description provided for @appTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Protea'**
+  String get appTitle;
+
+  /// No description provided for @appearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get appearance;
+
+  /// No description provided for @areTyping.
+  ///
+  /// In en, this message translates to:
+  /// **'{name1} and {name2} are typing…'**
+  String areTyping(String name1, String name2);
+
+  /// No description provided for @attachFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Attach file'**
+  String get attachFile;
+
+  /// No description provided for @autoAway.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-away'**
+  String get autoAway;
+
+  /// No description provided for @autoAwayDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the status to away after 10 minutes without keyboard or mouse input.'**
+  String get autoAwayDescription;
+
+  /// No description provided for @away.
+  ///
+  /// In en, this message translates to:
+  /// **'Away'**
+  String get away;
+
+  /// No description provided for @ban.
+  ///
+  /// In en, this message translates to:
+  /// **'Ban'**
+  String get ban;
+
+  /// No description provided for @banUserTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Ban {name}?'**
+  String banUserTitle(String name);
+
+  /// No description provided for @block.
+  ///
+  /// In en, this message translates to:
+  /// **'Block'**
+  String get block;
+
+  /// No description provided for @bubbles.
+  ///
+  /// In en, this message translates to:
+  /// **'Bubbles'**
+  String get bubbles;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @changeBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Change banner'**
+  String get changeBanner;
+
+  /// No description provided for @changeImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Change image'**
+  String get changeImage;
+
+  /// No description provided for @changeProfilePicture.
+  ///
+  /// In en, this message translates to:
+  /// **'Change profile picture'**
+  String get changeProfilePicture;
+
+  /// No description provided for @changeSpaceImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Change space image'**
+  String get changeSpaceImage;
+
+  /// No description provided for @channelSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Channel settings'**
+  String get channelSettings;
+
+  /// No description provided for @channels.
+  ///
+  /// In en, this message translates to:
+  /// **'Channels'**
+  String get channels;
+
+  /// No description provided for @chatBackup.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat backup'**
+  String get chatBackup;
+
+  /// No description provided for @chatBackupEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat backup enabled'**
+  String get chatBackupEnabled;
+
+  /// No description provided for @chatBackupEnabledDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Cross-signing and key backup are active on this device.'**
+  String get chatBackupEnabledDescription;
+
+  /// No description provided for @chatBackupLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat backup is locked'**
+  String get chatBackupLocked;
+
+  /// No description provided for @chatBackupLockedDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock it with your recovery key to read old encrypted messages on this device.'**
+  String get chatBackupLockedDescription;
+
+  /// No description provided for @chatBackupNotSetUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat backup is not set up'**
+  String get chatBackupNotSetUp;
+
+  /// No description provided for @chatBackupNotSetUpDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up cross-signing and key backup so encrypted messages survive on new devices.'**
+  String get chatBackupNotSetUpDescription;
+
+  /// No description provided for @chatBackupSetUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat backup is set up!'**
+  String get chatBackupSetUp;
+
+  /// No description provided for @checking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking…'**
+  String get checking;
+
+  /// No description provided for @clickToSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Click to save'**
+  String get clickToSave;
+
+  /// No description provided for @close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
+
+  /// No description provided for @closeThread.
+  ///
+  /// In en, this message translates to:
+  /// **'Close thread'**
+  String get closeThread;
+
+  /// No description provided for @cmdBan.
+  ///
+  /// In en, this message translates to:
+  /// **'Ban a user from this room'**
+  String get cmdBan;
+
+  /// No description provided for @cmdDiscardSession.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard the outbound encryption session'**
+  String get cmdDiscardSession;
+
+  /// No description provided for @cmdDm.
+  ///
+  /// In en, this message translates to:
+  /// **'Open a direct chat'**
+  String get cmdDm;
+
+  /// No description provided for @cmdHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'List available commands'**
+  String get cmdHelp;
+
+  /// No description provided for @cmdHtml.
+  ///
+  /// In en, this message translates to:
+  /// **'Send raw HTML'**
+  String get cmdHtml;
+
+  /// No description provided for @cmdIgnore.
+  ///
+  /// In en, this message translates to:
+  /// **'Ignore a user'**
+  String get cmdIgnore;
+
+  /// No description provided for @cmdInvite.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite a user to this room'**
+  String get cmdInvite;
+
+  /// No description provided for @cmdJoin.
+  ///
+  /// In en, this message translates to:
+  /// **'Join a room'**
+  String get cmdJoin;
+
+  /// No description provided for @cmdKick.
+  ///
+  /// In en, this message translates to:
+  /// **'Kick a user from this room'**
+  String get cmdKick;
+
+  /// No description provided for @cmdLeave.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave this room'**
+  String get cmdLeave;
+
+  /// No description provided for @cmdLenny.
+  ///
+  /// In en, this message translates to:
+  /// **'Append ( ͡° ͜ʖ ͡°)'**
+  String get cmdLenny;
+
+  /// No description provided for @cmdMe.
+  ///
+  /// In en, this message translates to:
+  /// **'Send an emote'**
+  String get cmdMe;
+
+  /// No description provided for @cmdMyRoomNick.
+  ///
+  /// In en, this message translates to:
+  /// **'Change your name in this room only'**
+  String get cmdMyRoomNick;
+
+  /// No description provided for @cmdNick.
+  ///
+  /// In en, this message translates to:
+  /// **'Change your display name'**
+  String get cmdNick;
+
+  /// No description provided for @cmdOp.
+  ///
+  /// In en, this message translates to:
+  /// **'Set a user\'s power level'**
+  String get cmdOp;
+
+  /// No description provided for @cmdPlain.
+  ///
+  /// In en, this message translates to:
+  /// **'Send without markdown formatting'**
+  String get cmdPlain;
+
+  /// No description provided for @cmdReact.
+  ///
+  /// In en, this message translates to:
+  /// **'React to the message you reply to'**
+  String get cmdReact;
+
+  /// No description provided for @cmdRoomUpgrade.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade this room'**
+  String get cmdRoomUpgrade;
+
+  /// No description provided for @cmdShrug.
+  ///
+  /// In en, this message translates to:
+  /// **'Append ¯\\_(ツ)_/¯'**
+  String get cmdShrug;
+
+  /// No description provided for @cmdSpoiler.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide the message behind a spoiler'**
+  String get cmdSpoiler;
+
+  /// No description provided for @cmdTableflip.
+  ///
+  /// In en, this message translates to:
+  /// **'Append (╯°□°)╯︵ ┻━┻'**
+  String get cmdTableflip;
+
+  /// No description provided for @cmdTopic.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the room topic'**
+  String get cmdTopic;
+
+  /// No description provided for @cmdUnban.
+  ///
+  /// In en, this message translates to:
+  /// **'Unban a user'**
+  String get cmdUnban;
+
+  /// No description provided for @cmdUnflip.
+  ///
+  /// In en, this message translates to:
+  /// **'Append ┬─┬ ノ( ゜-゜ノ)'**
+  String get cmdUnflip;
+
+  /// No description provided for @cmdUnignore.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop ignoring a user'**
+  String get cmdUnignore;
+
+  /// No description provided for @color.
+  ///
+  /// In en, this message translates to:
+  /// **'Color'**
+  String get color;
+
+  /// No description provided for @commands.
+  ///
+  /// In en, this message translates to:
+  /// **'Commands'**
+  String get commands;
+
+  /// No description provided for @compact.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get compact;
+
+  /// No description provided for @compareAndConfirmMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Compare with the other device. Confirm only if they match exactly, in the same order.'**
+  String get compareAndConfirmMatch;
+
+  /// No description provided for @compareEmojis.
+  ///
+  /// In en, this message translates to:
+  /// **'Compare emojis'**
+  String get compareEmojis;
+
+  /// No description provided for @compareEmojisToVerify.
+  ///
+  /// In en, this message translates to:
+  /// **'Compare a short list of emojis with the other device to verify it.'**
+  String get compareEmojisToVerify;
+
+  /// No description provided for @copy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get copy;
+
+  /// No description provided for @copyRoomId.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy room ID'**
+  String get copyRoomId;
+
+  /// No description provided for @copyText.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy text'**
+  String get copyText;
+
+  /// No description provided for @couldNotUnlock.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not unlock. Please check the recovery key.'**
+  String get couldNotUnlock;
+
+  /// No description provided for @couldNotUnlockBackup.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not unlock the backup. Please check the recovery key.'**
+  String get couldNotUnlockBackup;
+
+  /// No description provided for @cozy.
+  ///
+  /// In en, this message translates to:
+  /// **'Cozy'**
+  String get cozy;
+
+  /// No description provided for @create.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get create;
+
+  /// No description provided for @createPoll.
+  ///
+  /// In en, this message translates to:
+  /// **'Create poll'**
+  String get createPoll;
+
+  /// No description provided for @crossSignedPendingVerification.
+  ///
+  /// In en, this message translates to:
+  /// **'cross-signed · trusted once this session is verified'**
+  String get crossSignedPendingVerification;
+
+  /// No description provided for @currentRoomVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Currently room version {version}'**
+  String currentRoomVersion(String version);
+
+  /// No description provided for @dark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get dark;
+
+  /// No description provided for @decline.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get decline;
+
+  /// No description provided for @delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get delete;
+
+  /// No description provided for @deleteMessageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete message?'**
+  String get deleteMessageTitle;
+
+  /// No description provided for @deleteMessageWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'The message will be removed for everyone.'**
+  String get deleteMessageWarning;
+
+  /// No description provided for @deletePack.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete pack'**
+  String get deletePack;
+
+  /// No description provided for @direct.
+  ///
+  /// In en, this message translates to:
+  /// **'Direct'**
+  String get direct;
+
+  /// No description provided for @directMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'Direct messages'**
+  String get directMessages;
+
+  /// No description provided for @discardRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard recording'**
+  String get discardRecording;
+
+  /// No description provided for @displayName.
+  ///
+  /// In en, this message translates to:
+  /// **'Display name'**
+  String get displayName;
+
+  /// No description provided for @done.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get done;
+
+  /// No description provided for @doubleSlashHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Start a message with // to send text beginning with a slash.'**
+  String get doubleSlashHint;
+
+  /// No description provided for @dropFilesToUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Drop files to upload'**
+  String get dropFilesToUpload;
+
+  /// No description provided for @edit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get edit;
+
+  /// No description provided for @editDisplayName.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit display name'**
+  String get editDisplayName;
+
+  /// No description provided for @editTopic.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit topic'**
+  String get editTopic;
+
+  /// No description provided for @editingMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Editing message'**
+  String get editingMessage;
+
+  /// No description provided for @emoji.
+  ///
+  /// In en, this message translates to:
+  /// **'Emoji'**
+  String get emoji;
+
+  /// No description provided for @encryptionNotAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'End-to-end encryption is not available'**
+  String get encryptionNotAvailable;
+
+  /// No description provided for @encryptionNotAvailableDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The crypto library could not be initialized on this platform.'**
+  String get encryptionNotAvailableDescription;
+
+  /// No description provided for @endPoll.
+  ///
+  /// In en, this message translates to:
+  /// **'End poll'**
+  String get endPoll;
+
+  /// No description provided for @endToEndEncrypted.
+  ///
+  /// In en, this message translates to:
+  /// **'End-to-end encrypted'**
+  String get endToEndEncrypted;
+
+  /// No description provided for @endToEndEncryptionNotAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'End-to-end encryption is not available.'**
+  String get endToEndEncryptionNotAvailable;
+
+  /// No description provided for @enterRecoveryKeyToUnlockBackup.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your recovery key to unlock the chat backup and verify this session. You got the recovery key when the backup was set up (it looks like: EsT* ****…).'**
+  String get enterRecoveryKeyToUnlockBackup;
+
+  /// No description provided for @enterRecoveryKeyToVerify.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your recovery key to verify with your secure backup, or skip to compare emojis with the other device instead.'**
+  String get enterRecoveryKeyToVerify;
+
+  /// No description provided for @explorePublicRooms.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore public rooms'**
+  String get explorePublicRooms;
+
+  /// No description provided for @exploreRooms.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore rooms'**
+  String get exploreRooms;
+
+  /// No description provided for @filterRoomsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Filter rooms…'**
+  String get filterRoomsHint;
+
+  /// No description provided for @finalResults.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Final results · {count} vote} other{Final results · {count} votes}}'**
+  String finalResults(int count);
+
+  /// No description provided for @fontSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Font size'**
+  String get fontSize;
+
+  /// No description provided for @foodAndDrink.
+  ///
+  /// In en, this message translates to:
+  /// **'Food & drink'**
+  String get foodAndDrink;
+
+  /// No description provided for @forward.
+  ///
+  /// In en, this message translates to:
+  /// **'Forward'**
+  String get forward;
+
+  /// No description provided for @forwardTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Forward to…'**
+  String get forwardTo;
+
+  /// No description provided for @forwardedTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Forwarded to {name}'**
+  String forwardedTo(String name);
+
+  /// No description provided for @gestures.
+  ///
+  /// In en, this message translates to:
+  /// **'Gestures'**
+  String get gestures;
+
+  /// No description provided for @gif.
+  ///
+  /// In en, this message translates to:
+  /// **'GIF'**
+  String get gif;
+
+  /// No description provided for @gifSearchKlipy.
+  ///
+  /// In en, this message translates to:
+  /// **'GIF search (Klipy)'**
+  String get gifSearchKlipy;
+
+  /// No description provided for @gifSearchNeedsKlipyKey.
+  ///
+  /// In en, this message translates to:
+  /// **'GIF search needs a free Klipy API key.\nGet one at klipy.com and add it in the settings.'**
+  String get gifSearchNeedsKlipyKey;
+
+  /// No description provided for @group.
+  ///
+  /// In en, this message translates to:
+  /// **'Group'**
+  String get group;
+
+  /// No description provided for @groupName.
+  ///
+  /// In en, this message translates to:
+  /// **'Group name'**
+  String get groupName;
+
+  /// No description provided for @heartsAndSymbols.
+  ///
+  /// In en, this message translates to:
+  /// **'Hearts & symbols'**
+  String get heartsAndSymbols;
+
+  /// No description provided for @home.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get home;
+
+  /// No description provided for @homeserver.
+  ///
+  /// In en, this message translates to:
+  /// **'Homeserver'**
+  String get homeserver;
+
+  /// No description provided for @huge.
+  ///
+  /// In en, this message translates to:
+  /// **'Huge'**
+  String get huge;
+
+  /// No description provided for @iSavedMyRecoveryKey.
+  ///
+  /// In en, this message translates to:
+  /// **'I saved my recovery key'**
+  String get iSavedMyRecoveryKey;
+
+  /// No description provided for @images.
+  ///
+  /// In en, this message translates to:
+  /// **'Images'**
+  String get images;
+
+  /// No description provided for @integrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Integrations'**
+  String get integrations;
+
+  /// No description provided for @invisible.
+  ///
+  /// In en, this message translates to:
+  /// **'Invisible'**
+  String get invisible;
+
+  /// No description provided for @invitationTapToRespond.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation — tap to respond'**
+  String get invitationTapToRespond;
+
+  /// No description provided for @invite.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite'**
+  String get invite;
+
+  /// No description provided for @inviteToRoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite to room'**
+  String get inviteToRoom;
+
+  /// No description provided for @inviteToSpace.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite to space'**
+  String get inviteToSpace;
+
+  /// No description provided for @inviteUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite {userId}'**
+  String inviteUser(String userId);
+
+  /// No description provided for @invitedUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Invited {userId}'**
+  String invitedUser(String userId);
+
+  /// No description provided for @isTyping.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is typing…'**
+  String isTyping(String name);
+
+  /// No description provided for @join.
+  ///
+  /// In en, this message translates to:
+  /// **'Join'**
+  String get join;
+
+  /// No description provided for @joined.
+  ///
+  /// In en, this message translates to:
+  /// **'Joined'**
+  String get joined;
+
+  /// No description provided for @jumpToLatestMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'Jump to latest messages'**
+  String get jumpToLatestMessages;
+
+  /// No description provided for @jumpToRoomHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Jump to room…'**
+  String get jumpToRoomHint;
+
+  /// No description provided for @kick.
+  ///
+  /// In en, this message translates to:
+  /// **'Kick'**
+  String get kick;
+
+  /// No description provided for @kickUserTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Kick {name}?'**
+  String kickUserTitle(String name);
+
+  /// No description provided for @klipyApiKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Klipy API key'**
+  String get klipyApiKey;
+
+  /// No description provided for @klipyApiKeyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The GIF picker uses the Klipy API. Get a free API key at klipy.com and paste it here.'**
+  String get klipyApiKeyDescription;
+
+  /// No description provided for @knock.
+  ///
+  /// In en, this message translates to:
+  /// **'Knock'**
+  String get knock;
+
+  /// No description provided for @knockPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Knock pending'**
+  String get knockPending;
+
+  /// No description provided for @knockPendingWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Knock pending — waiting for a room moderator to let you in.'**
+  String get knockPendingWaiting;
+
+  /// No description provided for @knocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Knocked'**
+  String get knocked;
+
+  /// No description provided for @knockedWaitingForApproval.
+  ///
+  /// In en, this message translates to:
+  /// **'Knocked — waiting for approval.'**
+  String get knockedWaitingForApproval;
+
+  /// No description provided for @language.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get language;
+
+  /// No description provided for @large.
+  ///
+  /// In en, this message translates to:
+  /// **'Large'**
+  String get large;
+
+  /// No description provided for @lastSeenDaysAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Last seen {count} day ago} other{Last seen {count} days ago}}'**
+  String lastSeenDaysAgo(int count);
+
+  /// No description provided for @lastSeenHoursAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Last seen {count} hour ago} other{Last seen {count} hours ago}}'**
+  String lastSeenHoursAgo(int count);
+
+  /// No description provided for @lastSeenJustNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Last seen just now'**
+  String get lastSeenJustNow;
+
+  /// No description provided for @lastSeenMinutesAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Last seen {count} minute ago} other{Last seen {count} minutes ago}}'**
+  String lastSeenMinutesAgo(int count);
+
+  /// No description provided for @layout.
+  ///
+  /// In en, this message translates to:
+  /// **'Layout'**
+  String get layout;
+
+  /// No description provided for @leave.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave'**
+  String get leave;
+
+  /// No description provided for @leaveRoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave room?'**
+  String get leaveRoom;
+
+  /// No description provided for @leaveRoomAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave room'**
+  String get leaveRoomAction;
+
+  /// No description provided for @leaveRoomTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave room?'**
+  String get leaveRoomTitle;
+
+  /// No description provided for @leaveSpace.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave space'**
+  String get leaveSpace;
+
+  /// No description provided for @leaveSpaceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave space?'**
+  String get leaveSpaceTitle;
+
+  /// No description provided for @left.
+  ///
+  /// In en, this message translates to:
+  /// **'Left'**
+  String get left;
+
+  /// No description provided for @light.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get light;
+
+  /// No description provided for @list.
+  ///
+  /// In en, this message translates to:
+  /// **'List'**
+  String get list;
+
+  /// No description provided for @loading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading…'**
+  String get loading;
+
+  /// No description provided for @loadingDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading devices…'**
+  String get loadingDevices;
+
+  /// No description provided for @makeAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Make admin'**
+  String get makeAdmin;
+
+  /// No description provided for @makeAdminWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Admins have the same power as you — you may not be able to demote them afterwards.'**
+  String get makeAdminWarning;
+
+  /// No description provided for @makeModerator.
+  ///
+  /// In en, this message translates to:
+  /// **'Make moderator'**
+  String get makeModerator;
+
+  /// No description provided for @makeUserAdminTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Make {name} an admin?'**
+  String makeUserAdminTitle(String name);
+
+  /// No description provided for @managePacks.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage packs'**
+  String get managePacks;
+
+  /// No description provided for @manyTyping.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} people are typing…'**
+  String manyTyping(int count);
+
+  /// No description provided for @members.
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get members;
+
+  /// No description provided for @membersCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 member} other{{count} members}}'**
+  String membersCount(int count);
+
+  /// No description provided for @membersWithCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Members — {count}'**
+  String membersWithCount(int count);
+
+  /// No description provided for @mentions.
+  ///
+  /// In en, this message translates to:
+  /// **'Mentions'**
+  String get mentions;
+
+  /// No description provided for @message.
+  ///
+  /// In en, this message translates to:
+  /// **'Message'**
+  String get message;
+
+  /// No description provided for @messageLayout.
+  ///
+  /// In en, this message translates to:
+  /// **'Message layout'**
+  String get messageLayout;
+
+  /// No description provided for @messageLayoutDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'How messages are displayed in chats.'**
+  String get messageLayoutDescription;
+
+  /// No description provided for @microphonePermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone permission denied.'**
+  String get microphonePermissionDenied;
+
+  /// No description provided for @moderator.
+  ///
+  /// In en, this message translates to:
+  /// **'Moderator'**
+  String get moderator;
+
+  /// No description provided for @more.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get more;
+
+  /// No description provided for @moreAttachments.
+  ///
+  /// In en, this message translates to:
+  /// **'More attachments'**
+  String get moreAttachments;
+
+  /// No description provided for @muted.
+  ///
+  /// In en, this message translates to:
+  /// **'Muted'**
+  String get muted;
+
+  /// No description provided for @name.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get name;
+
+  /// No description provided for @newChat.
+  ///
+  /// In en, this message translates to:
+  /// **'New chat'**
+  String get newChat;
+
+  /// No description provided for @newMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'New messages'**
+  String get newMessages;
+
+  /// No description provided for @newPack.
+  ///
+  /// In en, this message translates to:
+  /// **'New pack'**
+  String get newPack;
+
+  /// No description provided for @newRoomVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'New room version'**
+  String get newRoomVersion;
+
+  /// No description provided for @newStickerPack.
+  ///
+  /// In en, this message translates to:
+  /// **'New sticker pack'**
+  String get newStickerPack;
+
+  /// No description provided for @noDevicesWithEncryptionKeys.
+  ///
+  /// In en, this message translates to:
+  /// **'No devices with encryption keys found'**
+  String get noDevicesWithEncryptionKeys;
+
+  /// No description provided for @noGifsFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No GIFs found.'**
+  String get noGifsFound;
+
+  /// No description provided for @noMatchingRooms.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching rooms.'**
+  String get noMatchingRooms;
+
+  /// No description provided for @noMessagesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No messages found.'**
+  String get noMessagesFound;
+
+  /// No description provided for @noMessagesYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No messages yet. Say hello!'**
+  String get noMessagesYet;
+
+  /// No description provided for @noMessagesYetShort.
+  ///
+  /// In en, this message translates to:
+  /// **'No messages yet'**
+  String get noMessagesYetShort;
+
+  /// No description provided for @noPinnedMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'No pinned messages in this room.'**
+  String get noPinnedMessages;
+
+  /// No description provided for @noPublicRoomsFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No public rooms found.'**
+  String get noPublicRoomsFound;
+
+  /// No description provided for @noRepliesYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No replies yet.'**
+  String get noRepliesYet;
+
+  /// No description provided for @noRoomsHereYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No rooms here yet.'**
+  String get noRoomsHereYet;
+
+  /// No description provided for @noRoomsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No rooms yet.\nJoin a room from another client to get started.'**
+  String get noRoomsYet;
+
+  /// No description provided for @noStickerPacksHint.
+  ///
+  /// In en, this message translates to:
+  /// **'No sticker packs yet.\nUse \"Manage packs\" to create one and add images to it.'**
+  String get noStickerPacksHint;
+
+  /// No description provided for @noTopicSet.
+  ///
+  /// In en, this message translates to:
+  /// **'No topic set'**
+  String get noTopicSet;
+
+  /// No description provided for @normal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get normal;
+
+  /// No description provided for @notEncrypted.
+  ///
+  /// In en, this message translates to:
+  /// **'Not encrypted'**
+  String get notEncrypted;
+
+  /// No description provided for @notificationSounds.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification sounds'**
+  String get notificationSounds;
+
+  /// No description provided for @notificationSoundsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Play the system sound with desktop notifications.'**
+  String get notificationSoundsDescription;
+
+  /// No description provided for @notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notifications;
+
+  /// No description provided for @offline.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline'**
+  String get offline;
+
+  /// No description provided for @ok.
+  ///
+  /// In en, this message translates to:
+  /// **'OK'**
+  String get ok;
+
+  /// No description provided for @online.
+  ///
+  /// In en, this message translates to:
+  /// **'Online'**
+  String get online;
+
+  /// No description provided for @openSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open settings'**
+  String get openSettings;
+
+  /// No description provided for @optionNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Option {number}'**
+  String optionNumber(int number);
+
+  /// No description provided for @or.
+  ///
+  /// In en, this message translates to:
+  /// **'or'**
+  String get or;
+
+  /// No description provided for @owner.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner'**
+  String get owner;
+
+  /// No description provided for @packEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'This pack is empty.'**
+  String get packEmpty;
+
+  /// No description provided for @packName.
+  ///
+  /// In en, this message translates to:
+  /// **'Pack name'**
+  String get packName;
+
+  /// No description provided for @password.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get password;
+
+  /// No description provided for @pin.
+  ///
+  /// In en, this message translates to:
+  /// **'Pin'**
+  String get pin;
+
+  /// No description provided for @pinned.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned'**
+  String get pinned;
+
+  /// No description provided for @pinnedMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned messages'**
+  String get pinnedMessages;
+
+  /// No description provided for @pleaseFillInAllFields.
+  ///
+  /// In en, this message translates to:
+  /// **'Please fill in all fields.'**
+  String get pleaseFillInAllFields;
+
+  /// No description provided for @poll.
+  ///
+  /// In en, this message translates to:
+  /// **'Poll'**
+  String get poll;
+
+  /// No description provided for @pollNeedsQuestionAndOptions.
+  ///
+  /// In en, this message translates to:
+  /// **'A poll needs a question and at least two options.'**
+  String get pollNeedsQuestionAndOptions;
+
+  /// No description provided for @presenceWithStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'{presence} — {status}'**
+  String presenceWithStatus(String presence, String status);
+
+  /// No description provided for @question.
+  ///
+  /// In en, this message translates to:
+  /// **'Question'**
+  String get question;
+
+  /// No description provided for @reactWith.
+  ///
+  /// In en, this message translates to:
+  /// **'React with {emoji}'**
+  String reactWith(String emoji);
+
+  /// No description provided for @readBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Read by {names}'**
+  String readBy(String names);
+
+  /// No description provided for @recoveryKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery key'**
+  String get recoveryKey;
+
+  /// No description provided for @refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get refresh;
+
+  /// No description provided for @reject.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject'**
+  String get reject;
+
+  /// No description provided for @removeOption.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove option'**
+  String get removeOption;
+
+  /// No description provided for @rename.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get rename;
+
+  /// No description provided for @repliesCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 reply} other{{count} replies}}'**
+  String repliesCount(int count);
+
+  /// No description provided for @reply.
+  ///
+  /// In en, this message translates to:
+  /// **'Reply'**
+  String get reply;
+
+  /// No description provided for @replyInThread.
+  ///
+  /// In en, this message translates to:
+  /// **'Reply in thread'**
+  String get replyInThread;
+
+  /// No description provided for @reset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get reset;
+
+  /// No description provided for @resetBackup.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset backup'**
+  String get resetBackup;
+
+  /// No description provided for @resetChatBackup.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset chat backup?'**
+  String get resetChatBackup;
+
+  /// No description provided for @resetChatBackupWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'This discards the existing cross-signing keys and key backup and creates new ones. Devices verified before will need to be verified again, and history encrypted with lost keys stays unreadable.'**
+  String get resetChatBackupWarning;
+
+  /// No description provided for @resetToMember.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset to member'**
+  String get resetToMember;
+
+  /// No description provided for @resetZoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset zoom'**
+  String get resetZoom;
+
+  /// No description provided for @right.
+  ///
+  /// In en, this message translates to:
+  /// **'Right'**
+  String get right;
+
+  /// No description provided for @roomEncryptedNoE2eeSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'This room is end-to-end encrypted. This build of Protea was compiled without E2EE support, so messages cannot be read or sent here.'**
+  String get roomEncryptedNoE2eeSupport;
+
+  /// No description provided for @roomIdOrAliasLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Room ID or alias (#room:server)'**
+  String get roomIdOrAliasLabel;
+
+  /// No description provided for @roomUpgradedNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Room upgraded — the replacement appears shortly.'**
+  String get roomUpgradedNotice;
+
+  /// No description provided for @rooms.
+  ///
+  /// In en, this message translates to:
+  /// **'Rooms'**
+  String get rooms;
+
+  /// No description provided for @save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get save;
+
+  /// No description provided for @saveFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Save file'**
+  String get saveFile;
+
+  /// No description provided for @saveRecoveryKeySomewhereSafe.
+  ///
+  /// In en, this message translates to:
+  /// **'Save this recovery key somewhere safe (e.g. a password manager). You will need it to read your encrypted message history on new devices:'**
+  String get saveRecoveryKeySomewhereSafe;
+
+  /// No description provided for @saveWithSize.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} · save'**
+  String saveWithSize(String size);
+
+  /// No description provided for @savedFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved {name}'**
+  String savedFile(String name);
+
+  /// No description provided for @searchFurtherBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Search further back'**
+  String get searchFurtherBack;
+
+  /// No description provided for @searchGifs.
+  ///
+  /// In en, this message translates to:
+  /// **'Search GIFs…'**
+  String get searchGifs;
+
+  /// No description provided for @searchMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'Search messages'**
+  String get searchMessages;
+
+  /// No description provided for @searchMessagesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search messages…'**
+  String get searchMessagesHint;
+
+  /// No description provided for @searchRoomHistoryPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Search the history of this room.'**
+  String get searchRoomHistoryPrompt;
+
+  /// No description provided for @searchRoomsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search rooms…'**
+  String get searchRoomsHint;
+
+  /// No description provided for @searchUserHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by name, or enter @user:server'**
+  String get searchUserHint;
+
+  /// No description provided for @searchedBackTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Searched back to {date}'**
+  String searchedBackTo(String date);
+
+  /// No description provided for @searchedBackToBeginning.
+  ///
+  /// In en, this message translates to:
+  /// **'Searched back to {date} (beginning)'**
+  String searchedBackToBeginning(String date);
+
+  /// No description provided for @security.
+  ///
+  /// In en, this message translates to:
+  /// **'Security'**
+  String get security;
+
+  /// No description provided for @selectChannelToStartChatting.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a channel to start chatting.'**
+  String get selectChannelToStartChatting;
+
+  /// No description provided for @selectChatToStartMessaging.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a chat to start messaging.'**
+  String get selectChatToStartMessaging;
+
+  /// No description provided for @send.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get send;
+
+  /// No description provided for @sendFilesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Send file?} other{Send {count} files?}}'**
+  String sendFilesTitle(int count);
+
+  /// No description provided for @sendVoiceMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Send voice message'**
+  String get sendVoiceMessage;
+
+  /// No description provided for @server.
+  ///
+  /// In en, this message translates to:
+  /// **'Server'**
+  String get server;
+
+  /// No description provided for @sessionNotVerified.
+  ///
+  /// In en, this message translates to:
+  /// **'This session is not verified'**
+  String get sessionNotVerified;
+
+  /// No description provided for @sessionNotVerifiedDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Your other devices are cross-signed, but this session does not trust your identity key yet, so they all show as unverified. Verify this session from one of your other devices to fix that.'**
+  String get sessionNotVerifiedDescription;
+
+  /// No description provided for @setStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Set status'**
+  String get setStatus;
+
+  /// No description provided for @setUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up'**
+  String get setUp;
+
+  /// No description provided for @settingUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Setting up…'**
+  String get settingUp;
+
+  /// No description provided for @settingUpBackupFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Setting up the backup failed.'**
+  String get settingUpBackupFailed;
+
+  /// No description provided for @settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settings;
+
+  /// No description provided for @signIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get signIn;
+
+  /// No description provided for @signInToYourMatrixAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to your Matrix account'**
+  String get signInToYourMatrixAccount;
+
+  /// No description provided for @signInWithProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with {provider}'**
+  String signInWithProvider(String provider);
+
+  /// No description provided for @signInWithSso.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with SSO'**
+  String get signInWithSso;
+
+  /// No description provided for @signOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out'**
+  String get signOut;
+
+  /// No description provided for @signOutConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Do you want to sign out of your account?'**
+  String get signOutConfirmation;
+
+  /// No description provided for @skip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get skip;
+
+  /// No description provided for @small.
+  ///
+  /// In en, this message translates to:
+  /// **'Small'**
+  String get small;
+
+  /// No description provided for @smileys.
+  ///
+  /// In en, this message translates to:
+  /// **'Smileys'**
+  String get smileys;
+
+  /// No description provided for @space.
+  ///
+  /// In en, this message translates to:
+  /// **'Space'**
+  String get space;
+
+  /// No description provided for @spaceHasNoRooms.
+  ///
+  /// In en, this message translates to:
+  /// **'This space has no rooms.'**
+  String get spaceHasNoRooms;
+
+  /// No description provided for @spaceLobby.
+  ///
+  /// In en, this message translates to:
+  /// **'Space lobby'**
+  String get spaceLobby;
+
+  /// No description provided for @spaceSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Space settings'**
+  String get spaceSettings;
+
+  /// No description provided for @spacesListPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'Spaces list position'**
+  String get spacesListPosition;
+
+  /// No description provided for @split.
+  ///
+  /// In en, this message translates to:
+  /// **'Split'**
+  String get split;
+
+  /// No description provided for @ssoLoginTimedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'SSO login timed out. Please try again.'**
+  String get ssoLoginTimedOut;
+
+  /// No description provided for @startChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Start chat'**
+  String get startChat;
+
+  /// No description provided for @status.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get status;
+
+  /// No description provided for @statusMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Status message'**
+  String get statusMessage;
+
+  /// No description provided for @statusUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Status updated'**
+  String get statusUpdated;
+
+  /// No description provided for @sticker.
+  ///
+  /// In en, this message translates to:
+  /// **'Sticker'**
+  String get sticker;
+
+  /// No description provided for @stickerCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} sticker} other{{count} stickers}}'**
+  String stickerCount(int count);
+
+  /// No description provided for @stickerPacks.
+  ///
+  /// In en, this message translates to:
+  /// **'Sticker packs'**
+  String get stickerPacks;
+
+  /// No description provided for @stickers.
+  ///
+  /// In en, this message translates to:
+  /// **'Stickers'**
+  String get stickers;
+
+  /// No description provided for @switchAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch account'**
+  String get switchAccount;
+
+  /// No description provided for @syncing.
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing…'**
+  String get syncing;
+
+  /// No description provided for @systemDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get systemDefault;
+
+  /// No description provided for @text.
+  ///
+  /// In en, this message translates to:
+  /// **'Text'**
+  String get text;
+
+  /// No description provided for @theme.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme'**
+  String get theme;
+
+  /// No description provided for @theyDontMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'They don\'t match'**
+  String get theyDontMatch;
+
+  /// No description provided for @theyMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'They match'**
+  String get theyMatch;
+
+  /// No description provided for @thisDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'this device'**
+  String get thisDevice;
+
+  /// No description provided for @thread.
+  ///
+  /// In en, this message translates to:
+  /// **'Thread'**
+  String get thread;
+
+  /// No description provided for @today.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get today;
+
+  /// No description provided for @topic.
+  ///
+  /// In en, this message translates to:
+  /// **'Topic'**
+  String get topic;
+
+  /// No description provided for @typeTwoCharactersToSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Type at least two characters to search the user directory.'**
+  String get typeTwoCharactersToSearch;
+
+  /// No description provided for @unblock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unblock'**
+  String get unblock;
+
+  /// No description provided for @unknownCommand.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown command /{command} — start with // to send it as text.'**
+  String unknownCommand(String command);
+
+  /// No description provided for @unknownUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown user'**
+  String get unknownUser;
+
+  /// No description provided for @unlock.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get unlock;
+
+  /// No description provided for @unpin.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpin'**
+  String get unpin;
+
+  /// No description provided for @unverified.
+  ///
+  /// In en, this message translates to:
+  /// **'unverified'**
+  String get unverified;
+
+  /// No description provided for @upgrade.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade'**
+  String get upgrade;
+
+  /// No description provided for @upgradeRoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade room'**
+  String get upgradeRoom;
+
+  /// No description provided for @upgradeRoomExplanation.
+  ///
+  /// In en, this message translates to:
+  /// **'This creates a new room on version {newVersion} and closes this one (version {currentVersion}) with a pointer to the replacement. Members need to rejoin the new room.'**
+  String upgradeRoomExplanation(String newVersion, String currentVersion);
+
+  /// No description provided for @upgradeRoomTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade room?'**
+  String get upgradeRoomTitle;
+
+  /// No description provided for @userIdLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'User ID (@user:server)'**
+  String get userIdLabel;
+
+  /// No description provided for @username.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get username;
+
+  /// No description provided for @verificationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification failed or was cancelled.\n{reason}'**
+  String verificationFailed(String reason);
+
+  /// No description provided for @verificationStepNotSupported.
+  ///
+  /// In en, this message translates to:
+  /// **'This verification step is not supported by Protea. Please use emoji verification.'**
+  String get verificationStepNotSupported;
+
+  /// No description provided for @verificationSuccessful.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification successful! The device is now trusted.'**
+  String get verificationSuccessful;
+
+  /// No description provided for @verified.
+  ///
+  /// In en, this message translates to:
+  /// **'verified'**
+  String get verified;
+
+  /// No description provided for @verify.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify'**
+  String get verify;
+
+  /// No description provided for @verifyDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify device'**
+  String get verifyDevice;
+
+  /// No description provided for @verifySession.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify session'**
+  String get verifySession;
+
+  /// No description provided for @versionDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'{version} (default)'**
+  String versionDefault(String version);
+
+  /// No description provided for @voiceMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice message'**
+  String get voiceMessage;
+
+  /// No description provided for @voteCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} vote} other{{count} votes}}'**
+  String voteCount(int count);
+
+  /// No description provided for @waitingForOtherDeviceToAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the other device to accept…\n\nMake sure the other device is online and the request was accepted there.'**
+  String get waitingForOtherDeviceToAccept;
+
+  /// No description provided for @waitingForOtherDeviceToConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the other device to confirm…'**
+  String get waitingForOtherDeviceToConfirm;
+
+  /// No description provided for @wantsToVerifyDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'{user} wants to verify a device.'**
+  String wantsToVerifyDevice(String user);
+
+  /// No description provided for @wantsToVerifyDeviceWithId.
+  ///
+  /// In en, this message translates to:
+  /// **'{user} wants to verify a device ({deviceId}).'**
+  String wantsToVerifyDeviceWithId(String user, String deviceId);
+
+  /// No description provided for @whatsHappening.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s happening?'**
+  String get whatsHappening;
+
+  /// No description provided for @withdrawKnock.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw knock'**
+  String get withdrawKnock;
+
+  /// No description provided for @workspace.
+  ///
+  /// In en, this message translates to:
+  /// **'Workspace'**
+  String get workspace;
+
+  /// No description provided for @yesterday.
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday'**
+  String get yesterday;
+
+  /// No description provided for @youHaveBeenInvited.
+  ///
+  /// In en, this message translates to:
+  /// **'You have been invited to this room.'**
+  String get youHaveBeenInvited;
+
+  /// No description provided for @youWillNoLongerSee.
+  ///
+  /// In en, this message translates to:
+  /// **'You will no longer see {roomName}.'**
+  String youWillNoLongerSee(String roomName);
+
+  /// No description provided for @zoomIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom in'**
+  String get zoomIn;
+
+  /// No description provided for @zoomOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom out'**
+  String get zoomOut;
+}
+
+class _AppLocalizationsDelegate
+    extends LocalizationsDelegate<AppLocalizations> {
+  const _AppLocalizationsDelegate();
+
+  @override
+  Future<AppLocalizations> load(Locale locale) {
+    return SynchronousFuture<AppLocalizations>(lookupAppLocalizations(locale));
+  }
+
+  @override
+  bool isSupported(Locale locale) =>
+      <String>['de', 'en', 'es', 'fr', 'it'].contains(locale.languageCode);
+
+  @override
+  bool shouldReload(_AppLocalizationsDelegate old) => false;
+}
+
+AppLocalizations lookupAppLocalizations(Locale locale) {
+  // Lookup logic when only language code is specified.
+  switch (locale.languageCode) {
+    case 'de':
+      return AppLocalizationsDe();
+    case 'en':
+      return AppLocalizationsEn();
+    case 'es':
+      return AppLocalizationsEs();
+    case 'fr':
+      return AppLocalizationsFr();
+    case 'it':
+      return AppLocalizationsIt();
+  }
+
+  throw FlutterError(
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
+}

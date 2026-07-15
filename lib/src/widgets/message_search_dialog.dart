@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
 import 'mxc_avatar.dart';
 
 /// Searches the room history (local first, then server pages) for messages
@@ -101,11 +102,11 @@ class _MessageSearchDialogState extends State<MessageSearchDialog> {
               Clipboard.setData(ClipboardData(text: body));
               Navigator.of(context).pop();
             },
-            child: const Text('Copy'),
+            child: Text(context.l10n.copy),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text(context.l10n.close),
           ),
         ],
       ),
@@ -129,17 +130,17 @@ class _MessageSearchDialogState extends State<MessageSearchDialog> {
                       controller: _queryController,
                       autofocus: true,
                       enabled: !_searching,
-                      decoration: const InputDecoration(
-                        hintText: 'Search messages…',
-                        prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        hintText: context.l10n.searchMessagesHint,
+                        prefixIcon: const Icon(Icons.search),
+                        border: const OutlineInputBorder(),
                         isDense: true,
                       ),
                       onSubmitted: (_) => _search(),
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Close',
+                    tooltip: context.l10n.close,
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -149,14 +150,14 @@ class _MessageSearchDialogState extends State<MessageSearchDialog> {
             const Divider(height: 1),
             Flexible(
               child: !_searchedOnce
-                  ? const Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Text('Search the history of this room.'),
+                  ? Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Text(context.l10n.searchRoomHistoryPrompt),
                     )
                   : _results.isEmpty && !_searching
-                  ? const Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Text('No messages found.'),
+                  ? Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Text(context.l10n.noMessagesFound),
                     )
                   : ListView.builder(
                       shrinkWrap: true,
@@ -211,9 +212,13 @@ class _MessageSearchDialogState extends State<MessageSearchDialog> {
                   if (_searchedUntil != null)
                     Expanded(
                       child: Text(
-                        'Searched back to '
-                        '${DateFormat.yMMMd().format(_searchedUntil!)}'
-                        '${_nextBatch == null ? ' (beginning)' : ''}',
+                        _nextBatch == null
+                            ? context.l10n.searchedBackToBeginning(
+                                DateFormat.yMMMd().format(_searchedUntil!),
+                              )
+                            : context.l10n.searchedBackTo(
+                                DateFormat.yMMMd().format(_searchedUntil!),
+                              ),
                         style: Theme.of(context).textTheme.labelSmall,
                       ),
                     )
@@ -231,7 +236,7 @@ class _MessageSearchDialogState extends State<MessageSearchDialog> {
                   else if (_nextBatch != null)
                     TextButton(
                       onPressed: () => _search(more: true),
-                      child: const Text('Search further back'),
+                      child: Text(context.l10n.searchFurtherBack),
                     ),
                 ],
               ),

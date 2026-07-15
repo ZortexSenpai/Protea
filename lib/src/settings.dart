@@ -108,6 +108,18 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// UI language as a locale code ('de', 'en', …), or null to follow the
+  /// system locale.
+  Locale? get locale {
+    final code = _prefs.getString('locale');
+    return (code == null || code.isEmpty) ? null : Locale(code);
+  }
+
+  Future<void> setLocale(String? code) async {
+    await _prefs.setString('locale', code ?? '');
+    notifyListeners();
+  }
+
   /// API key for the Klipy GIF search; empty when the feature is unused.
   String get klipyApiKey => _prefs.getString('klipyApiKey') ?? '';
 

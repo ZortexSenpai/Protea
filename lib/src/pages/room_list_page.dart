@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:matrix/matrix.dart';
 
 import '../client_manager.dart';
+import '../l10n.dart';
 import '../room_actions.dart';
 import '../settings.dart';
 import '../widgets/account_switcher.dart';
@@ -12,6 +13,7 @@ import '../widgets/pinned_rooms_section.dart';
 import '../widgets/presence_indicator.dart';
 import '../widgets/room_directory_dialog.dart';
 import '../widgets/room_settings_dialog.dart';
+import '../widgets/user_banner.dart';
 import 'room_page.dart';
 import 'settings_page.dart';
 
@@ -63,12 +65,12 @@ class RoomListPage extends StatelessWidget {
         title: const Text('Protea'),
         actions: [
           IconButton(
-            tooltip: 'Explore public rooms',
+            tooltip: context.l10n.explorePublicRooms,
             icon: const Icon(Icons.explore_outlined),
             onPressed: () => showRoomDirectory(context, client),
           ),
           IconButton(
-            tooltip: 'New chat',
+            tooltip: context.l10n.newChat,
             icon: const Icon(Icons.add_comment_outlined),
             onPressed: () => showNewChatDialog(context, client),
           ),
@@ -89,12 +91,15 @@ class RoomListPage extends StatelessWidget {
             },
             itemBuilder: (context) => [
               PopupMenuItem(enabled: false, child: Text(client.userID ?? '')),
-              const PopupMenuItem(value: 'settings', child: Text('Settings')),
-              const PopupMenuItem(
-                value: 'accounts',
-                child: Text('Switch account'),
+              PopupMenuItem(
+                value: 'settings',
+                child: Text(context.l10n.settings),
               ),
-              const PopupMenuItem(value: 'logout', child: Text('Sign out')),
+              PopupMenuItem(
+                value: 'accounts',
+                child: Text(context.l10n.switchAccount),
+              ),
+              PopupMenuItem(value: 'logout', child: Text(context.l10n.signOut)),
             ],
           ),
         ],
@@ -112,8 +117,8 @@ class RoomListPage extends StatelessWidget {
                   const SizedBox(height: 16),
                   Text(
                     client.prevBatch == null
-                        ? 'Syncing…'
-                        : 'No rooms yet.\nJoin a room from another client to get started.',
+                        ? context.l10n.syncing
+                        : context.l10n.noRoomsYet,
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -142,13 +147,13 @@ class RoomListPage extends StatelessWidget {
                 const SizedBox(height: 16),
               ],
               if (directs.isNotEmpty) ...[
-                _SectionLabel('Direct messages'),
+                _SectionLabel(context.l10n.directMessages),
                 for (final room in directs) _roomTile(context, room),
               ],
               if (directs.isNotEmpty && others.isNotEmpty)
                 const SizedBox(height: 16),
               if (others.isNotEmpty) ...[
-                _SectionLabel('Rooms'),
+                _SectionLabel(context.l10n.rooms),
                 for (final room in others) _roomTile(context, room),
               ],
             ],
@@ -175,9 +180,9 @@ class RoomListPage extends StatelessWidget {
       items: [
         PopupMenuItem(
           value: 'pin',
-          child: Text(room.isFavourite ? 'Unpin' : 'Pin'),
+          child: Text(room.isFavourite ? context.l10n.unpin : context.l10n.pin),
         ),
-        const PopupMenuItem(value: 'settings', child: Text('Settings')),
+        PopupMenuItem(value: 'settings', child: Text(context.l10n.settings)),
       ],
     );
     if (selected == null || !context.mounted) return;
@@ -202,61 +207,71 @@ class RoomListPage extends StatelessWidget {
     final displayname = room.getLocalizedDisplayname();
     final isInvite = room.membership == Membership.invite;
     final directUserId = room.directChatMatrixID;
+    Widget tile = ListTile(
+      selected: room.id == selectedRoomId,
+      leading: directUserId != null
+          ? PresenceAvatar(
+              client: client,
+              userId: directUserId,
+              name: displayname,
+              avatarUrl: room.avatar,
+            )
+          : MxcAvatar(
+              client: client,
+              name: displayname,
+              avatarUrl: room.avatar,
+            ),
+      title: Text(displayname, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        isInvite
+            ? context.l10n.invitationTapToRespond
+            : room.membership == Membership.knock
+            ? context.l10n.knockPending
+            : lastEvent?.calcLocalizedBodyFallback(
+                    const MatrixDefaultLocalizations(),
+                    hideReply: true,
+                    plaintextBody: true,
+                    removeMarkdown: true,
+                    withSenderNamePrefix: true,
+                  ) ??
+                  context.l10n.noMessagesYetShort,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (lastEvent != null)
+            Text(
+              _formatTime(lastEvent.originServerTs),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          if (room.isUnreadOrInvited)
+            Badge(
+              label: Text(
+                room.notificationCount > 0
+                    ? room.notificationCount.toString()
+                    : '',
+              ),
+            ),
+        ],
+      ),
+      onTap: () => _onRoomTap(context, room),
+    );
+    if (directUserId != null) {
+      tile = UserBannerBackground(
+        client: client,
+        userId: directUserId,
+        child: tile,
+      );
+    }
     return GestureDetector(
       onSecondaryTapUp: (details) =>
           _showRoomMenu(context, room, details.globalPosition),
       onLongPressStart: (details) =>
           _showRoomMenu(context, room, details.globalPosition),
-      child: ListTile(
-        selected: room.id == selectedRoomId,
-        leading: directUserId != null
-            ? PresenceAvatar(
-                client: client,
-                userId: directUserId,
-                name: displayname,
-                avatarUrl: room.avatar,
-              )
-            : MxcAvatar(
-                client: client,
-                name: displayname,
-                avatarUrl: room.avatar,
-              ),
-        title: Text(displayname, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: Text(
-          isInvite
-              ? 'Invitation — tap to respond'
-              : lastEvent?.calcLocalizedBodyFallback(
-                      const MatrixDefaultLocalizations(),
-                      hideReply: true,
-                      plaintextBody: true,
-                      removeMarkdown: true,
-                      withSenderNamePrefix: true,
-                    ) ??
-                    'No messages yet',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            if (lastEvent != null)
-              Text(
-                _formatTime(lastEvent.originServerTs),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            if (room.isUnreadOrInvited)
-              Badge(
-                label: Text(
-                  room.notificationCount > 0
-                      ? room.notificationCount.toString()
-                      : '',
-                ),
-              ),
-          ],
-        ),
-        onTap: () => _onRoomTap(context, room),
-      ),
+      child: tile,
     );
   }
 }

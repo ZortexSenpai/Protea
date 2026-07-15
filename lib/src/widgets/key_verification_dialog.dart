@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:matrix/encryption.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
+
 /// Walks the user through an interactive device verification (SAS):
 /// accept the request, compare the emojis and confirm.
 class KeyVerificationDialog extends StatefulWidget {
@@ -55,9 +57,7 @@ class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
       await request.openSSSS(keyOrPassphrase: key);
     } catch (_) {
       if (mounted) {
-        setState(
-          () => _ssssError = 'Could not unlock. Please check the recovery key.',
-        );
+        setState(() => _ssssError = context.l10n.couldNotUnlock);
       }
     } finally {
       if (mounted) setState(() => _ssssBusy = false);
@@ -74,26 +74,22 @@ class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
   Widget _body(BuildContext context) {
     switch (request.state) {
       case KeyVerificationState.askAccept:
+        final deviceId = request.deviceId;
         return _Message(
           icon: Icons.verified_user_outlined,
-          text:
-              '${request.userId} wants to verify a device'
-              '${request.deviceId != null ? ' (${request.deviceId})' : ''}.',
+          text: deviceId != null
+              ? context.l10n.wantsToVerifyDeviceWithId(request.userId, deviceId)
+              : context.l10n.wantsToVerifyDevice(request.userId),
         );
       case KeyVerificationState.waitingAccept:
-        return const _Message(
+        return _Message(
           spinner: true,
-          text:
-              'Waiting for the other device to accept…\n\n'
-              'Make sure the other device is online and the request was '
-              'accepted there.',
+          text: context.l10n.waitingForOtherDeviceToAccept,
         );
       case KeyVerificationState.askChoice:
-        return const _Message(
+        return _Message(
           icon: Icons.emoji_emotions_outlined,
-          text:
-              'Compare a short list of emojis with the other device to '
-              'verify it.',
+          text: context.l10n.compareEmojisToVerify,
         );
       case KeyVerificationState.askSas:
         final emojis = request.sasTypes.contains('emoji')
@@ -102,10 +98,7 @@ class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Compare with the other device. Confirm only if they match '
-              'exactly, in the same order.',
-            ),
+            Text(context.l10n.compareAndConfirmMatch),
             const SizedBox(height: 16),
             if (emojis != null)
               Wrap(
@@ -134,38 +127,33 @@ class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
           ],
         );
       case KeyVerificationState.waitingSas:
-        return const _Message(
+        return _Message(
           spinner: true,
-          text: 'Waiting for the other device to confirm…',
+          text: context.l10n.waitingForOtherDeviceToConfirm,
         );
       case KeyVerificationState.done:
-        return const _Message(
+        return _Message(
           icon: Icons.verified_user,
-          text: 'Verification successful! The device is now trusted.',
+          text: context.l10n.verificationSuccessful,
         );
       case KeyVerificationState.error:
         return _Message(
           icon: Icons.gpp_bad_outlined,
-          text:
-              'Verification failed or was cancelled.\n'
-              '${request.canceledReason ?? ''}',
+          text: context.l10n.verificationFailed(request.canceledReason ?? ''),
         );
       case KeyVerificationState.askSSSS:
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Enter your recovery key to verify with your secure backup, '
-              'or skip to compare emojis with the other device instead.',
-            ),
+            Text(context.l10n.enterRecoveryKeyToVerify),
             const SizedBox(height: 16),
             TextField(
               controller: _ssssController,
               enabled: !_ssssBusy,
               autofocus: true,
               decoration: InputDecoration(
-                labelText: 'Recovery key',
+                labelText: context.l10n.recoveryKey,
                 border: const OutlineInputBorder(),
                 errorText: _ssssError,
               ),
@@ -175,11 +163,9 @@ class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
         );
       case KeyVerificationState.showQRSuccess:
       case KeyVerificationState.confirmQRScan:
-        return const _Message(
+        return _Message(
           icon: Icons.info_outline,
-          text:
-              'This verification step is not supported by Protea. '
-              'Please use emoji verification.',
+          text: context.l10n.verificationStepNotSupported,
         );
     }
   }
@@ -193,19 +179,22 @@ class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
               await request.rejectVerification();
               if (context.mounted) Navigator.of(context).pop();
             },
-            child: const Text('Decline'),
+            child: Text(context.l10n.decline),
           ),
           FilledButton(
             onPressed: () => request.acceptVerification(),
-            child: const Text('Accept'),
+            child: Text(context.l10n.accept),
           ),
         ];
       case KeyVerificationState.askChoice:
         return [
-          TextButton(onPressed: _cancelAndClose, child: const Text('Cancel')),
+          TextButton(
+            onPressed: _cancelAndClose,
+            child: Text(context.l10n.cancel),
+          ),
           FilledButton(
             onPressed: () => request.continueVerification(EventTypes.Sas),
-            child: const Text('Compare emojis'),
+            child: Text(context.l10n.compareEmojis),
           ),
         ];
       case KeyVerificationState.askSas:
@@ -215,31 +204,34 @@ class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
               await request.rejectSas();
               if (context.mounted) Navigator.of(context).pop();
             },
-            child: const Text("They don't match"),
+            child: Text(context.l10n.theyDontMatch),
           ),
           FilledButton(
             onPressed: () => request.acceptSas(),
-            child: const Text('They match'),
+            child: Text(context.l10n.theyMatch),
           ),
         ];
       case KeyVerificationState.waitingAccept:
       case KeyVerificationState.waitingSas:
         return [
-          TextButton(onPressed: _cancelAndClose, child: const Text('Cancel')),
+          TextButton(
+            onPressed: _cancelAndClose,
+            child: Text(context.l10n.cancel),
+          ),
         ];
       case KeyVerificationState.done:
       case KeyVerificationState.error:
         return [
           FilledButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text(context.l10n.close),
           ),
         ];
       case KeyVerificationState.askSSSS:
         return [
           TextButton(
             onPressed: _ssssBusy ? null : () => request.openSSSS(skip: true),
-            child: const Text('Skip'),
+            child: Text(context.l10n.skip),
           ),
           FilledButton(
             onPressed: _ssssBusy ? null : _openSSSS,
@@ -249,13 +241,16 @@ class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Unlock'),
+                : Text(context.l10n.unlock),
           ),
         ];
       case KeyVerificationState.showQRSuccess:
       case KeyVerificationState.confirmQRScan:
         return [
-          TextButton(onPressed: _cancelAndClose, child: const Text('Cancel')),
+          TextButton(
+            onPressed: _cancelAndClose,
+            child: Text(context.l10n.cancel),
+          ),
         ];
     }
   }
@@ -263,7 +258,7 @@ class _KeyVerificationDialogState extends State<KeyVerificationDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Verify device'),
+      title: Text(context.l10n.verifyDevice),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: _body(context),

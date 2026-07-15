@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
+
 /// Rooms pinned with the `m.favourite` tag, sorted by the tag's order value
 /// (the spec-standard way to favorite rooms, shared with other clients).
 List<Room> pinnedRooms(Iterable<Room> rooms) {
@@ -113,7 +115,7 @@ class _PinnedRoomsSectionState extends State<PinnedRoomsSection> {
               ),
               const SizedBox(width: 4),
               Text(
-                'PINNED',
+                context.l10n.pinned.toUpperCase(),
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   letterSpacing: 0.8,

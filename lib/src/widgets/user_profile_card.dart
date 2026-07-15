@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
 import '../pages/room_page.dart';
 import 'initials_avatar.dart';
 import 'mxc_avatar.dart';
 import 'presence_indicator.dart';
-
-/// Custom profile field holding the banner image, per MSC4133 extended
-/// profiles. Other Protea clients (and servers with extended profile
-/// support) can read it; everyone else simply ignores it.
-const bannerProfileField = 'energy.vgt.protea.banner_url';
+import 'user_banner.dart';
 
 /// Shows a Discord-style profile card for [userId]: banner, avatar with
 /// presence, display name, user ID and status.
@@ -66,13 +63,7 @@ class _UserProfileCardState extends State<UserProfileCard> {
     } catch (_) {}
   }
 
-  Uri? get _bannerUrl {
-    final value = _profile?.additionalProperties[bannerProfileField];
-    if (value is String && value.startsWith('mxc://')) {
-      return Uri.tryParse(value);
-    }
-    return null;
-  }
+  Uri? get _bannerUrl => bannerUrlFromProfile(_profile);
 
   bool get _ignored => widget.client.ignoredUsers.contains(widget.userId);
 
@@ -197,7 +188,7 @@ class _UserProfileCardState extends State<UserProfileCard> {
                         FilledButton.icon(
                           onPressed: _message,
                           icon: const Icon(Icons.chat_outlined, size: 18),
-                          label: const Text('Message'),
+                          label: Text(context.l10n.message),
                         ),
                         const SizedBox(width: 8),
                         OutlinedButton.icon(
@@ -206,7 +197,11 @@ class _UserProfileCardState extends State<UserProfileCard> {
                             _ignored ? Icons.person_add_outlined : Icons.block,
                             size: 18,
                           ),
-                          label: Text(_ignored ? 'Unblock' : 'Block'),
+                          label: Text(
+                            _ignored
+                                ? context.l10n.unblock
+                                : context.l10n.block,
+                          ),
                         ),
                       ],
                     ),

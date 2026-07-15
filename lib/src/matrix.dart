@@ -8,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart' as sqflite;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'commands.dart';
+
 bool _vodozemacInitialized = false;
 
 /// Builds a Matrix [Client] named [name] with a platform-appropriate SQLite
@@ -65,6 +67,7 @@ Future<Client> buildMatrixClient({String name = 'Protea'}) async {
       KeyVerificationMethod.numbers,
     },
   );
+  registerProteaCommands(client);
 
   try {
     await client.init(

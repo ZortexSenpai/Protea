@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
 import '../pages/room_page.dart';
 import 'mxc_avatar.dart';
 
@@ -32,6 +33,9 @@ class _RoomDirectoryDialogState extends State<RoomDirectoryDialog> {
   bool _loading = false;
   String? _joiningRoomId;
   var _fetchVersion = 0;
+
+  /// Rooms knocked on in this dialog session.
+  final _knocked = <String>{};
 
   @override
   void initState() {
@@ -120,6 +124,28 @@ class _RoomDirectoryDialogState extends State<RoomDirectoryDialog> {
     }
   }
 
+  Future<void> _knock(PublishedRoomsChunk chunk) async {
+    setState(() => _joiningRoomId = chunk.roomId);
+    try {
+      await widget.client.knockRoom(chunk.canonicalAlias ?? chunk.roomId);
+      if (!mounted) return;
+      setState(() {
+        _joiningRoomId = null;
+        _knocked.add(chunk.roomId);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.knockedWaitingForApproval)),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+        setState(() => _joiningRoomId = null);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final joinedRoomIds = widget.client.rooms.map((room) => room.id).toSet();
@@ -134,12 +160,12 @@ class _RoomDirectoryDialogState extends State<RoomDirectoryDialog> {
               child: Row(
                 children: [
                   Text(
-                    'Explore rooms',
+                    context.l10n.exploreRooms,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const Spacer(),
                   IconButton(
-                    tooltip: 'Close',
+                    tooltip: context.l10n.close,
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -155,10 +181,10 @@ class _RoomDirectoryDialogState extends State<RoomDirectoryDialog> {
                     child: TextField(
                       controller: _searchController,
                       autofocus: true,
-                      decoration: const InputDecoration(
-                        hintText: 'Search rooms…',
-                        prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        hintText: context.l10n.searchRoomsHint,
+                        prefixIcon: const Icon(Icons.search),
+                        border: const OutlineInputBorder(),
                         isDense: true,
                       ),
                       onChanged: _onChanged,
@@ -169,9 +195,9 @@ class _RoomDirectoryDialogState extends State<RoomDirectoryDialog> {
                     flex: 2,
                     child: TextField(
                       controller: _serverController,
-                      decoration: const InputDecoration(
-                        labelText: 'Server',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.server,
+                        border: const OutlineInputBorder(),
                         isDense: true,
                       ),
                       onSubmitted: (_) => _fetch(),
@@ -187,7 +213,7 @@ class _RoomDirectoryDialogState extends State<RoomDirectoryDialog> {
                       padding: const EdgeInsets.all(32),
                       child: _loading
                           ? const CircularProgressIndicator()
-                          : const Text('No public rooms found.'),
+                          : Text(context.l10n.noPublicRoomsFound),
                     )
                   : ListView.builder(
                       controller: _scrollController,
@@ -210,7 +236,7 @@ class _RoomDirectoryDialogState extends State<RoomDirectoryDialog> {
                           ),
                           subtitle: Text(
                             [
-                              '${chunk.numJoinedMembers} members',
+                              context.l10n.membersCount(chunk.numJoinedMembers),
                               if (chunk.topic?.isNotEmpty ?? false)
                                 chunk.topic!,
                             ].join(' · '),
@@ -218,7 +244,7 @@ class _RoomDirectoryDialogState extends State<RoomDirectoryDialog> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           trailing: joined
-                              ? const Text('Joined')
+                              ? Text(context.l10n.joined)
                               : _joiningRoomId == chunk.roomId
                               ? const SizedBox(
                                   width: 18,
@@ -227,11 +253,20 @@ class _RoomDirectoryDialogState extends State<RoomDirectoryDialog> {
                                     strokeWidth: 2,
                                   ),
                                 )
+                              : _knocked.contains(chunk.roomId)
+                              ? Text(context.l10n.knocked)
+                              : chunk.joinRule == 'knock'
+                              ? OutlinedButton(
+                                  onPressed: _joiningRoomId != null
+                                      ? null
+                                      : () => _knock(chunk),
+                                  child: Text(context.l10n.knock),
+                                )
                               : FilledButton(
                                   onPressed: _joiningRoomId != null
                                       ? null
                                       : () => _join(chunk),
-                                  child: const Text('Join'),
+                                  child: Text(context.l10n.join),
                                 ),
                         );
                       },

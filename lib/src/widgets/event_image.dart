@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
+
 /// Displays the image attachment of an [Event] (m.image or sticker).
 ///
 /// Downloads the thumbnail (or the full file for [thumbnail] = false) via the
@@ -258,17 +260,17 @@ class _ImageViewerPageState extends State<ImageViewerPage>
               ),
             ),
           IconButton(
-            tooltip: 'Zoom out',
+            tooltip: context.l10n.zoomOut,
             icon: const Icon(Icons.zoom_out),
             onPressed: _scale <= _minScale ? null : () => _zoomBy(1 / 1.5),
           ),
           IconButton(
-            tooltip: 'Zoom in',
+            tooltip: context.l10n.zoomIn,
             icon: const Icon(Icons.zoom_in),
             onPressed: _scale >= _maxScale ? null : () => _zoomBy(1.5),
           ),
           IconButton(
-            tooltip: 'Reset zoom',
+            tooltip: context.l10n.resetZoom,
             icon: const Icon(Icons.fit_screen_outlined),
             onPressed: zoomed ? _reset : null,
           ),

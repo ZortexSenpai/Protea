@@ -13,6 +13,8 @@ import 'package:record/record.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../commands.dart';
+import '../l10n.dart';
 import '../settings.dart';
 import '../widgets/emoji_picker.dart';
 import '../widgets/event_image.dart';
@@ -54,6 +56,7 @@ class _RoomPageState extends State<RoomPage> {
   Event? _editing;
   Event? _threadRoot;
   List<User> _mentionSuggestions = [];
+  List<SlashCommand> _commandSuggestions = [];
   bool _showMembers = false;
   DateTime? _typingLastSent;
   String? _highlightedEventId;
@@ -288,6 +291,25 @@ class _RoomPageState extends State<RoomPage> {
   Future<void> _send() async {
     final text = _sendController.text.trim();
     if (text.isEmpty) return;
+    // Validate slash commands before the SDK parses them: unknown commands
+    // would be dropped silently. A double slash escapes to plain text.
+    if (text.startsWith('/') && !text.startsWith('//')) {
+      final command = text.substring(1).split(' ').first.toLowerCase();
+      if (command == 'help') {
+        _sendController.clear();
+        setState(() => _commandSuggestions = []);
+        _saveDraft('');
+        _showCommandHelp();
+        return;
+      }
+      if (!_client.commands.containsKey(command)) {
+        _showError(context.l10n.unknownCommand(command));
+        return;
+      }
+    }
+    if (_commandSuggestions.isNotEmpty) {
+      setState(() => _commandSuggestions = []);
+    }
     _sendController.clear();
     final replyTo = _replyTo;
     final editing = _editing;
@@ -335,6 +357,7 @@ class _RoomPageState extends State<RoomPage> {
   void _onInputChanged(String text) {
     _saveDraft(text);
     _updateMentionSuggestions();
+    _updateCommandSuggestions();
     if (text.isEmpty) {
       _typingLastSent = null;
       widget.room.setTyping(false).catchError((_) {});
@@ -388,9 +411,7 @@ class _RoomPageState extends State<RoomPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
-          files.length == 1 ? 'Send file?' : 'Send ${files.length} files?',
-        ),
+        title: Text(context.l10n.sendFilesTitle(files.length)),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 400, maxHeight: 420),
           child: SingleChildScrollView(
@@ -439,11 +460,11 @@ class _RoomPageState extends State<RoomPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Send'),
+            child: Text(context.l10n.send),
           ),
         ],
       ),
@@ -458,7 +479,7 @@ class _RoomPageState extends State<RoomPage> {
     final recorder = AudioRecorder();
     try {
       if (!await recorder.hasPermission()) {
-        _showError('Microphone permission denied.');
+        if (mounted) _showError(context.l10n.microphonePermissionDenied);
         await recorder.dispose();
         return;
       }
@@ -573,7 +594,7 @@ class _RoomPageState extends State<RoomPage> {
     return Row(
       children: [
         IconButton(
-          tooltip: 'Discard recording',
+          tooltip: context.l10n.discardRecording,
           icon: Icon(Icons.delete_outline, color: colorScheme.error),
           onPressed: _cancelRecording,
         ),
@@ -590,7 +611,7 @@ class _RoomPageState extends State<RoomPage> {
         ),
         const SizedBox(width: 8),
         IconButton.filled(
-          tooltip: 'Send voice message',
+          tooltip: context.l10n.sendVoiceMessage,
           onPressed: _sendRecording,
           icon: const Icon(Icons.send),
         ),
@@ -701,9 +722,9 @@ class _RoomPageState extends State<RoomPage> {
         name: file.name,
       ).saveTo(location.path);
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Saved ${file.name}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.savedFile(file.name))),
+        );
       }
     } catch (e) {
       _showError(e);
@@ -775,6 +796,78 @@ class _RoomPageState extends State<RoomPage> {
     _saveDraft(newText);
   }
 
+  /// Suggests slash commands while the composer holds only `/word`.
+  void _updateCommandSuggestions() {
+    final match = RegExp(
+      r'^/([a-zA-Z]*)$',
+    ).firstMatch(_sendController.text.trimRight());
+    if (match == null) {
+      if (_commandSuggestions.isNotEmpty) {
+        setState(() => _commandSuggestions = []);
+      }
+      return;
+    }
+    final query = match.group(1)!.toLowerCase();
+    setState(
+      () => _commandSuggestions = slashCommands
+          .where((command) => command.name.startsWith(query))
+          .toList(),
+    );
+  }
+
+  void _applyCommandSuggestion(SlashCommand command) {
+    setState(() => _commandSuggestions = []);
+    if (command.name == 'help') {
+      _sendController.clear();
+      _saveDraft('');
+      _showCommandHelp();
+      return;
+    }
+    final text = command.argsHint.isEmpty
+        ? '/${command.name}'
+        : '/${command.name} ';
+    _sendController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    _saveDraft(text);
+  }
+
+  void _showCommandHelp() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.l10n.commands),
+        content: SizedBox(
+          width: 420,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final command in slashCommands)
+                ListTile(
+                  dense: true,
+                  title: Text('/${command.name} ${command.argsHint}'.trim()),
+                  subtitle: Text(
+                    localizedCommandDescription(context.l10n, command),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(context.l10n.doubleSlashHint),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(context.l10n.close),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTypingIndicator() {
     return StreamBuilder<SyncUpdate>(
       stream: _client.onSync.stream,
@@ -785,9 +878,9 @@ class _RoomPageState extends State<RoomPage> {
             .toList();
         final text = switch (names.length) {
           0 => '',
-          1 => '${names[0]} is typing…',
-          2 => '${names[0]} and ${names[1]} are typing…',
-          _ => 'Several people are typing…',
+          1 => context.l10n.isTyping(names[0]),
+          2 => context.l10n.areTyping(names[0], names[1]),
+          _ => context.l10n.manyTyping(names.length),
         };
         return SizedBox(
           height: 18,
@@ -823,7 +916,7 @@ class _RoomPageState extends State<RoomPage> {
         children: [
           Icon(Icons.edit_outlined, size: 20, color: colorScheme.primary),
           const SizedBox(width: 8),
-          const Expanded(child: Text('Editing message')),
+          Expanded(child: Text(context.l10n.editingMessage)),
           IconButton(
             icon: const Icon(Icons.close, size: 18),
             onPressed: _cancelEdit,
@@ -893,7 +986,7 @@ class _RoomPageState extends State<RoomPage> {
       appBar: AppBar(
         leading: widget.onOpenMenu != null
             ? IconButton(
-                tooltip: 'Channels',
+                tooltip: context.l10n.channels,
                 icon: const Icon(Icons.menu),
                 onPressed: widget.onOpenMenu,
               )
@@ -948,7 +1041,7 @@ class _RoomPageState extends State<RoomPage> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Search messages',
+            tooltip: context.l10n.searchMessages,
             icon: const Icon(Icons.search),
             onPressed: () => showMessageSearch(
               context,
@@ -957,7 +1050,7 @@ class _RoomPageState extends State<RoomPage> {
             ),
           ),
           IconButton(
-            tooltip: 'Pinned messages',
+            tooltip: context.l10n.pinnedMessages,
             icon: const Icon(Icons.push_pin_outlined),
             onPressed: () => showPinnedMessages(
               context,
@@ -966,12 +1059,12 @@ class _RoomPageState extends State<RoomPage> {
             ),
           ),
           IconButton(
-            tooltip: 'Members',
+            tooltip: context.l10n.members,
             icon: Icon(_showMembers ? Icons.people : Icons.people_outline),
             onPressed: () => setState(() => _showMembers = !_showMembers),
           ),
           IconButton(
-            tooltip: 'Channel settings',
+            tooltip: context.l10n.channelSettings,
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => showRoomSettingsDialog(context, widget.room),
           ),
@@ -991,9 +1084,8 @@ class _RoomPageState extends State<RoomPage> {
                     children: [
                       if (encryptedWithoutSupport)
                         MaterialBanner(
-                          content: const Text(
-                            'This room is end-to-end encrypted. This build of Protea was '
-                            'compiled without E2EE support, so messages cannot be read or sent here.',
+                          content: Text(
+                            context.l10n.roomEncryptedNoE2eeSupport,
                           ),
                           leading: const Icon(Icons.lock_outline),
                           actions: const [SizedBox.shrink()],
@@ -1028,7 +1120,7 @@ class _RoomPageState extends State<RoomPage> {
                                 right: 16,
                                 bottom: 12,
                                 child: FloatingActionButton.small(
-                                  tooltip: 'Jump to latest messages',
+                                  tooltip: context.l10n.jumpToLatestMessages,
                                   onPressed: _returnToLive,
                                   child: const Icon(
                                     Icons.keyboard_double_arrow_down,
@@ -1041,6 +1133,39 @@ class _RoomPageState extends State<RoomPage> {
                       _buildTypingIndicator(),
                       _buildEditBar(),
                       _buildReplyBar(),
+                      if (_commandSuggestions.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          constraints: const BoxConstraints(maxHeight: 240),
+                          child: ListView(
+                            shrinkWrap: true,
+                            children: [
+                              for (final command in _commandSuggestions)
+                                ListTile(
+                                  dense: true,
+                                  title: Text(
+                                    '/${command.name} ${command.argsHint}'
+                                        .trim(),
+                                  ),
+                                  subtitle: Text(
+                                    localizedCommandDescription(
+                                      context.l10n,
+                                      command,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  onTap: () => _applyCommandSuggestion(command),
+                                ),
+                            ],
+                          ),
+                        ),
                       if (_mentionSuggestions.isNotEmpty)
                         Container(
                           margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
@@ -1086,28 +1211,28 @@ class _RoomPageState extends State<RoomPage> {
                               : Row(
                                   children: [
                                     IconButton(
-                                      tooltip: 'Attach file',
+                                      tooltip: context.l10n.attachFile,
                                       onPressed: encryptedWithoutSupport
                                           ? null
                                           : _attachFile,
                                       icon: const Icon(Icons.attach_file),
                                     ),
                                     IconButton(
-                                      tooltip: 'GIF',
+                                      tooltip: context.l10n.gif,
                                       onPressed: encryptedWithoutSupport
                                           ? null
                                           : _pickGif,
                                       icon: const Icon(Icons.gif_box_outlined),
                                     ),
                                     IconButton(
-                                      tooltip: 'Voice message',
+                                      tooltip: context.l10n.voiceMessage,
                                       onPressed: encryptedWithoutSupport
                                           ? null
                                           : _startRecording,
                                       icon: const Icon(Icons.mic_none),
                                     ),
                                     PopupMenuButton<String>(
-                                      tooltip: 'More attachments',
+                                      tooltip: context.l10n.moreAttachments,
                                       enabled: !encryptedWithoutSupport,
                                       icon: const Icon(
                                         Icons.add_circle_outline,
@@ -1126,19 +1251,19 @@ class _RoomPageState extends State<RoomPage> {
                                             );
                                         }
                                       },
-                                      itemBuilder: (context) => const [
+                                      itemBuilder: (context) => [
                                         PopupMenuItem(
                                           value: 'poll',
-                                          child: Text('Poll'),
+                                          child: Text(context.l10n.poll),
                                         ),
                                         PopupMenuItem(
                                           value: 'sticker',
-                                          child: Text('Sticker'),
+                                          child: Text(context.l10n.sticker),
                                         ),
                                       ],
                                     ),
                                     IconButton(
-                                      tooltip: 'Emoji',
+                                      tooltip: context.l10n.emoji,
                                       onPressed: encryptedWithoutSupport
                                           ? null
                                           : _pickEmoji,
@@ -1189,7 +1314,7 @@ class _RoomPageState extends State<RoomPage> {
                                           controller: _sendController,
                                           enabled: !encryptedWithoutSupport,
                                           decoration: InputDecoration(
-                                            hintText: 'Message',
+                                            hintText: context.l10n.message,
                                             filled: true,
                                             border: OutlineInputBorder(
                                               borderRadius:
@@ -1252,7 +1377,7 @@ class _RoomPageState extends State<RoomPage> {
                             const Icon(Icons.file_upload_outlined),
                             const SizedBox(width: 8),
                             Text(
-                              'Drop files to upload',
+                              context.l10n.dropFilesToUpload,
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
                           ],
@@ -1293,25 +1418,29 @@ class _MemberListPanel extends StatelessWidget {
       items: [
         PopupMenuItem(
           value: 'ignore',
-          child: Text(ignored ? 'Unblock' : 'Block'),
+          child: Text(ignored ? context.l10n.unblock : context.l10n.block),
         ),
         if (user.canChangeUserPowerLevel) ...[
           if (user.powerLevel.level < PowerLevel.defaultAdminLevel)
-            const PopupMenuItem(value: 'power:100', child: Text('Make admin')),
+            PopupMenuItem(
+              value: 'power:100',
+              child: Text(context.l10n.makeAdmin),
+            ),
           if (user.powerLevel.level < PowerLevel.defaultModeratorLevel)
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'power:50',
-              child: Text('Make moderator'),
+              child: Text(context.l10n.makeModerator),
             ),
           if (user.powerLevel.level > PowerLevel.defaultUserLevel)
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'power:0',
-              child: Text('Reset to member'),
+              child: Text(context.l10n.resetToMember),
             ),
         ],
         if (user.canKick)
-          const PopupMenuItem(value: 'kick', child: Text('Kick')),
-        if (user.canBan) const PopupMenuItem(value: 'ban', child: Text('Ban')),
+          PopupMenuItem(value: 'kick', child: Text(context.l10n.kick)),
+        if (user.canBan)
+          PopupMenuItem(value: 'ban', child: Text(context.l10n.ban)),
       ],
     );
     if (selected == null || !context.mounted) return;
@@ -1321,19 +1450,18 @@ class _MemberListPanel extends StatelessWidget {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text('Make ${user.calcDisplayname()} an admin?'),
-            content: const Text(
-              'Admins have the same power as you — you may not be able to '
-              'demote them afterwards.',
+            title: Text(
+              context.l10n.makeUserAdminTitle(user.calcDisplayname()),
             ),
+            content: Text(context.l10n.makeAdminWarning),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
+                child: Text(context.l10n.cancel),
               ),
               FilledButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Make admin'),
+                child: Text(context.l10n.makeAdmin),
               ),
             ],
           ),
@@ -1356,17 +1484,20 @@ class _MemberListPanel extends StatelessWidget {
         context: context,
         builder: (context) => AlertDialog(
           title: Text(
-            '${selected == 'kick' ? 'Kick' : 'Ban'} '
-            '${user.calcDisplayname()}?',
+            selected == 'kick'
+                ? context.l10n.kickUserTitle(user.calcDisplayname())
+                : context.l10n.banUserTitle(user.calcDisplayname()),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
+              child: Text(context.l10n.cancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: Text(selected == 'kick' ? 'Kick' : 'Ban'),
+              child: Text(
+                selected == 'kick' ? context.l10n.kick : context.l10n.ban,
+              ),
             ),
           ],
         ),
@@ -1421,7 +1552,7 @@ class _MemberListPanel extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                 child: Text(
-                  'Members — ${members.length}',
+                  context.l10n.membersWithCount(members.length),
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
@@ -1457,9 +1588,11 @@ class _MemberListPanel extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: switch (user.powerLevel.role) {
-                          PowerLevelRole.owner => const Text('Owner'),
-                          PowerLevelRole.admin => const Text('Admin'),
-                          PowerLevelRole.moderator => const Text('Moderator'),
+                          PowerLevelRole.owner => Text(context.l10n.owner),
+                          PowerLevelRole.admin => Text(context.l10n.admin),
+                          PowerLevelRole.moderator => Text(
+                            context.l10n.moderator,
+                          ),
                           PowerLevelRole.user => null,
                         },
                         onTap: () => showUserProfileCard(
@@ -1514,7 +1647,7 @@ class _TimelineList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (events.isEmpty) {
-      return const Center(child: Text('No messages yet. Say hello!'));
+      return Center(child: Text(context.l10n.noMessagesYet));
     }
     return ScrollablePositionedList.builder(
       itemScrollController: itemScrollController,
@@ -1524,28 +1657,87 @@ class _TimelineList extends StatelessWidget {
       itemCount: events.length,
       itemBuilder: (context, index) {
         final event = events[index];
-        if (event.type == EventTypes.RoomMember) {
-          return _StateEventLabel(event: event, timeline: timeline);
-        }
         final previous = index + 1 < events.length ? events[index + 1] : null;
-        final showSender =
+        // The list is reversed, so the item after this one is the older
+        // message; a day change between the two gets a date divider.
+        final newDay =
             previous == null ||
-            previous.senderId != event.senderId ||
-            previous.type == EventTypes.RoomMember;
-        return _MessageBubble(
-          event: event,
-          timeline: timeline,
-          ownMessage: event.senderId == client.userID,
-          showSender: showSender,
-          highlighted: event.eventId == highlightedEventId,
-          showUnreadMarker: event.eventId == unreadMarkerEventId,
-          receipts: receiptsByEvent[event.eventId] ?? const [],
-          onReply: onReply,
-          onEdit: onEdit,
-          onOpenThread: onOpenThread,
-          onSaveAttachment: onSaveAttachment,
+            !_isSameDay(previous.originServerTs, event.originServerTs);
+        final Widget item;
+        if (event.type == EventTypes.RoomMember) {
+          item = _StateEventLabel(event: event, timeline: timeline);
+        } else {
+          final showSender =
+              newDay ||
+              previous.senderId != event.senderId ||
+              previous.type == EventTypes.RoomMember;
+          item = _MessageBubble(
+            event: event,
+            timeline: timeline,
+            ownMessage: event.senderId == client.userID,
+            showSender: showSender,
+            highlighted: event.eventId == highlightedEventId,
+            showUnreadMarker: event.eventId == unreadMarkerEventId,
+            receipts: receiptsByEvent[event.eventId] ?? const [],
+            onReply: onReply,
+            onEdit: onEdit,
+            onOpenThread: onOpenThread,
+            onSaveAttachment: onSaveAttachment,
+          );
+        }
+        if (!newDay) return item;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _DateDivider(date: event.originServerTs),
+            item,
+          ],
         );
       },
+    );
+  }
+}
+
+bool _isSameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+/// WhatsApp-style centered date chip shown above the first message of a day.
+class _DateDivider extends StatelessWidget {
+  const _DateDivider({required this.date});
+
+  final DateTime date;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = DateTime(now.year, now.month, now.day - 1);
+    final day = DateTime(date.year, date.month, date.day);
+    final label = day == today
+        ? context.l10n.today
+        : day == yesterday
+        ? context.l10n.yesterday
+        : DateFormat.yMMMd(
+            Localizations.localeOf(context).toString(),
+          ).format(date);
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1614,6 +1806,33 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
   Event get event => widget.event;
   Timeline get timeline => widget.timeline;
+
+  /// True when someone else's message mentions the current user — via the
+  /// `m.mentions` field, an `@room` mention, or (legacy fallback for clients
+  /// that don't send `m.mentions`) the raw user ID in the body.
+  bool get _mentionsMe {
+    final userId = event.room.client.userID;
+    if (userId == null || widget.ownMessage) return false;
+    for (final content in [
+      event.content,
+      if (event.content['m.new_content'] is Map<String, Object?>)
+        event.content['m.new_content'] as Map<String, Object?>,
+    ]) {
+      final mentions = content['m.mentions'];
+      if (mentions is Map) {
+        final userIds = mentions['user_ids'];
+        if (userIds is List && userIds.contains(userId)) return true;
+        if (mentions['room'] == true) return true;
+        continue;
+      }
+      final formatted = content['formatted_body'];
+      if (formatted is String && formatted.contains(userId)) return true;
+      final body = content['body'];
+      if (body is String && body.contains(userId)) return true;
+    }
+    return false;
+  }
+
   bool get ownMessage => widget.ownMessage;
   bool get showSender => widget.showSender;
   ValueChanged<Event> get onReply => widget.onReply;
@@ -1659,16 +1878,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete message?'),
-        content: const Text('The message will be removed for everyone.'),
+        title: Text(context.l10n.deleteMessageTitle),
+        content: Text(context.l10n.deleteMessageWarning),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            child: Text(context.l10n.delete),
           ),
         ],
       ),
@@ -1728,21 +1947,29 @@ class _MessageBubbleState extends State<_MessageBubble> {
               ],
             ),
           ),
-        if (sent) const PopupMenuItem(value: 'reply', child: Text('Reply')),
         if (sent)
-          const PopupMenuItem(value: 'thread', child: Text('Reply in thread')),
+          PopupMenuItem(value: 'reply', child: Text(context.l10n.reply)),
+        if (sent)
+          PopupMenuItem(
+            value: 'thread',
+            child: Text(context.l10n.replyInThread),
+          ),
         if (ownMessage && sent && displayEvent.messageType == MessageTypes.Text)
-          const PopupMenuItem(value: 'edit', child: Text('Edit')),
+          PopupMenuItem(value: 'edit', child: Text(context.l10n.edit)),
         if (ownMessage && sent && displayEvent.type == pollStartType)
-          const PopupMenuItem(value: 'endpoll', child: Text('End poll')),
-        const PopupMenuItem(value: 'copy', child: Text('Copy text')),
-        if (sent) const PopupMenuItem(value: 'forward', child: Text('Forward')),
+          PopupMenuItem(value: 'endpoll', child: Text(context.l10n.endPoll)),
+        PopupMenuItem(value: 'copy', child: Text(context.l10n.copyText)),
+        if (sent)
+          PopupMenuItem(value: 'forward', child: Text(context.l10n.forward)),
         if (canPin && sent)
-          PopupMenuItem(value: 'pin', child: Text(isPinned ? 'Unpin' : 'Pin')),
+          PopupMenuItem(
+            value: 'pin',
+            child: Text(isPinned ? context.l10n.unpin : context.l10n.pin),
+          ),
         if (hasAttachment)
-          const PopupMenuItem(value: 'save', child: Text('Save file')),
+          PopupMenuItem(value: 'save', child: Text(context.l10n.saveFile)),
         if (ownMessage && sent)
-          const PopupMenuItem(value: 'delete', child: Text('Delete')),
+          PopupMenuItem(value: 'delete', child: Text(context.l10n.delete)),
       ],
     );
     if (selected == null || !context.mounted) return;
@@ -1836,7 +2063,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
               if (sent) ...[
                 for (final emoji in _hoverReactions)
                   Tooltip(
-                    message: 'React with $emoji',
+                    message: context.l10n.reactWith(emoji),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(14),
                       onTap: () => _toggleReaction(context, emoji),
@@ -1854,7 +2081,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   ),
                 _hoverButton(
                   icon: Icons.add_reaction_outlined,
-                  tooltip: 'Add reaction',
+                  tooltip: context.l10n.addReaction,
                   onTap: () async {
                     final emoji = await showEmojiPicker(context);
                     if (emoji != null && mounted) {
@@ -1864,14 +2091,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 ),
                 _hoverButton(
                   icon: Icons.reply,
-                  tooltip: 'Reply',
+                  tooltip: context.l10n.reply,
                   onTap: () => onReply(event),
                 ),
               ],
               Builder(
                 builder: (buttonContext) => _hoverButton(
                   icon: Icons.more_horiz,
-                  tooltip: 'More',
+                  tooltip: context.l10n.more,
                   onTap: () {
                     final box = buttonContext.findRenderObject() as RenderBox;
                     _showMessageMenu(
@@ -1959,7 +2186,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
               children: [
                 Text(filename, maxLines: 1, overflow: TextOverflow.ellipsis),
                 Text(
-                  sizeText == null ? 'Click to save' : '$sizeText · save',
+                  sizeText == null
+                      ? context.l10n.clickToSave
+                      : context.l10n.saveWithSize(sizeText),
                   style: Theme.of(context).textTheme.labelSmall,
                 ),
               ],
@@ -1993,7 +2222,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
               Icon(Icons.forum_outlined, size: 14, color: colorScheme.primary),
               const SizedBox(width: 4),
               Text(
-                '$count ${count == 1 ? 'reply' : 'replies'}',
+                context.l10n.repliesCount(count),
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: colorScheme.primary,
                   fontWeight: FontWeight.w600,
@@ -2010,8 +2239,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
     return Padding(
       padding: const EdgeInsets.only(top: 2),
       child: Tooltip(
-        message:
-            'Read by ${widget.receipts.map((user) => user.calcDisplayname()).join(', ')}',
+        message: context.l10n.readBy(
+          widget.receipts.map((user) => user.calcDisplayname()).join(', '),
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -2151,7 +2381,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
           _buildFileContent(context, displayEvent)
         else if (includeText)
           if (isHtml)
-            HtmlMessage(html: displayEvent.formattedText)
+            HtmlMessage(
+              html: displayEvent.formattedText,
+              client: event.room.client,
+            )
           else
             Text(body),
         if (linkUrl != null) LinkPreview(client: _client, url: linkUrl),
@@ -2410,15 +2643,23 @@ class _MessageBubbleState extends State<_MessageBubble> {
       MessageLayout.text => textLayout(),
     };
 
+    final mentionsMe = _mentionsMe;
     final messageRow = MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: ColoredBox(
-        color: widget.highlighted
-            ? colorScheme.tertiaryContainer.withValues(alpha: 0.6)
-            : _hovered
-            ? colorScheme.onSurface.withValues(alpha: 0.05)
-            : Colors.transparent,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: widget.highlighted
+              ? colorScheme.tertiaryContainer.withValues(alpha: 0.6)
+              : mentionsMe
+              ? colorScheme.primary.withValues(alpha: _hovered ? 0.12 : 0.08)
+              : _hovered
+              ? colorScheme.onSurface.withValues(alpha: 0.05)
+              : Colors.transparent,
+          border: mentionsMe
+              ? Border(left: BorderSide(color: colorScheme.primary, width: 3))
+              : null,
+        ),
         child: Stack(
           children: [
             inner,
@@ -2455,7 +2696,7 @@ class _UnreadMarker extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text(
-              'New messages',
+              context.l10n.newMessages,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: color,
                 fontWeight: FontWeight.w600,
@@ -2487,7 +2728,7 @@ class _ReplyQuote extends StatelessWidget {
         final sender =
             replied?.senderFromMemoryOrFallback.calcDisplayname() ?? '';
         final snippet = replied == null
-            ? 'Loading…'
+            ? context.l10n.loading
             : replied.calcLocalizedBodyFallback(
                 const MatrixDefaultLocalizations(),
                 hideReply: true,
@@ -2617,10 +2858,13 @@ class _ThreadPanelState extends State<_ThreadPanel> {
             padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
             child: Row(
               children: [
-                Text('Thread', style: Theme.of(context).textTheme.titleSmall),
+                Text(
+                  context.l10n.thread,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
                 const Spacer(),
                 IconButton(
-                  tooltip: 'Close thread',
+                  tooltip: context.l10n.closeThread,
                   icon: const Icon(Icons.close, size: 18),
                   onPressed: widget.onClose,
                 ),
@@ -2635,9 +2879,9 @@ class _ThreadPanelState extends State<_ThreadPanel> {
                 _ThreadMessage(event: widget.root, timeline: widget.timeline),
                 const Divider(),
                 if (replies.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('No replies yet.'),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(context.l10n.noRepliesYet),
                   )
                 else
                   for (final reply in replies)
@@ -2671,7 +2915,7 @@ class _ThreadPanelState extends State<_ThreadPanel> {
                       child: TextField(
                         controller: _controller,
                         decoration: InputDecoration(
-                          hintText: 'Reply in thread',
+                          hintText: context.l10n.replyInThread,
                           filled: true,
                           isDense: true,
                           border: OutlineInputBorder(

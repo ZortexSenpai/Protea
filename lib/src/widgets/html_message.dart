@@ -4,15 +4,46 @@ import 'package:flutter_highlight/themes/atom-one-dark.dart';
 import 'package:flutter_highlight/themes/atom-one-light.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:highlight/languages/all.dart';
+import 'package:matrix/matrix.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'user_profile_card.dart';
+
+/// Extracts the user ID from a `matrix.to` or `matrix:` user link, or null
+/// when the link points at anything else.
+String? mentionUserId(String? href) {
+  if (href == null) return null;
+  final uri = Uri.tryParse(href);
+  if (uri == null) return null;
+  String? target;
+  if (uri.host == 'matrix.to') {
+    var fragment = uri.fragment;
+    if (fragment.startsWith('/')) fragment = fragment.substring(1);
+    try {
+      target = Uri.decodeComponent(fragment);
+    } on ArgumentError {
+      return null;
+    }
+  } else if (uri.isScheme('matrix') && uri.path.startsWith('u/')) {
+    target = '@${uri.path.substring(2)}';
+  }
+  if (target == null) return null;
+  final query = target.indexOf('?');
+  if (query != -1) target = target.substring(0, query);
+  return target.startsWith('@') && target.contains(':') ? target : null;
+}
+
 /// Renders the formatted (`org.matrix.custom.html`) body of a message:
-/// headings, bold, italic, strikethrough, quotes, lists, links and
-/// syntax-highlighted code blocks.
+/// headings, bold, italic, strikethrough, quotes, lists, links, mention
+/// pills and syntax-highlighted code blocks.
 class HtmlMessage extends StatelessWidget {
-  const HtmlMessage({super.key, required this.html});
+  const HtmlMessage({super.key, required this.html, this.client});
 
   final String html;
+
+  /// When set, `matrix.to` user links render as tappable mention pills that
+  /// open the profile card.
+  final Client? client;
 
   /// Removes the quoted fallback block of rich replies; the bubble already
   /// renders its own reply preview.
@@ -27,10 +58,15 @@ class HtmlMessage extends StatelessWidget {
       fontWeight: FontWeight.w700,
       margin: Margins.symmetric(vertical: 4),
     );
+    final client = this.client;
     return Html(
       data: _stripReplyFallback(html),
       shrinkWrap: true,
-      extensions: [_SpoilerExtension(), _CodeBlockExtension()],
+      extensions: [
+        if (client != null) _MentionExtension(client),
+        _SpoilerExtension(),
+        _CodeBlockExtension(),
+      ],
       onLinkTap: (url, attributes, element) {
         if (url != null) {
           launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
@@ -63,6 +99,68 @@ class HtmlMessage extends StatelessWidget {
           textDecoration: TextDecoration.none,
         ),
       },
+    );
+  }
+}
+
+/// Renders `matrix.to`/`matrix:` user links as tappable mention pills that
+/// open the profile card.
+class _MentionExtension extends TagExtension {
+  _MentionExtension(Client client)
+    : super(
+        tagsToExtend: {'a'},
+        builder: (extensionContext) {
+          final userId = mentionUserId(extensionContext.attributes['href'])!;
+          final text = extensionContext.element?.text.trim() ?? '';
+          return _MentionPill(
+            client: client,
+            userId: userId,
+            label: text.isEmpty ? userId : text,
+          );
+        },
+      );
+
+  @override
+  bool matches(ExtensionContext context) =>
+      context.elementName == 'a' &&
+      mentionUserId(context.attributes['href']) != null;
+}
+
+class _MentionPill extends StatelessWidget {
+  const _MentionPill({
+    required this.client,
+    required this.userId,
+    required this.label,
+  });
+
+  final Client client;
+  final String userId;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    // Mentions of the current user stand out more than other pills.
+    final isSelf = userId == client.userID;
+    return InkWell(
+      onTap: () => showUserProfileCard(context, client: client, userId: userId),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: isSelf
+              ? colorScheme.primary
+              : colorScheme.primary.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelf ? colorScheme.onPrimary : colorScheme.primary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
 import '../client_manager.dart';
+import '../l10n.dart';
 import '../settings.dart';
 import 'room_list_page.dart';
 import 'room_page.dart';
@@ -69,7 +70,7 @@ class _SplitHomePageState extends State<SplitHomePage> {
                             color: Theme.of(context).colorScheme.outline,
                           ),
                           const SizedBox(height: 16),
-                          const Text('Select a chat to start messaging.'),
+                          Text(context.l10n.selectChatToStartMessaging),
                         ],
                       ),
                     )

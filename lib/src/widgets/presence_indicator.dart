@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
 import 'mxc_avatar.dart';
 
 /// Fetches the presence of [userId] once and rebuilds on every later update.
@@ -161,25 +162,29 @@ class PresenceLabel extends StatelessWidget {
   final String userId;
   final TextStyle? style;
 
-  static String _text(CachedPresence presence) {
+  static String _text(BuildContext context, CachedPresence presence) {
     final base = switch (presence.presence) {
-      PresenceType.online => 'Online',
-      PresenceType.unavailable => 'Away',
+      PresenceType.online => context.l10n.online,
+      PresenceType.unavailable => context.l10n.away,
       PresenceType.offline =>
         presence.lastActiveTimestamp == null
-            ? 'Offline'
-            : 'Last seen ${_relative(presence.lastActiveTimestamp!)}',
+            ? context.l10n.offline
+            : _lastSeen(context, presence.lastActiveTimestamp!),
     };
     final status = presence.statusMsg;
-    return status == null || status.isEmpty ? base : '$base — $status';
+    return status == null || status.isEmpty
+        ? base
+        : context.l10n.presenceWithStatus(base, status);
   }
 
-  static String _relative(DateTime time) {
+  static String _lastSeen(BuildContext context, DateTime time) {
     final diff = DateTime.now().difference(time);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inHours < 1) return '${diff.inMinutes} min ago';
-    if (diff.inDays < 1) return '${diff.inHours} h ago';
-    return '${diff.inDays} d ago';
+    if (diff.inMinutes < 1) return context.l10n.lastSeenJustNow;
+    if (diff.inHours < 1) {
+      return context.l10n.lastSeenMinutesAgo(diff.inMinutes);
+    }
+    if (diff.inDays < 1) return context.l10n.lastSeenHoursAgo(diff.inHours);
+    return context.l10n.lastSeenDaysAgo(diff.inDays);
   }
 
   @override
@@ -190,7 +195,7 @@ class PresenceLabel extends StatelessWidget {
       builder: (context, presence) => presence == null
           ? const SizedBox.shrink()
           : Text(
-              _text(presence),
+              _text(context, presence),
               style: style,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

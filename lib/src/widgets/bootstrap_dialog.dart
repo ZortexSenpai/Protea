@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:matrix/encryption.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
+
 /// Walks through cross-signing and online key backup setup:
 /// - fresh accounts get cross-signing, secret storage and key backup with a
 ///   newly generated recovery key,
@@ -136,10 +138,7 @@ class _BootstrapDialogState extends State<BootstrapDialog> {
       } catch (_) {}
     } catch (_) {
       if (mounted) {
-        setState(
-          () => _unlockError =
-              'Could not unlock the backup. Please check the recovery key.',
-        );
+        setState(() => _unlockError = context.l10n.couldNotUnlockBackup);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -149,7 +148,7 @@ class _BootstrapDialogState extends State<BootstrapDialog> {
   Widget _body(BuildContext context) {
     final bootstrap = _bootstrap;
     if (bootstrap == null) {
-      return const Text('End-to-end encryption is not available.');
+      return Text(context.l10n.endToEndEncryptionNotAvailable);
     }
     switch (bootstrap.state) {
       case BootstrapState.askUnlockSsss:
@@ -158,18 +157,14 @@ class _BootstrapDialogState extends State<BootstrapDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Enter your recovery key to unlock the chat backup and verify '
-              'this session. You got the recovery key when the backup was '
-              'set up (it looks like: EsT* ****…).',
-            ),
+            Text(context.l10n.enterRecoveryKeyToUnlockBackup),
             const SizedBox(height: 16),
             TextField(
               controller: _recoveryKeyController,
               enabled: !_busy,
               autofocus: true,
               decoration: InputDecoration(
-                labelText: 'Recovery key',
+                labelText: context.l10n.recoveryKey,
                 border: const OutlineInputBorder(),
                 errorText: _unlockError,
               ),
@@ -183,20 +178,16 @@ class _BootstrapDialogState extends State<BootstrapDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.verified_user, color: Color(0xFF43A047)),
-                SizedBox(width: 8),
-                Expanded(child: Text('Chat backup is set up!')),
+                const Icon(Icons.verified_user, color: Color(0xFF43A047)),
+                const SizedBox(width: 8),
+                Expanded(child: Text(context.l10n.chatBackupSetUp)),
               ],
             ),
             if (recoveryKey != null) ...[
               const SizedBox(height: 16),
-              const Text(
-                'Save this recovery key somewhere safe (e.g. a password '
-                'manager). You will need it to read your encrypted message '
-                'history on new devices:',
-              ),
+              Text(context.l10n.saveRecoveryKeySomewhereSafe),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -213,7 +204,7 @@ class _BootstrapDialogState extends State<BootstrapDialog> {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Copy',
+                      tooltip: context.l10n.copy,
                       icon: const Icon(Icons.copy, size: 18),
                       onPressed: () =>
                           Clipboard.setData(ClipboardData(text: recoveryKey)),
@@ -223,7 +214,7 @@ class _BootstrapDialogState extends State<BootstrapDialog> {
               ),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('I saved my recovery key'),
+                title: Text(context.l10n.iSavedMyRecoveryKey),
                 value: _recoveryKeySaved,
                 onChanged: (value) =>
                     setState(() => _recoveryKeySaved = value ?? false),
@@ -241,16 +232,16 @@ class _BootstrapDialogState extends State<BootstrapDialog> {
               color: Theme.of(context).colorScheme.error,
             ),
             const SizedBox(height: 12),
-            Text(_unlockError ?? 'Setting up the backup failed.'),
+            Text(_unlockError ?? context.l10n.settingUpBackupFailed),
           ],
         );
       default:
-        return const Column(
+        return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Setting up…'),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(context.l10n.settingUp),
           ],
         );
     }
@@ -264,7 +255,7 @@ class _BootstrapDialogState extends State<BootstrapDialog> {
         return [
           FilledButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text(context.l10n.close),
           ),
         ];
       case BootstrapState.askUnlockSsss:
@@ -272,7 +263,7 @@ class _BootstrapDialogState extends State<BootstrapDialog> {
         return [
           TextButton(
             onPressed: _busy ? null : () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: _busy ? null : _unlock,
@@ -282,7 +273,7 @@ class _BootstrapDialogState extends State<BootstrapDialog> {
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Unlock'),
+                : Text(context.l10n.unlock),
           ),
         ];
       case BootstrapState.done:
@@ -291,14 +282,14 @@ class _BootstrapDialogState extends State<BootstrapDialog> {
             onPressed: _recoveryKeyToShow == null || _recoveryKeySaved
                 ? () => Navigator.of(context).pop()
                 : null,
-            child: const Text('Done'),
+            child: Text(context.l10n.done),
           ),
         ];
       default:
         return [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
         ];
     }
@@ -307,7 +298,7 @@ class _BootstrapDialogState extends State<BootstrapDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Chat backup'),
+      title: Text(context.l10n.chatBackup),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 440),
         child: _body(context),

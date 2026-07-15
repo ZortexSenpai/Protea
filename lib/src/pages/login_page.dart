@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
 import '../sso.dart';
 
 class LoginPage extends StatefulWidget {
@@ -102,7 +103,7 @@ class _LoginPageState extends State<LoginPage> {
     if (_homeserverController.text.trim().isEmpty ||
         username.isEmpty ||
         password.isEmpty) {
-      _showError('Please fill in all fields.');
+      _showError(context.l10n.pleaseFillInAllFields);
       return;
     }
 
@@ -134,7 +135,7 @@ class _LoginPageState extends State<LoginPage> {
     } on MatrixException catch (e) {
       _showError(e.errorMessage);
     } on TimeoutException {
-      _showError('SSO login timed out. Please try again.');
+      if (mounted) _showError(context.l10n.ssoLoginTimedOut);
     } catch (e) {
       _showError(e.toString());
     } finally {
@@ -155,7 +156,7 @@ class _LoginPageState extends State<LoginPage> {
     final ssoProviders = _ssoProviders;
     return Scaffold(
       appBar: Navigator.of(context).canPop()
-          ? AppBar(title: const Text('Add account'))
+          ? AppBar(title: Text(context.l10n.addAccount))
           : null,
       body: Center(
         child: SingleChildScrollView(
@@ -174,7 +175,7 @@ class _LoginPageState extends State<LoginPage> {
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 Text(
-                  'Sign in to your Matrix account',
+                  context.l10n.signInToYourMatrixAccount,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
@@ -182,10 +183,10 @@ class _LoginPageState extends State<LoginPage> {
                 TextField(
                   controller: _homeserverController,
                   enabled: !_loading,
-                  decoration: const InputDecoration(
-                    labelText: 'Homeserver',
-                    prefixIcon: Icon(Icons.dns_outlined),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.homeserver,
+                    prefixIcon: const Icon(Icons.dns_outlined),
+                    border: const OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.url,
                   autocorrect: false,
@@ -195,10 +196,10 @@ class _LoginPageState extends State<LoginPage> {
                   TextField(
                     controller: _usernameController,
                     enabled: !_loading,
-                    decoration: const InputDecoration(
-                      labelText: 'Username',
-                      prefixIcon: Icon(Icons.account_circle_outlined),
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: context.l10n.username,
+                      prefixIcon: const Icon(Icons.account_circle_outlined),
+                      border: const OutlineInputBorder(),
                     ),
                     autocorrect: false,
                   ),
@@ -206,10 +207,10 @@ class _LoginPageState extends State<LoginPage> {
                   TextField(
                     controller: _passwordController,
                     enabled: !_loading,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      prefixIcon: Icon(Icons.lock_outline),
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: context.l10n.password,
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      border: const OutlineInputBorder(),
                     ),
                     obscureText: true,
                     onSubmitted: (_) => _loginWithPassword(),
@@ -223,21 +224,21 @@ class _LoginPageState extends State<LoginPage> {
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Sign in'),
+                        : Text(context.l10n.signIn),
                   ),
                 ],
                 if (ssoProviders.isNotEmpty) ...[
                   if (_supportsPassword)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       child: Row(
                         children: [
-                          Expanded(child: Divider()),
+                          const Expanded(child: Divider()),
                           Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('or'),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(context.l10n.or),
                           ),
-                          Expanded(child: Divider()),
+                          const Expanded(child: Divider()),
                         ],
                       ),
                     )
@@ -253,8 +254,8 @@ class _LoginPageState extends State<LoginPage> {
                         icon: const Icon(Icons.open_in_browser),
                         label: Text(
                           provider.id == null
-                              ? 'Sign in with SSO'
-                              : 'Sign in with ${provider.name}',
+                              ? context.l10n.signInWithSso
+                              : context.l10n.signInWithProvider(provider.name),
                         ),
                       ),
                     ),

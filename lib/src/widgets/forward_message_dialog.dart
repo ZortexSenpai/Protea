@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
 import 'mxc_avatar.dart';
 
 /// Forwards [event]'s content to a room picked from a list.
@@ -55,7 +56,9 @@ class _ForwardMessageDialogState extends State<ForwardMessageDialog> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Forwarded to ${target.getLocalizedDisplayname()}'),
+            content: Text(
+              context.l10n.forwardedTo(target.getLocalizedDisplayname()),
+            ),
           ),
         );
       }
@@ -83,12 +86,12 @@ class _ForwardMessageDialogState extends State<ForwardMessageDialog> {
               child: Row(
                 children: [
                   Text(
-                    'Forward to…',
+                    context.l10n.forwardTo,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const Spacer(),
                   IconButton(
-                    tooltip: 'Close',
+                    tooltip: context.l10n.close,
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -100,10 +103,10 @@ class _ForwardMessageDialogState extends State<ForwardMessageDialog> {
               child: TextField(
                 autofocus: true,
                 enabled: !_busy,
-                decoration: const InputDecoration(
-                  hintText: 'Filter rooms…',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  hintText: context.l10n.filterRoomsHint,
+                  prefixIcon: const Icon(Icons.search),
+                  border: const OutlineInputBorder(),
                   isDense: true,
                 ),
                 onChanged: (value) => setState(() => _query = value.trim()),

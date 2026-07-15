@@ -2,6 +2,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import '../l10n.dart';
 import 'mxc_avatar.dart';
 
 /// Account-data type storing the user's sticker packs. Sent stickers are
@@ -122,12 +123,12 @@ class _StickerPickerDialogState extends State<StickerPickerDialog> {
               child: Row(
                 children: [
                   Text(
-                    'Stickers',
+                    context.l10n.stickers,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const Spacer(),
                   IconButton(
-                    tooltip: 'Manage packs',
+                    tooltip: context.l10n.managePacks,
                     icon: const Icon(Icons.edit_outlined),
                     onPressed: () async {
                       await showStickerPackManager(context, widget.room.client);
@@ -135,7 +136,7 @@ class _StickerPickerDialogState extends State<StickerPickerDialog> {
                     },
                   ),
                   IconButton(
-                    tooltip: 'Close',
+                    tooltip: context.l10n.close,
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -164,18 +165,17 @@ class _StickerPickerDialogState extends State<StickerPickerDialog> {
             const Divider(height: 1),
             Flexible(
               child: packs.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(32),
+                  ? Padding(
+                      padding: const EdgeInsets.all(32),
                       child: Text(
-                        'No sticker packs yet.\nUse "Manage packs" to create '
-                        'one and add images to it.',
+                        context.l10n.noStickerPacksHint,
                         textAlign: TextAlign.center,
                       ),
                     )
                   : packs[packIndex].stickers.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Text('This pack is empty.'),
+                  ? Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Text(context.l10n.packEmpty),
                     )
                   : GridView.builder(
                       padding: const EdgeInsets.all(12),
@@ -253,24 +253,24 @@ class _StickerPackManagerDialogState extends State<StickerPackManagerDialog> {
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('New sticker pack'),
+        title: Text(context.l10n.newStickerPack),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Pack name',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: context.l10n.packName,
+            border: const OutlineInputBorder(),
           ),
           onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: const Text('Create'),
+            child: Text(context.l10n.create),
           ),
         ],
       ),
@@ -284,9 +284,9 @@ class _StickerPackManagerDialogState extends State<StickerPackManagerDialog> {
   Future<void> _addSticker(StickerPack pack) async {
     final picked = await openFile(
       acceptedTypeGroups: [
-        const XTypeGroup(
-          label: 'Images',
-          extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'],
+        XTypeGroup(
+          label: context.l10n.images,
+          extensions: const ['png', 'jpg', 'jpeg', 'gif', 'webp'],
         ),
       ],
     );
@@ -333,7 +333,7 @@ class _StickerPackManagerDialogState extends State<StickerPackManagerDialog> {
               child: Row(
                 children: [
                   Text(
-                    'Sticker packs',
+                    context.l10n.stickerPacks,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const Spacer(),
@@ -347,7 +347,7 @@ class _StickerPackManagerDialogState extends State<StickerPackManagerDialog> {
                       ),
                     ),
                   IconButton(
-                    tooltip: 'Close',
+                    tooltip: context.l10n.close,
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -368,21 +368,20 @@ class _StickerPackManagerDialogState extends State<StickerPackManagerDialog> {
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                       subtitle: Text(
-                        '${pack.stickers.length} '
-                        '${pack.stickers.length == 1 ? 'sticker' : 'stickers'}',
+                        context.l10n.stickerCount(pack.stickers.length),
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            tooltip: 'Add sticker',
+                            tooltip: context.l10n.addSticker,
                             icon: const Icon(
                               Icons.add_photo_alternate_outlined,
                             ),
                             onPressed: _busy ? null : () => _addSticker(pack),
                           ),
                           IconButton(
-                            tooltip: 'Delete pack',
+                            tooltip: context.l10n.deletePack,
                             icon: const Icon(Icons.delete_outline),
                             onPressed: _busy
                                 ? null
@@ -443,7 +442,7 @@ class _StickerPackManagerDialogState extends State<StickerPackManagerDialog> {
                   TextButton.icon(
                     onPressed: _busy ? null : _createPack,
                     icon: const Icon(Icons.add),
-                    label: const Text('New pack'),
+                    label: Text(context.l10n.newPack),
                   ),
                 ],
               ),

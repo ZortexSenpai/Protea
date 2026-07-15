@@ -18,16 +18,17 @@ Future<Uint8List?> fetchMxcThumbnail(
   Uri mxc, {
   num width = 128,
   num height = 128,
+  ThumbnailMethod method = ThumbnailMethod.crop,
 }) async {
   if (!mxc.isScheme('mxc')) return null;
-  final key = '$mxc;$width;$height';
+  final key = '$mxc;$width;$height;${method.name}';
   final cached = _cache[key];
   if (cached != null) return cached;
   final uri = await mxc.getThumbnailUri(
     client,
     width: width,
     height: height,
-    method: ThumbnailMethod.crop,
+    method: method,
   );
   final response = await client.httpClient.get(
     uri,
@@ -110,7 +111,9 @@ class MxcImage extends StatefulWidget {
     required this.uri,
     this.thumbnailWidth = 800,
     this.thumbnailHeight = 450,
+    this.thumbnailMethod = ThumbnailMethod.crop,
     this.fit = BoxFit.cover,
+    this.alignment = Alignment.center,
     this.placeholder,
   });
 
@@ -118,7 +121,9 @@ class MxcImage extends StatefulWidget {
   final Uri uri;
   final num thumbnailWidth;
   final num thumbnailHeight;
+  final ThumbnailMethod thumbnailMethod;
   final BoxFit fit;
+  final AlignmentGeometry alignment;
   final WidgetBuilder? placeholder;
 
   @override
@@ -150,6 +155,7 @@ class _MxcImageState extends State<MxcImage> {
         widget.uri,
         width: widget.thumbnailWidth,
         height: widget.thumbnailHeight,
+        method: widget.thumbnailMethod,
       );
       if (bytes != null && mounted) setState(() => _bytes = bytes);
     } catch (_) {}
@@ -167,6 +173,7 @@ class _MxcImageState extends State<MxcImage> {
     return Image.memory(
       bytes,
       fit: widget.fit,
+      alignment: widget.alignment,
       width: double.infinity,
       height: double.infinity,
     );

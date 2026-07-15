@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
 import '../client_manager.dart';
+import '../l10n.dart';
 import '../room_actions.dart';
 import '../settings.dart';
 import '../widgets/account_switcher.dart';
@@ -11,6 +12,8 @@ import '../widgets/pinned_rooms_section.dart';
 import '../widgets/presence_indicator.dart';
 import '../widgets/room_directory_dialog.dart';
 import '../widgets/room_settings_dialog.dart';
+import '../widgets/space_lobby_dialog.dart';
+import '../widgets/user_banner.dart';
 import '../widgets/user_profile_card.dart';
 import 'room_page.dart';
 import 'settings_page.dart';
@@ -109,16 +112,17 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
             _selectedRoomId = null;
           }),
         );
+        final selectedSpace = _selectedSpaceId == null
+            ? null
+            : _client.getRoomById(_selectedSpaceId!);
         final channels = _ChannelColumn(
           client: _client,
           manager: widget.manager,
           settings: widget.settings,
           title: _selectedSpaceId == null
-              ? 'Home'
-              : _client
-                        .getRoomById(_selectedSpaceId!)
-                        ?.getLocalizedDisplayname() ??
-                    'Space',
+              ? context.l10n.home
+              : selectedSpace?.getLocalizedDisplayname() ?? context.l10n.space,
+          space: selectedSpace,
           rooms: _roomsForSelection(),
           selectedRoomId: _selectedRoomId,
           onRoomTap: _openRoom,
@@ -199,13 +203,22 @@ class _SpaceRail extends StatelessWidget {
         overlay.size.height - position.dy,
       ),
       items: [
-        const PopupMenuItem(value: 'settings', child: Text('Space settings')),
+        PopupMenuItem(value: 'lobby', child: Text(context.l10n.spaceLobby)),
+        PopupMenuItem(
+          value: 'settings',
+          child: Text(context.l10n.spaceSettings),
+        ),
         if (space.canInvite)
-          const PopupMenuItem(value: 'invite', child: Text('Invite to space')),
+          PopupMenuItem(
+            value: 'invite',
+            child: Text(context.l10n.inviteToSpace),
+          ),
       ],
     );
     if (selected == null || !context.mounted) return;
     switch (selected) {
+      case 'lobby':
+        await showSpaceLobby(context, space);
       case 'settings':
         await showRoomSettingsDialog(context, space);
       case 'invite':
@@ -216,65 +229,77 @@ class _SpaceRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      width: 72,
+    // Material (not a plain colored box) so descendant ink splashes render.
+    return Material(
       color: colorScheme.surfaceContainerLowest,
-      child: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              children: [
-                _RailButton(
-                  selected: selectedSpaceId == null,
-                  tooltip: 'Home',
-                  onTap: () => onSelect(null),
-                  child: CircleAvatar(
-                    radius: 24,
-                    backgroundColor: selectedSpaceId == null
-                        ? colorScheme.primary
-                        : colorScheme.surfaceContainerHighest,
-                    child: Icon(
-                      Icons.home,
-                      color: selectedSpaceId == null
-                          ? colorScheme.onPrimary
-                          : colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                if (spaces.isNotEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                    child: Divider(height: 1),
-                  ),
-                for (final space in spaces)
-                  GestureDetector(
-                    onSecondaryTapUp: (details) =>
-                        _showSpaceMenu(context, space, details.globalPosition),
-                    onLongPressStart: (details) =>
-                        _showSpaceMenu(context, space, details.globalPosition),
-                    child: _RailButton(
-                      selected: selectedSpaceId == space.id,
-                      tooltip: space.getLocalizedDisplayname(),
-                      unread: space.spaceChildren.any((child) {
-                        final room = child.roomId == null
-                            ? null
-                            : space.client.getRoomById(child.roomId!);
-                        return room?.isUnreadOrInvited ?? false;
-                      }),
-                      onTap: () => onSelect(space.id),
-                      child: MxcAvatar(
-                        client: space.client,
-                        name: space.getLocalizedDisplayname(),
-                        avatarUrl: space.avatar,
-                        radius: 24,
+      child: SizedBox(
+        width: 72,
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                children: [
+                  _RailButton(
+                    selected: selectedSpaceId == null,
+                    tooltip: context.l10n.home,
+                    onTap: () => onSelect(null),
+                    child: CircleAvatar(
+                      radius: 24,
+                      backgroundColor: selectedSpaceId == null
+                          ? colorScheme.primary
+                          : colorScheme.surfaceContainerHighest,
+                      child: Icon(
+                        Icons.home,
+                        color: selectedSpaceId == null
+                            ? colorScheme.onPrimary
+                            : colorScheme.onSurface,
                       ),
                     ),
                   ),
-              ],
+                  if (spaces.isNotEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 4,
+                      ),
+                      child: Divider(height: 1),
+                    ),
+                  for (final space in spaces)
+                    GestureDetector(
+                      onSecondaryTapUp: (details) => _showSpaceMenu(
+                        context,
+                        space,
+                        details.globalPosition,
+                      ),
+                      onLongPressStart: (details) => _showSpaceMenu(
+                        context,
+                        space,
+                        details.globalPosition,
+                      ),
+                      child: _RailButton(
+                        selected: selectedSpaceId == space.id,
+                        tooltip: space.getLocalizedDisplayname(),
+                        unread: space.spaceChildren.any((child) {
+                          final room = child.roomId == null
+                              ? null
+                              : space.client.getRoomById(child.roomId!);
+                          return room?.isUnreadOrInvited ?? false;
+                        }),
+                        onTap: () => onSelect(space.id),
+                        child: MxcAvatar(
+                          client: space.client,
+                          name: space.getLocalizedDisplayname(),
+                          avatarUrl: space.avatar,
+                          radius: 24,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -336,6 +361,7 @@ class _ChannelColumn extends StatelessWidget {
     required this.manager,
     required this.settings,
     required this.title,
+    required this.space,
     required this.rooms,
     required this.selectedRoomId,
     required this.onRoomTap,
@@ -346,6 +372,9 @@ class _ChannelColumn extends StatelessWidget {
   final ClientManager manager;
   final AppSettings settings;
   final String title;
+
+  /// The selected space, or null in the "Home" section.
+  final Room? space;
   final List<Room> rooms;
   final String? selectedRoomId;
   final void Function(Room room) onRoomTap;
@@ -356,7 +385,9 @@ class _ChannelColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final column = Container(
+    // Material (not a plain colored box) so the ListTiles' ink and selection
+    // backgrounds render on top of this color instead of underneath it.
+    final column = Material(
       color: colorScheme.surfaceContainerLow,
       child: Column(
         children: [
@@ -374,13 +405,19 @@ class _ChannelColumn extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (space != null)
+                  IconButton(
+                    tooltip: context.l10n.spaceLobby,
+                    icon: const Icon(Icons.travel_explore_outlined, size: 20),
+                    onPressed: () => showSpaceLobby(context, space!),
+                  ),
                 IconButton(
-                  tooltip: 'Explore public rooms',
+                  tooltip: context.l10n.explorePublicRooms,
                   icon: const Icon(Icons.explore_outlined, size: 20),
                   onPressed: () => showRoomDirectory(context, client),
                 ),
                 IconButton(
-                  tooltip: 'New chat',
+                  tooltip: context.l10n.newChat,
                   icon: const Icon(Icons.add_comment_outlined, size: 20),
                   onPressed: () => showNewChatDialog(context, client),
                 ),
@@ -390,10 +427,10 @@ class _ChannelColumn extends StatelessWidget {
           const Divider(height: 1),
           Expanded(
             child: rooms.isEmpty
-                ? const Center(
+                ? Center(
                     child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text('No rooms here yet.'),
+                      padding: const EdgeInsets.all(16),
+                      child: Text(context.l10n.noRoomsHereYet),
                     ),
                   )
                 : Builder(
@@ -429,13 +466,13 @@ class _ChannelColumn extends StatelessWidget {
                             const SizedBox(height: 16),
                           ],
                           if (directs.isNotEmpty) ...[
-                            const _SectionLabel('Direct messages'),
+                            _SectionLabel(context.l10n.directMessages),
                             for (final room in directs) tile(room),
                           ],
                           if (directs.isNotEmpty && channels.isNotEmpty)
                             const SizedBox(height: 16),
                           if (channels.isNotEmpty) ...[
-                            const _SectionLabel('Channels'),
+                            _SectionLabel(context.l10n.channels),
                             for (final room in channels) tile(room),
                           ],
                         ],
@@ -500,12 +537,12 @@ class _ChannelTile extends StatelessWidget {
       items: [
         PopupMenuItem(
           value: 'pin',
-          child: Text(room.isFavourite ? 'Unpin' : 'Pin'),
+          child: Text(room.isFavourite ? context.l10n.unpin : context.l10n.pin),
         ),
-        const PopupMenuItem(value: 'settings', child: Text('Settings')),
+        PopupMenuItem(value: 'settings', child: Text(context.l10n.settings)),
         if (room.canInvite)
-          const PopupMenuItem(value: 'invite', child: Text('Invite')),
-        const PopupMenuItem(value: 'leave', child: Text('Leave')),
+          PopupMenuItem(value: 'invite', child: Text(context.l10n.invite)),
+        PopupMenuItem(value: 'leave', child: Text(context.l10n.leave)),
       ],
     );
     if (selected == null || !context.mounted) return;
@@ -528,18 +565,18 @@ class _ChannelTile extends StatelessWidget {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Leave room?'),
+            title: Text(context.l10n.leaveRoom),
             content: Text(
-              'You will no longer see ${room.getLocalizedDisplayname()}.',
+              context.l10n.youWillNoLongerSee(room.getLocalizedDisplayname()),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
+                child: Text(context.l10n.cancel),
               ),
               FilledButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Leave'),
+                child: Text(context.l10n.leave),
               ),
             ],
           ),
@@ -560,39 +597,55 @@ class _ChannelTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isInvite = room.membership == Membership.invite;
+    final isKnock = room.membership == Membership.knock;
     final directUserId = room.directChatMatrixID;
+    Widget tile = ListTile(
+      dense: true,
+      selected: selected,
+      leading: directUserId != null
+          ? PresenceAvatar(
+              client: room.client,
+              userId: directUserId,
+              name: room.getLocalizedDisplayname(),
+              avatarUrl: room.avatar,
+              radius: 12,
+            )
+          : Icon(
+              isInvite
+                  ? Icons.mail_outline
+                  : isKnock
+                  ? Icons.hourglass_top
+                  : Icons.tag,
+              size: 20,
+            ),
+      title: Text(
+        room.getLocalizedDisplayname(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: room.isUnreadOrInvited
+            ? const TextStyle(fontWeight: FontWeight.bold)
+            : null,
+      ),
+      trailing: room.notificationCount > 0
+          ? Badge(label: Text(room.notificationCount.toString()))
+          : isInvite
+          ? const Badge(label: Text('!'))
+          : null,
+      onTap: onTap,
+    );
+    if (directUserId != null) {
+      tile = UserBannerBackground(
+        client: room.client,
+        userId: directUserId,
+        child: tile,
+      );
+    }
     return GestureDetector(
       onSecondaryTapUp: (details) =>
           _showContextMenu(context, details.globalPosition),
       onLongPressStart: (details) =>
           _showContextMenu(context, details.globalPosition),
-      child: ListTile(
-        dense: true,
-        selected: selected,
-        leading: directUserId != null
-            ? PresenceAvatar(
-                client: room.client,
-                userId: directUserId,
-                name: room.getLocalizedDisplayname(),
-                avatarUrl: room.avatar,
-                radius: 12,
-              )
-            : Icon(isInvite ? Icons.mail_outline : Icons.tag, size: 20),
-        title: Text(
-          room.getLocalizedDisplayname(),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: room.isUnreadOrInvited
-              ? const TextStyle(fontWeight: FontWeight.bold)
-              : null,
-        ),
-        trailing: room.notificationCount > 0
-            ? Badge(label: Text(room.notificationCount.toString()))
-            : isInvite
-            ? const Badge(label: Text('!'))
-            : null,
-        onTap: onTap,
-      ),
+      child: tile,
     );
   }
 }
@@ -611,7 +664,7 @@ class _UserFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final userId = client.userID ?? '?';
-    return Padding(
+    final footer = Padding(
       padding: const EdgeInsets.all(8),
       child: Row(
         children: [
@@ -636,26 +689,45 @@ class _UserFooter extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              userId.replaceFirst('@', '').split(':').first,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  userId.replaceFirst('@', '').split(':').first,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                UserStatusText(
+                  client: client,
+                  userId: userId,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           ),
           IconButton(
-            tooltip: 'Switch account',
+            tooltip: context.l10n.switchAccount,
             icon: const Icon(Icons.swap_horiz, size: 20),
             onPressed: () => showAccountSwitcher(context, manager),
           ),
           IconButton(
-            tooltip: 'Settings',
+            tooltip: context.l10n.settings,
             icon: const Icon(Icons.settings_outlined, size: 20),
             onPressed: () =>
                 showSettingsDialog(context, client: client, settings: settings),
           ),
         ],
       ),
+    );
+    if (client.userID == null) return footer;
+    return UserBannerBackground(
+      client: client,
+      userId: client.userID!,
+      child: footer,
     );
   }
 }
@@ -677,7 +749,7 @@ class _NoRoomSelected extends StatelessWidget {
               color: Theme.of(context).colorScheme.outline,
             ),
             const SizedBox(height: 16),
-            const Text('Select a channel to start chatting.'),
+            Text(context.l10n.selectChannelToStartChatting),
           ],
         ),
       ),

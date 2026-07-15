@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'src/auto_away.dart';
 import 'src/client_manager.dart';
+import 'src/l10n.dart';
 import 'src/notifications.dart';
 import 'src/pages/home_page.dart';
 import 'src/pages/login_page.dart';
@@ -49,9 +50,12 @@ class ProteaApp extends StatelessWidget {
       builder: (context, _) {
         final active = manager.activeClient;
         return MaterialApp(
-          title: 'Protea',
+          onGenerateTitle: (context) => context.l10n.appTitle,
           debugShowCheckedModeBanner: false,
           navigatorKey: navigatorKey,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: settings.locale,
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(
               seedColor: settings.themeColor.seed,
@@ -67,9 +71,9 @@ class ProteaApp extends StatelessWidget {
           builder: (context, child) => SettingsScope(
             settings: settings,
             child: MediaQuery(
-              data: MediaQuery.of(context).copyWith(
-                textScaler: TextScaler.linear(settings.textScale),
-              ),
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(settings.textScale)),
               child: Listener(
                 // Pointer activity feeds the auto-away idle detection
                 // (keyboard activity is tracked by the service itself).
