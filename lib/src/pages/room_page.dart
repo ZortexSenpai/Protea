@@ -1535,10 +1535,55 @@ class _RoomPageState extends State<RoomPage> {
 }
 
 /// Right-side panel listing the members of the room.
-class _MemberListPanel extends StatelessWidget {
+class _MemberListPanel extends StatefulWidget {
   const _MemberListPanel({required this.room});
 
   final Room room;
+
+  @override
+  State<_MemberListPanel> createState() => _MemberListPanelState();
+}
+
+class _MemberListPanelState extends State<_MemberListPanel> {
+  StreamSubscription<CachedPresence>? _presenceSubscription;
+
+  /// Presence per member, seeded by [_ensurePresence] and kept fresh by the
+  /// presence stream.
+  final _presenceByUser = <String, PresenceType>{};
+  final _presenceRequested = <String>{};
+
+  Room get room => widget.room;
+
+  @override
+  void initState() {
+    super.initState();
+    // Presence updates arrive per user; regroup the list live.
+    _presenceSubscription = room.client.onPresenceChanged.stream.listen((
+      presence,
+    ) {
+      if (mounted) {
+        setState(() => _presenceByUser[presence.userid] = presence.presence);
+      }
+    });
+  }
+
+  void _ensurePresence(User user) {
+    if (!_presenceRequested.add(user.id)) return;
+    () async {
+      try {
+        final presence = await room.client.fetchCurrentPresence(user.id);
+        if (mounted) {
+          setState(() => _presenceByUser[user.id] = presence.presence);
+        }
+      } catch (_) {}
+    }();
+  }
+
+  @override
+  void dispose() {
+    _presenceSubscription?.cancel();
+    super.dispose();
+  }
 
   Future<void> _showMemberMenu(
     BuildContext context,
@@ -1689,6 +1734,36 @@ class _MemberListPanel extends StatelessWidget {
                       b.calcDisplayname().toLowerCase(),
                     ),
                   );
+            // Group by cached presence; users the server sent no presence
+            // for count as offline.
+            final online = <User>[];
+            final away = <User>[];
+            final offline = <User>[];
+            for (final user in members) {
+              _ensurePresence(user);
+              switch (_presenceByUser[user.id] ?? PresenceType.offline) {
+                case PresenceType.online:
+                  online.add(user);
+                case PresenceType.unavailable:
+                  away.add(user);
+                case PresenceType.offline:
+                  offline.add(user);
+              }
+            }
+            final items = <Object>[
+              if (online.isNotEmpty) ...[
+                '${context.l10n.online} — ${online.length}',
+                ...online,
+              ],
+              if (away.isNotEmpty) ...[
+                '${context.l10n.away} — ${away.length}',
+                ...away,
+              ],
+              if (offline.isNotEmpty) ...[
+                '${context.l10n.offline} — ${offline.length}',
+                ...offline,
+              ],
+            ];
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1701,9 +1776,28 @@ class _MemberListPanel extends StatelessWidget {
                 ),
                 Expanded(
                   child: ListView.builder(
-                    itemCount: members.length,
+                    itemCount: items.length,
                     itemBuilder: (context, index) {
-                      final user = members[index];
+                      final item = items[index];
+                      if (item is String) {
+                        return Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                          child: Text(
+                            item.toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                  letterSpacing: 0.8,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                        );
+                      }
+                      final user = item as User;
                       final name = user.calcDisplayname();
                       return GestureDetector(
                         onSecondaryTapUp: (details) => _showMemberMenu(

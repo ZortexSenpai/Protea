@@ -115,6 +115,7 @@ class MxcImage extends StatefulWidget {
     this.fit = BoxFit.cover,
     this.alignment = Alignment.center,
     this.placeholder,
+    this.expand = true,
   });
 
   final Client client;
@@ -125,6 +126,10 @@ class MxcImage extends StatefulWidget {
   final BoxFit fit;
   final AlignmentGeometry alignment;
   final WidgetBuilder? placeholder;
+
+  /// When false the image sizes itself to its content instead of expanding
+  /// to fill the parent (e.g. for masks that must match the painted area).
+  final bool expand;
 
   @override
   State<MxcImage> createState() => _MxcImageState();
@@ -174,8 +179,8 @@ class _MxcImageState extends State<MxcImage> {
       bytes,
       fit: widget.fit,
       alignment: widget.alignment,
-      width: double.infinity,
-      height: double.infinity,
+      width: widget.expand ? double.infinity : null,
+      height: widget.expand ? double.infinity : null,
     );
   }
 }

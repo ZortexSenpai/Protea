@@ -108,7 +108,7 @@ class UserBannerBackground extends StatefulWidget {
     required this.client,
     required this.userId,
     required this.child,
-    this.opacity = 0.4,
+    this.opacity = 0.7,
   });
 
   final Client client;
@@ -159,26 +159,31 @@ class _UserBannerBackgroundState extends State<UserBannerBackground> {
     return Stack(
       children: [
         Positioned.fill(
-          child: ShaderMask(
-            shaderCallback: (rect) => LinearGradient(
-              colors: [
-                Colors.white.withValues(alpha: 0),
-                Colors.white.withValues(alpha: widget.opacity),
-              ],
-            ).createShader(rect),
-            blendMode: BlendMode.dstIn,
-            child: MxcImage(
-              client: widget.client,
-              uri: bannerUrl,
-              // Scale keeps the full image (no server-side crop) and
-              // contain letterboxes it instead of zoom-cropping, anchored
-              // to the right edge under the peak of the fade.
-              thumbnailWidth: 320,
-              thumbnailHeight: 180,
-              thumbnailMethod: ThumbnailMethod.scale,
-              fit: BoxFit.contain,
-              alignment: Alignment.centerRight,
-              placeholder: (_) => const SizedBox.shrink(),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: ShaderMask(
+              // The mask wraps the image's own box (not the whole tile), so
+              // the banner fades in smoothly from its left edge instead of
+              // popping in mid-tile with a visible seam.
+              shaderCallback: (rect) => LinearGradient(
+                colors: [
+                  Colors.white.withValues(alpha: 0),
+                  Colors.white.withValues(alpha: widget.opacity),
+                ],
+              ).createShader(rect),
+              blendMode: BlendMode.dstIn,
+              child: MxcImage(
+                client: widget.client,
+                uri: bannerUrl,
+                // Scale keeps the full image (no server-side crop); the
+                // image sizes to the tile height at its natural aspect.
+                thumbnailWidth: 320,
+                thumbnailHeight: 180,
+                thumbnailMethod: ThumbnailMethod.scale,
+                fit: BoxFit.fitHeight,
+                expand: false,
+                placeholder: (_) => const SizedBox.shrink(),
+              ),
             ),
           ),
         ),

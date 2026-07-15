@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
 import '../client_manager.dart';
+import '../room_navigator.dart';
 import '../l10n.dart';
 import '../settings.dart';
 import 'room_list_page.dart';
@@ -28,6 +29,34 @@ class SplitHomePage extends StatefulWidget {
 
 class _SplitHomePageState extends State<SplitHomePage> {
   String? _selectedRoomId;
+
+  @override
+  void initState() {
+    super.initState();
+    RoomNavigator.instance.addListener(_onRoomRequested);
+  }
+
+  @override
+  void dispose() {
+    RoomNavigator.instance.removeListener(_onRoomRequested);
+    super.dispose();
+  }
+
+  /// Opens a room requested from elsewhere (profile card "Message"): selects
+  /// it in place on wide windows, pushes the chat page on narrow ones.
+  void _onRoomRequested() {
+    final roomId = RoomNavigator.instance.roomId;
+    final room = roomId == null ? null : widget.client.getRoomById(roomId);
+    if (room == null) return;
+    final wide = MediaQuery.sizeOf(context).width >= 720;
+    if (wide) {
+      setState(() => _selectedRoomId = room.id);
+    } else {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => RoomPage(room: room)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -3,6 +3,8 @@ import 'package:matrix/matrix.dart';
 
 import '../l10n.dart';
 import '../pages/room_page.dart';
+import '../room_navigator.dart';
+import '../settings.dart';
 import 'initials_avatar.dart';
 import 'mxc_avatar.dart';
 import 'presence_indicator.dart';
@@ -84,13 +86,21 @@ class _UserProfileCardState extends State<UserProfileCard> {
     }
   }
 
+  /// Jumps to the existing direct chat with the user (or creates one) —
+  /// selected in place by the active home layout when possible, with a
+  /// pushed chat page as fallback for the plain list layout.
   Future<void> _message() async {
     final navigator = Navigator.of(context);
+    final encrypt = SettingsScope.of(context).encryptNewDirectChats;
     try {
-      final roomId = await widget.client.startDirectChat(widget.userId);
-      final room = widget.client.getRoomById(roomId);
+      final roomId = await widget.client.startDirectChat(
+        widget.userId,
+        enableEncryption: encrypt,
+      );
       if (!mounted) return;
       navigator.pop();
+      if (RoomNavigator.instance.open(roomId)) return;
+      final room = widget.client.getRoomById(roomId);
       if (room != null) {
         navigator.push(MaterialPageRoute(builder: (_) => RoomPage(room: room)));
       }
@@ -127,6 +137,12 @@ class _UserProfileCardState extends State<UserProfileCard> {
                       ? MxcImage(
                           client: widget.client,
                           uri: bannerUrl,
+                          // Scale (not crop) so the only crop is the card's
+                          // own cover fit — the server's 16:9 pre-crop made
+                          // the banner blurry and doubly cropped.
+                          thumbnailWidth: 800,
+                          thumbnailHeight: 800,
+                          thumbnailMethod: ThumbnailMethod.scale,
                           placeholder: (_) => ColoredBox(
                             color: InitialsAvatar.colorFor(displayName),
                           ),

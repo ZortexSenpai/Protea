@@ -8,6 +8,7 @@ import '../channel_groups.dart';
 import '../client_manager.dart';
 import '../l10n.dart';
 import '../room_actions.dart';
+import '../room_navigator.dart';
 import '../settings.dart';
 import '../widgets/account_switcher.dart';
 import '../widgets/initials_avatar.dart';
@@ -132,6 +133,36 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
   }
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  void initState() {
+    super.initState();
+    RoomNavigator.instance.addListener(_onRoomRequested);
+  }
+
+  @override
+  void dispose() {
+    RoomNavigator.instance.removeListener(_onRoomRequested);
+    super.dispose();
+  }
+
+  /// Selects a room requested from elsewhere (profile card "Message"), in
+  /// its space or the Home section.
+  void _onRoomRequested() {
+    final roomId = RoomNavigator.instance.roomId;
+    if (roomId == null || _client.getRoomById(roomId) == null) return;
+    String? spaceId;
+    for (final space in _spaces) {
+      if (space.spaceChildren.any((child) => child.roomId == roomId)) {
+        spaceId = space.id;
+        break;
+      }
+    }
+    setState(() {
+      _selectedSpaceId = spaceId;
+      _selectedRoomId = roomId;
+    });
+  }
 
   /// Category (sub-space) ids collapsed in the channel list this session.
   final _collapsedCategories = <String>{};
