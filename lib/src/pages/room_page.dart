@@ -25,6 +25,7 @@ import '../widgets/gif_picker_dialog.dart';
 import '../widgets/html_message.dart';
 import '../widgets/initials_avatar.dart';
 import '../widgets/link_preview.dart';
+import '../widgets/linkified_text.dart';
 import '../widgets/message_search_dialog.dart';
 import '../widgets/mxc_avatar.dart';
 import '../widgets/pdf_preview.dart';
@@ -1185,25 +1186,30 @@ class _RoomPageState extends State<RoomPage> {
                                     ? const Center(
                                         child: CircularProgressIndicator(),
                                       )
-                                    : _TimelineList(
-                                        timeline: timeline,
-                                        events: _visibleEvents(timeline),
-                                        itemScrollController:
-                                            _itemScrollController,
-                                        itemPositionsListener:
-                                            _itemPositionsListener,
-                                        client: _client,
-                                        highlightedEventId: _highlightedEventId,
-                                        unreadMarkerEventId:
-                                            _unreadMarkerEventId,
-                                        receiptsByEvent: _receiptsByEvent(),
-                                        onReply: (event) => setState(() {
-                                          _replyTo = event;
-                                          _editing = null;
-                                        }),
-                                        onEdit: _startEdit,
-                                        onOpenThread: _openThread,
-                                        onSaveAttachment: _saveAttachment,
+                                    // SelectionArea makes every message text
+                                    // mouse-selectable and copyable.
+                                    : SelectionArea(
+                                        child: _TimelineList(
+                                          timeline: timeline,
+                                          events: _visibleEvents(timeline),
+                                          itemScrollController:
+                                              _itemScrollController,
+                                          itemPositionsListener:
+                                              _itemPositionsListener,
+                                          client: _client,
+                                          highlightedEventId:
+                                              _highlightedEventId,
+                                          unreadMarkerEventId:
+                                              _unreadMarkerEventId,
+                                          receiptsByEvent: _receiptsByEvent(),
+                                          onReply: (event) => setState(() {
+                                            _replyTo = event;
+                                            _editing = null;
+                                          }),
+                                          onEdit: _startEdit,
+                                          onOpenThread: _openThread,
+                                          onSaveAttachment: _saveAttachment,
+                                        ),
                                       ),
                                 if (timeline?.canRequestFuture ?? false)
                                   Positioned(
@@ -2718,7 +2724,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
               client: event.room.client,
             )
           else
-            Text(body),
+            LinkifiedText(body),
         if (linkUrl != null) LinkPreview(client: _client, url: linkUrl),
       ],
     );
@@ -3299,20 +3305,22 @@ class _ThreadPanelState extends State<_ThreadPanel> {
           ),
           const Divider(height: 1),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              children: [
-                _ThreadMessage(event: widget.root, timeline: widget.timeline),
-                const Divider(),
-                if (replies.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(context.l10n.noRepliesYet),
-                  )
-                else
-                  for (final reply in replies)
-                    _ThreadMessage(event: reply, timeline: widget.timeline),
-              ],
+            child: SelectionArea(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                children: [
+                  _ThreadMessage(event: widget.root, timeline: widget.timeline),
+                  const Divider(),
+                  if (replies.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(context.l10n.noRepliesYet),
+                    )
+                  else
+                    for (final reply in replies)
+                      _ThreadMessage(event: reply, timeline: widget.timeline),
+                ],
+              ),
             ),
           ),
           const Divider(height: 1),

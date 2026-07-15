@@ -12,6 +12,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get accept => 'Accepter';
 
   @override
+  String get access => 'Accès';
+
+  @override
   String get accessToken => 'Jeton d\'accès';
 
   @override
@@ -47,6 +50,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get animalsAndNature => 'Animaux et nature';
+
+  @override
+  String get anyone => 'Tout le monde';
 
   @override
   String get appLayout => 'Disposition de l\'application';
@@ -91,6 +97,9 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get bannedUsers => 'Utilisateurs bannis';
+
+  @override
   String get block => 'Bloquer';
 
   @override
@@ -110,6 +119,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get changeProfilePicture => 'Changer la photo de profil';
+
+  @override
+  String get changeSettings => 'Modifier les paramètres';
 
   @override
   String get changeSpaceImage => 'Changer l\'image de l\'espace';
@@ -360,6 +372,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get emoji => 'Émoji';
 
   @override
+  String get enableEncryptionTitle => 'Activer le chiffrement de bout en bout';
+
+  @override
+  String get enableEncryptionWarning =>
+      'Le chiffrement ne pourra plus être désactivé. Les messages ne seront lisibles que sur les appareils vérifiés.';
+
+  @override
   String get encryptNewDmsDescription =>
       'Active le chiffrement de bout en bout lors du démarrage d\'une nouvelle discussion directe.';
 
@@ -451,6 +470,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get groupName => 'Nom du groupe';
+
+  @override
+  String get guestAccess => 'Accès invités';
 
   @override
   String get heartsAndSymbols => 'Cœurs et symboles';
@@ -655,6 +677,9 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get member => 'Membre';
+
+  @override
   String get members => 'Membres';
 
   @override
@@ -678,6 +703,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get message => 'Message';
+
+  @override
+  String get messageHistory => 'Historique des messages';
 
   @override
   String get messageLayout => 'Disposition des messages';
@@ -830,6 +858,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get pauseGifsTitle => 'Suspendre les GIF en arrière-plan';
 
   @override
+  String get permissions => 'Permissions';
+
+  @override
   String get pin => 'Épingler';
 
   @override
@@ -857,7 +888,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get privacy => 'Confidentialité';
 
   @override
+  String get public => 'Public';
+
+  @override
   String get publicSpace => 'Espace public';
+
+  @override
+  String get publishToDirectory => 'Publier dans l\'annuaire des salons';
 
   @override
   String get question => 'Question';
@@ -883,6 +920,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get removeBanner => 'Supprimer la bannière';
+
+  @override
+  String get removeMessages => 'Supprimer des messages';
 
   @override
   String get removeOption => 'Retirer l\'option';
@@ -928,6 +968,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get right => 'Droite';
+
+  @override
+  String get roomAddress => 'Adresse du salon';
 
   @override
   String get roomEncryptedNoE2eeSupport =>
@@ -1020,6 +1063,9 @@ class AppLocalizationsFr extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get sendMessages => 'Envoyer des messages';
 
   @override
   String get sendReadReceiptsDescription =>
@@ -1129,6 +1175,12 @@ class AppLocalizationsFr extends AppLocalizations {
       'Voulez-vous vous déconnecter de votre compte ?';
 
   @override
+  String get sinceInvited => 'Depuis l\'invitation';
+
+  @override
+  String get sinceJoined => 'Depuis l\'arrivée';
+
+  @override
   String get skip => 'Passer';
 
   @override
@@ -1145,6 +1197,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get spaceLobby => 'Hall de l\'espace';
+
+  @override
+  String get spaceMembers => 'Membres de l\'espace';
 
   @override
   String get spaceName => 'Nom de l\'espace';
@@ -1237,6 +1292,9 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get typeTwoCharactersToSearch =>
       'Saisissez au moins deux caractères pour rechercher dans l\'annuaire des utilisateurs.';
+
+  @override
+  String get unban => 'Débannir';
 
   @override
   String get unblock => 'Débloquer';
@@ -1345,6 +1403,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get whatsHappening => 'Quoi de neuf ?';
+
+  @override
+  String get whoCanJoin => 'Qui peut rejoindre';
 
   @override
   String get withdrawKnock => 'Retirer la demande';

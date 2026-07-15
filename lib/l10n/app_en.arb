@@ -1,6 +1,7 @@
 {
   "@@locale": "en",
   "accept": "Accept",
+  "access": "Access",
   "accessToken": "Access token",
   "accessTokenWarning": "Never share your access token. It grants full control over your account.",
   "account": "Account",
@@ -13,6 +14,7 @@
   "admin": "Admin",
   "all": "All",
   "animalsAndNature": "Animals & nature",
+  "anyone": "Anyone",
   "appLayout": "App layout",
   "appLayoutDescription": "Workspace shows a spaces rail with a channel list per space, Split pairs the room list with the chat, List opens chats as their own page.",
   "appTitle": "Protea",
@@ -42,6 +44,7 @@
       }
     }
   },
+  "bannedUsers": "Banned users",
   "block": "Block",
   "bubbles": "Bubbles",
   "cancel": "Cancel",
@@ -49,6 +52,7 @@
   "changeBanner": "Change banner",
   "changeImage": "Change image",
   "changeProfilePicture": "Change profile picture",
+  "changeSettings": "Change settings",
   "changeSpaceImage": "Change space image",
   "channelSettings": "Channel settings",
   "channels": "Channels",
@@ -133,6 +137,8 @@
   "editTopic": "Edit topic",
   "editingMessage": "Editing message",
   "emoji": "Emoji",
+  "enableEncryptionTitle": "Enable end-to-end encryption",
+  "enableEncryptionWarning": "Encryption cannot be turned off later. Messages will only be readable on verified devices.",
   "encryptNewDmsDescription": "Enable end-to-end encryption when starting a new direct chat.",
   "encryptNewDmsTitle": "Encrypt new direct chats",
   "encryptionNotAvailable": "End-to-end encryption is not available",
@@ -172,6 +178,7 @@
   "gifSearchNeedsKlipyKey": "GIF search needs a free Klipy API key.\nGet one at klipy.com and add it in the settings.",
   "group": "Group",
   "groupName": "Group name",
+  "guestAccess": "Guest access",
   "heartsAndSymbols": "Hearts & symbols",
   "hide": "Hide",
   "home": "Home",
@@ -289,6 +296,7 @@
       }
     }
   },
+  "member": "Member",
   "members": "Members",
   "membersCount": "{count, plural, =1{1 member} other{{count} members}}",
   "@membersCount": {
@@ -308,6 +316,7 @@
   },
   "mentions": "Mentions",
   "message": "Message",
+  "messageHistory": "Message history",
   "messageLayout": "Message layout",
   "messageLayoutDescription": "How messages are displayed in chats.",
   "microphonePermissionDenied": "Microphone permission denied.",
@@ -362,6 +371,7 @@
   "password": "Password",
   "pauseGifsDescription": "Stop GIF animations while the window is in the background.",
   "pauseGifsTitle": "Pause GIFs while in background",
+  "permissions": "Permissions",
   "pin": "Pin",
   "pinned": "Pinned",
   "pinnedMessages": "Pinned messages",
@@ -380,7 +390,9 @@
     }
   },
   "privacy": "Privacy",
+  "public": "Public",
   "publicSpace": "Public space",
+  "publishToDirectory": "Publish in room directory",
   "question": "Question",
   "reactWith": "React with {emoji}",
   "@reactWith": {
@@ -402,6 +414,7 @@
   "refresh": "Refresh",
   "reject": "Reject",
   "removeBanner": "Remove banner",
+  "removeMessages": "Remove messages",
   "removeOption": "Remove option",
   "rename": "Rename",
   "repliesCount": "{count, plural, =1{1 reply} other{{count} replies}}",
@@ -421,6 +434,7 @@
   "resetToMember": "Reset to member",
   "resetZoom": "Reset zoom",
   "right": "Right",
+  "roomAddress": "Room address",
   "roomEncryptedNoE2eeSupport": "This room is end-to-end encrypted. This build of Protea was compiled without E2EE support, so messages cannot be read or sent here.",
   "roomIdOrAliasLabel": "Room ID or alias (#room:server)",
   "roomUpgradedNotice": "Room upgraded — the replacement appears shortly.",
@@ -479,6 +493,7 @@
       }
     }
   },
+  "sendMessages": "Send messages",
   "sendReadReceiptsDescription": "Let others see which messages you have read.",
   "sendReadReceiptsTitle": "Send read receipts",
   "sendTypingNotificationsDescription": "Let others see when you are typing.",
@@ -517,12 +532,15 @@
   "signInWithSso": "Sign in with SSO",
   "signOut": "Sign out",
   "signOutConfirmation": "Do you want to sign out of your account?",
+  "sinceInvited": "Since invited",
+  "sinceJoined": "Since joined",
   "skip": "Skip",
   "small": "Small",
   "smileys": "Smileys",
   "space": "Space",
   "spaceHasNoRooms": "This space has no rooms.",
   "spaceLobby": "Space lobby",
+  "spaceMembers": "Space members",
   "spaceName": "Space name",
   "spaceSettings": "Space settings",
   "spacesListPosition": "Spaces list position",
@@ -557,6 +575,7 @@
   "today": "Today",
   "topic": "Topic",
   "typeTwoCharactersToSearch": "Type at least two characters to search the user directory.",
+  "unban": "Unban",
   "unblock": "Unblock",
   "unknownChannel": "Unknown channel",
   "unknownCommand": "Unknown command /{command} — start with // to send it as text.",
@@ -640,6 +659,7 @@
     }
   },
   "whatsHappening": "What's happening?",
+  "whoCanJoin": "Who can join",
   "withdrawKnock": "Withdraw knock",
   "workspace": "Default",
   "yesterday": "Yesterday",

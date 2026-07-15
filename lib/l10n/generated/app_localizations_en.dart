@@ -12,6 +12,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get accept => 'Accept';
 
   @override
+  String get access => 'Access';
+
+  @override
   String get accessToken => 'Access token';
 
   @override
@@ -47,6 +50,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get animalsAndNature => 'Animals & nature';
+
+  @override
+  String get anyone => 'Anyone';
 
   @override
   String get appLayout => 'App layout';
@@ -91,6 +97,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get bannedUsers => 'Banned users';
+
+  @override
   String get block => 'Block';
 
   @override
@@ -110,6 +119,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get changeProfilePicture => 'Change profile picture';
+
+  @override
+  String get changeSettings => 'Change settings';
 
   @override
   String get changeSpaceImage => 'Change space image';
@@ -356,6 +368,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get emoji => 'Emoji';
 
   @override
+  String get enableEncryptionTitle => 'Enable end-to-end encryption';
+
+  @override
+  String get enableEncryptionWarning =>
+      'Encryption cannot be turned off later. Messages will only be readable on verified devices.';
+
+  @override
   String get encryptNewDmsDescription =>
       'Enable end-to-end encryption when starting a new direct chat.';
 
@@ -445,6 +464,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get groupName => 'Group name';
+
+  @override
+  String get guestAccess => 'Guest access';
 
   @override
   String get heartsAndSymbols => 'Hearts & symbols';
@@ -648,6 +670,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get member => 'Member';
+
+  @override
   String get members => 'Members';
 
   @override
@@ -671,6 +696,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get message => 'Message';
+
+  @override
+  String get messageHistory => 'Message history';
 
   @override
   String get messageLayout => 'Message layout';
@@ -821,6 +849,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pauseGifsTitle => 'Pause GIFs while in background';
 
   @override
+  String get permissions => 'Permissions';
+
+  @override
   String get pin => 'Pin';
 
   @override
@@ -848,7 +879,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get privacy => 'Privacy';
 
   @override
+  String get public => 'Public';
+
+  @override
   String get publicSpace => 'Public space';
+
+  @override
+  String get publishToDirectory => 'Publish in room directory';
 
   @override
   String get question => 'Question';
@@ -874,6 +911,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get removeBanner => 'Remove banner';
+
+  @override
+  String get removeMessages => 'Remove messages';
 
   @override
   String get removeOption => 'Remove option';
@@ -919,6 +959,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get right => 'Right';
+
+  @override
+  String get roomAddress => 'Room address';
 
   @override
   String get roomEncryptedNoE2eeSupport =>
@@ -1008,6 +1051,9 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get sendMessages => 'Send messages';
 
   @override
   String get sendReadReceiptsDescription =>
@@ -1113,6 +1159,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get signOutConfirmation => 'Do you want to sign out of your account?';
 
   @override
+  String get sinceInvited => 'Since invited';
+
+  @override
+  String get sinceJoined => 'Since joined';
+
+  @override
   String get skip => 'Skip';
 
   @override
@@ -1129,6 +1181,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get spaceLobby => 'Space lobby';
+
+  @override
+  String get spaceMembers => 'Space members';
 
   @override
   String get spaceName => 'Space name';
@@ -1220,6 +1275,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get typeTwoCharactersToSearch =>
       'Type at least two characters to search the user directory.';
+
+  @override
+  String get unban => 'Unban';
 
   @override
   String get unblock => 'Unblock';
@@ -1328,6 +1386,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get whatsHappening => 'What\'s happening?';
+
+  @override
+  String get whoCanJoin => 'Who can join';
 
   @override
   String get withdrawKnock => 'Withdraw knock';

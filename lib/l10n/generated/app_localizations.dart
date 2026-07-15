@@ -110,6 +110,12 @@ abstract class AppLocalizations {
   /// **'Accept'**
   String get accept;
 
+  /// No description provided for @access.
+  ///
+  /// In en, this message translates to:
+  /// **'Access'**
+  String get access;
+
   /// No description provided for @accessToken.
   ///
   /// In en, this message translates to:
@@ -181,6 +187,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Animals & nature'**
   String get animalsAndNature;
+
+  /// No description provided for @anyone.
+  ///
+  /// In en, this message translates to:
+  /// **'Anyone'**
+  String get anyone;
 
   /// No description provided for @appLayout.
   ///
@@ -254,6 +266,12 @@ abstract class AppLocalizations {
   /// **'Ban {name}?'**
   String banUserTitle(String name);
 
+  /// No description provided for @bannedUsers.
+  ///
+  /// In en, this message translates to:
+  /// **'Banned users'**
+  String get bannedUsers;
+
   /// No description provided for @block.
   ///
   /// In en, this message translates to:
@@ -295,6 +313,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Change profile picture'**
   String get changeProfilePicture;
+
+  /// No description provided for @changeSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Change settings'**
+  String get changeSettings;
 
   /// No description provided for @changeSpaceImage.
   ///
@@ -758,6 +782,18 @@ abstract class AppLocalizations {
   /// **'Emoji'**
   String get emoji;
 
+  /// No description provided for @enableEncryptionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable end-to-end encryption'**
+  String get enableEncryptionTitle;
+
+  /// No description provided for @enableEncryptionWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Encryption cannot be turned off later. Messages will only be readable on verified devices.'**
+  String get enableEncryptionWarning;
+
   /// No description provided for @encryptNewDmsDescription.
   ///
   /// In en, this message translates to:
@@ -907,6 +943,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Group name'**
   String get groupName;
+
+  /// No description provided for @guestAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Guest access'**
+  String get guestAccess;
 
   /// No description provided for @heartsAndSymbols.
   ///
@@ -1232,6 +1274,12 @@ abstract class AppLocalizations {
   /// **'{count} people are typing…'**
   String manyTyping(int count);
 
+  /// No description provided for @member.
+  ///
+  /// In en, this message translates to:
+  /// **'Member'**
+  String get member;
+
   /// No description provided for @members.
   ///
   /// In en, this message translates to:
@@ -1261,6 +1309,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Message'**
   String get message;
+
+  /// No description provided for @messageHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Message history'**
+  String get messageHistory;
 
   /// No description provided for @messageLayout.
   ///
@@ -1544,6 +1598,12 @@ abstract class AppLocalizations {
   /// **'Pause GIFs while in background'**
   String get pauseGifsTitle;
 
+  /// No description provided for @permissions.
+  ///
+  /// In en, this message translates to:
+  /// **'Permissions'**
+  String get permissions;
+
   /// No description provided for @pin.
   ///
   /// In en, this message translates to:
@@ -1592,11 +1652,23 @@ abstract class AppLocalizations {
   /// **'Privacy'**
   String get privacy;
 
+  /// No description provided for @public.
+  ///
+  /// In en, this message translates to:
+  /// **'Public'**
+  String get public;
+
   /// No description provided for @publicSpace.
   ///
   /// In en, this message translates to:
   /// **'Public space'**
   String get publicSpace;
+
+  /// No description provided for @publishToDirectory.
+  ///
+  /// In en, this message translates to:
+  /// **'Publish in room directory'**
+  String get publishToDirectory;
 
   /// No description provided for @question.
   ///
@@ -1639,6 +1711,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Remove banner'**
   String get removeBanner;
+
+  /// No description provided for @removeMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove messages'**
+  String get removeMessages;
 
   /// No description provided for @removeOption.
   ///
@@ -1711,6 +1789,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Right'**
   String get right;
+
+  /// No description provided for @roomAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Room address'**
+  String get roomAddress;
 
   /// No description provided for @roomEncryptedNoE2eeSupport.
   ///
@@ -1849,6 +1933,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{Send file?} other{Send {count} files?}}'**
   String sendFilesTitle(int count);
+
+  /// No description provided for @sendMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'Send messages'**
+  String get sendMessages;
 
   /// No description provided for @sendReadReceiptsDescription.
   ///
@@ -2036,6 +2126,18 @@ abstract class AppLocalizations {
   /// **'Do you want to sign out of your account?'**
   String get signOutConfirmation;
 
+  /// No description provided for @sinceInvited.
+  ///
+  /// In en, this message translates to:
+  /// **'Since invited'**
+  String get sinceInvited;
+
+  /// No description provided for @sinceJoined.
+  ///
+  /// In en, this message translates to:
+  /// **'Since joined'**
+  String get sinceJoined;
+
   /// No description provided for @skip.
   ///
   /// In en, this message translates to:
@@ -2071,6 +2173,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Space lobby'**
   String get spaceLobby;
+
+  /// No description provided for @spaceMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'Space members'**
+  String get spaceMembers;
 
   /// No description provided for @spaceName.
   ///
@@ -2233,6 +2341,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Type at least two characters to search the user directory.'**
   String get typeTwoCharactersToSearch;
+
+  /// No description provided for @unban.
+  ///
+  /// In en, this message translates to:
+  /// **'Unban'**
+  String get unban;
 
   /// No description provided for @unblock.
   ///
@@ -2401,6 +2515,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'What\'s happening?'**
   String get whatsHappening;
+
+  /// No description provided for @whoCanJoin.
+  ///
+  /// In en, this message translates to:
+  /// **'Who can join'**
+  String get whoCanJoin;
 
   /// No description provided for @withdrawKnock.
   ///

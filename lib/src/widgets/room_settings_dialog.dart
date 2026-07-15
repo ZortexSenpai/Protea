@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/material.dart';
+// Matrix's Visibility enum is used below; Flutter's Visibility widget is
+// not.
+import 'package:flutter/material.dart' hide Visibility;
 import 'package:flutter/services.dart';
 import 'package:matrix/matrix.dart';
 
@@ -294,6 +296,28 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
 
   Future<void> _removeSpaceBanner() => _run(() => removeSpaceBanner(room));
 
+  Future<void> _enableEncryption() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.l10n.enableEncryptionTitle),
+        content: Text(context.l10n.enableEncryptionWarning),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(context.l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(context.l10n.enableEncryptionTitle),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _run(() => room.enableEncryption());
+  }
+
   /// Current room version from the create event.
   String get _roomVersion =>
       room.getState(EventTypes.RoomCreate)?.content['room_version']
@@ -571,6 +595,29 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
                             ),
                     ),
                   ),
+                  if (room.canChangeJoinRules ||
+                      room.canChangeStateEvent(EventTypes.HistoryVisibility) ||
+                      room.canChangeStateEvent(EventTypes.GuestAccess) ||
+                      room.canChangeStateEvent(
+                        EventTypes.RoomCanonicalAlias,
+                      )) ...[
+                    const Divider(),
+                    _AccessSection(room: room),
+                  ],
+                  if (room.canChangeStateEvent(EventTypes.RoomPowerLevels)) ...[
+                    const Divider(),
+                    _PermissionsSection(room: room),
+                  ],
+                  if (room.canBan) _BannedSection(room: room),
+                  if (!room.encrypted &&
+                      room.canChangeStateEvent(EventTypes.Encryption))
+                    ListTile(
+                      leading: const Icon(Icons.enhanced_encryption_outlined),
+                      title: Text(context.l10n.enableEncryptionTitle),
+                      subtitle: Text(context.l10n.enableEncryptionWarning),
+                      enabled: !_busy,
+                      onTap: _enableEncryption,
+                    ),
                   const Divider(),
                   ListTile(
                     leading: Icon(
@@ -619,6 +666,386 @@ class _RoomSettingsDialogState extends State<RoomSettingsDialog> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Access settings: join rule, message history visibility, guest access,
+/// directory listing and the room's canonical address. Each control renders
+/// only when the user may change the backing state event.
+class _AccessSection extends StatefulWidget {
+  const _AccessSection({required this.room});
+
+  final Room room;
+
+  @override
+  State<_AccessSection> createState() => _AccessSectionState();
+}
+
+class _AccessSectionState extends State<_AccessSection> {
+  bool _busy = false;
+
+  Room get room => widget.room;
+
+  Future<void> _run(Future<void> Function() action) async {
+    setState(() => _busy = true);
+    try {
+      await action();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _editAddress() async {
+    final server = room.client.userID?.split(':').last ?? '';
+    final current = room.canonicalAlias;
+    final localpart = await showTextPromptDialog(
+      context,
+      title: context.l10n.roomAddress,
+      initial: current.isEmpty ? '' : current.substring(1).split(':').first,
+      label: '#alias',
+    );
+    if (localpart == null || localpart.isEmpty || !mounted) return;
+    final alias = '#${localpart.replaceAll('#', '').split(':').first}:$server';
+    await _run(() async {
+      await room.client.setRoomAlias(alias, room.id);
+      await room.setCanonicalAlias(alias);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final joinRule = room.joinRules ?? JoinRules.invite;
+    final history = room.historyVisibility ?? HistoryVisibility.shared;
+    final parents = [
+      for (final parent in room.spaceParents)
+        if (parent.roomId != null) parent.roomId!,
+    ];
+    final joinOptions = <JoinRules>[
+      JoinRules.public,
+      JoinRules.invite,
+      JoinRules.knock,
+      if (parents.isNotEmpty) JoinRules.restricted,
+      if (![
+        JoinRules.public,
+        JoinRules.invite,
+        JoinRules.knock,
+        JoinRules.restricted,
+      ].contains(joinRule))
+        joinRule,
+    ];
+    String joinLabel(JoinRules rule) => switch (rule) {
+      JoinRules.public => context.l10n.public,
+      JoinRules.invite => context.l10n.invite,
+      JoinRules.knock => context.l10n.knock,
+      JoinRules.restricted => context.l10n.spaceMembers,
+      _ => rule.text,
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ListTile(
+          leading: const Icon(Icons.key_outlined),
+          title: Text(context.l10n.access),
+        ),
+        if (room.canChangeJoinRules) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              context.l10n.whoCanJoin,
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SegmentedButton<JoinRules>(
+              segments: [
+                for (final rule in joinOptions)
+                  ButtonSegment(value: rule, label: Text(joinLabel(rule))),
+              ],
+              selected: {joinRule},
+              onSelectionChanged: _busy
+                  ? null
+                  : (selection) => _run(
+                      () => room.setJoinRules(
+                        selection.single,
+                        allowConditionRoomIds:
+                            selection.single == JoinRules.restricted
+                            ? parents
+                            : null,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (room.canChangeStateEvent(EventTypes.HistoryVisibility)) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              context.l10n.messageHistory,
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SegmentedButton<HistoryVisibility>(
+              segments: [
+                ButtonSegment(
+                  value: HistoryVisibility.worldReadable,
+                  label: Text(context.l10n.anyone),
+                ),
+                ButtonSegment(
+                  value: HistoryVisibility.shared,
+                  label: Text(context.l10n.members),
+                ),
+                ButtonSegment(
+                  value: HistoryVisibility.invited,
+                  label: Text(context.l10n.sinceInvited),
+                ),
+                ButtonSegment(
+                  value: HistoryVisibility.joined,
+                  label: Text(context.l10n.sinceJoined),
+                ),
+              ],
+              selected: {history},
+              onSelectionChanged: _busy
+                  ? null
+                  : (selection) =>
+                        _run(() => room.setHistoryVisibility(selection.single)),
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
+        if (room.canChangeStateEvent(EventTypes.GuestAccess))
+          SwitchListTile(
+            secondary: const Icon(Icons.person_outline),
+            title: Text(context.l10n.guestAccess),
+            value: room.guestAccess == GuestAccess.canJoin,
+            onChanged: _busy
+                ? null
+                : (value) => _run(
+                    () => room.setGuestAccess(
+                      value ? GuestAccess.canJoin : GuestAccess.forbidden,
+                    ),
+                  ),
+          ),
+        if (room.canChangeJoinRules)
+          FutureBuilder<Visibility?>(
+            future: room.client.getRoomVisibilityOnDirectory(room.id),
+            builder: (context, snapshot) => SwitchListTile(
+              secondary: const Icon(Icons.public),
+              title: Text(context.l10n.publishToDirectory),
+              value: snapshot.data == Visibility.public,
+              onChanged: _busy || !snapshot.hasData
+                  ? null
+                  : (value) => _run(
+                      () => room.client.setRoomVisibilityOnDirectory(
+                        room.id,
+                        visibility: value
+                            ? Visibility.public
+                            : Visibility.private,
+                      ),
+                    ),
+            ),
+          ),
+        if (room.canChangeStateEvent(EventTypes.RoomCanonicalAlias))
+          ListTile(
+            leading: const Icon(Icons.alternate_email),
+            title: Text(context.l10n.roomAddress),
+            subtitle: room.canonicalAlias.isEmpty
+                ? null
+                : Text(
+                    room.canonicalAlias,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+            trailing: const Icon(Icons.edit_outlined, size: 18),
+            enabled: !_busy,
+            onTap: _editAddress,
+          ),
+      ],
+    );
+  }
+}
+
+/// Editable power level requirements for common actions, offering the
+/// standard Member/Moderator/Admin tiers.
+class _PermissionsSection extends StatefulWidget {
+  const _PermissionsSection({required this.room});
+
+  final Room room;
+
+  @override
+  State<_PermissionsSection> createState() => _PermissionsSectionState();
+}
+
+class _PermissionsSectionState extends State<_PermissionsSection> {
+  bool _busy = false;
+
+  Room get room => widget.room;
+
+  Map<String, Object?> get _powerLevels => Map<String, Object?>.from(
+    room.getState(EventTypes.RoomPowerLevels)?.content ?? {},
+  );
+
+  int _levelOf(String key, int fallback) {
+    final value = _powerLevels[key];
+    return value is int ? value : fallback;
+  }
+
+  Future<void> _setLevel(String key, int level) async {
+    setState(() => _busy = true);
+    try {
+      final content = _powerLevels;
+      content[key] = level;
+      await room.client.setRoomStateWithKey(
+        room.id,
+        EventTypes.RoomPowerLevels,
+        '',
+        content,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _row(BuildContext context, String label, String key, int fallback) {
+    final current = _levelOf(key, fallback);
+    final levels = {0, 50, 100, current}.toList()..sort();
+    String levelLabel(int level) => switch (level) {
+      0 => context.l10n.member,
+      50 => context.l10n.moderator,
+      100 => context.l10n.admin,
+      _ => level.toString(),
+    };
+    return ListTile(
+      dense: true,
+      title: Text(label),
+      trailing: DropdownButton<int>(
+        value: current,
+        onChanged: _busy
+            ? null
+            : (value) {
+                if (value != null && value != current) _setLevel(key, value);
+              },
+        items: [
+          for (final level in levels)
+            DropdownMenuItem(value: level, child: Text(levelLabel(level))),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ListTile(
+          leading: const Icon(Icons.admin_panel_settings_outlined),
+          title: Text(context.l10n.permissions),
+        ),
+        _row(context, context.l10n.sendMessages, 'events_default', 0),
+        _row(context, context.l10n.invite, 'invite', 0),
+        _row(context, context.l10n.kick, 'kick', 50),
+        _row(context, context.l10n.ban, 'ban', 50),
+        _row(context, context.l10n.removeMessages, 'redact', 50),
+        _row(context, context.l10n.changeSettings, 'state_default', 50),
+      ],
+    );
+  }
+}
+
+/// Banned members with an unban action; hidden while nobody is banned.
+class _BannedSection extends StatefulWidget {
+  const _BannedSection({required this.room});
+
+  final Room room;
+
+  @override
+  State<_BannedSection> createState() => _BannedSectionState();
+}
+
+class _BannedSectionState extends State<_BannedSection> {
+  bool _busy = false;
+
+  Future<void> _unban(User user) async {
+    setState(() => _busy = true);
+    try {
+      await user.unban();
+      if (mounted) setState(() {});
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<User>>(
+      future: widget.room.requestParticipants(),
+      initialData: widget.room.getParticipants(),
+      builder: (context, snapshot) {
+        final banned = [
+          for (final user in snapshot.data ?? <User>[])
+            if (user.membership == Membership.ban) user,
+        ];
+        if (banned.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.block_outlined),
+              title: Text(context.l10n.bannedUsers),
+            ),
+            for (final user in banned)
+              ListTile(
+                dense: true,
+                leading: MxcAvatar(
+                  client: widget.room.client,
+                  name: user.calcDisplayname(),
+                  avatarUrl: user.avatarUrl,
+                  radius: 14,
+                ),
+                title: Text(
+                  user.calcDisplayname(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  user.id,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: TextButton(
+                  onPressed: _busy ? null : () => _unban(user),
+                  child: Text(context.l10n.unban),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
