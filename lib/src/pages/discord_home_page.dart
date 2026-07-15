@@ -14,6 +14,7 @@ import '../widgets/account_switcher.dart';
 import '../widgets/initials_avatar.dart';
 import '../widgets/mxc_avatar.dart';
 import '../widgets/new_chat_dialog.dart';
+import '../widgets/new_space_dialog.dart';
 import '../widgets/pinned_rooms_section.dart';
 import '../widgets/presence_indicator.dart';
 import '../widgets/room_directory_dialog.dart';
@@ -150,7 +151,9 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
   /// its space or the Home section.
   void _onRoomRequested() {
     final roomId = RoomNavigator.instance.roomId;
-    if (roomId == null || _client.getRoomById(roomId) == null) return;
+    if (roomId == null) return;
+    // The room may not have arrived through sync yet (freshly created DM);
+    // select it anyway — the chat pane fills in as soon as it lands.
     String? spaceId;
     for (final space in _spaces) {
       if (space.spaceChildren.any((child) => child.roomId == roomId)) {
@@ -680,8 +683,8 @@ class _SpaceRail extends StatelessWidget {
             // Discord-style global actions at the bottom of the rail.
             _RailButton(
               selected: false,
-              tooltip: context.l10n.newChat,
-              onTap: () => showNewChatDialog(context, client),
+              tooltip: context.l10n.newSpace,
+              onTap: () => showNewSpaceDialog(context, client),
               child: Icon(Icons.add, color: colorScheme.onSurface),
             ),
             _RailButton(
@@ -942,6 +945,12 @@ class _ChannelColumn extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (space == null)
+                  IconButton(
+                    tooltip: context.l10n.startChat,
+                    icon: const Icon(Icons.add_comment_outlined, size: 20),
+                    onPressed: () => showNewChatDialog(context, client),
+                  ),
                 if (space != null)
                   IconButton(
                     tooltip: context.l10n.spaceLobby,

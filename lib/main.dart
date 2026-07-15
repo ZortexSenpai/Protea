@@ -9,6 +9,7 @@ import 'src/notifications.dart';
 import 'src/pages/home_page.dart';
 import 'src/pages/login_page.dart';
 import 'src/settings.dart';
+import 'src/themes.dart';
 import 'src/widgets/key_verification_dialog.dart';
 import 'src/widgets/quick_switcher.dart';
 
@@ -47,11 +48,12 @@ class ProteaApp extends StatelessWidget {
   /// platforms whose system fallback is monochrome (Linux).
   static const _fontFallback = ['Noto Color Emoji'];
 
-  static ThemeData _theme(Color seed, Brightness brightness) {
+  static ThemeData _theme(AppSettings settings, Brightness brightness) {
     final base = ThemeData(
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: seed,
-        brightness: brightness,
+      colorScheme: schemeFor(
+        settings.appTheme,
+        settings.themeColor,
+        brightness,
       ),
     );
     return base.copyWith(
@@ -75,8 +77,8 @@ class ProteaApp extends StatelessWidget {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: settings.locale,
-          theme: _theme(settings.themeColor.seed, Brightness.light),
-          darkTheme: _theme(settings.themeColor.seed, Brightness.dark),
+          theme: _theme(settings, Brightness.light),
+          darkTheme: _theme(settings, Brightness.dark),
           themeMode: settings.themeMode,
           builder: (context, child) => SettingsScope(
             settings: settings,

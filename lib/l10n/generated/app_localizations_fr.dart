@@ -724,6 +724,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get newRoomVersion => 'Nouvelle version du salon';
 
   @override
+  String get newSpace => 'Nouvel espace';
+
+  @override
   String get newStickerPack => 'Nouveau pack de stickers';
 
   @override
@@ -852,6 +855,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get privacy => 'Confidentialité';
+
+  @override
+  String get publicSpace => 'Espace public';
 
   @override
   String get question => 'Question';
@@ -1139,6 +1145,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get spaceLobby => 'Hall de l\'espace';
+
+  @override
+  String get spaceName => 'Nom de l\'espace';
 
   @override
   String get spaceSettings => 'Paramètres de l\'espace';

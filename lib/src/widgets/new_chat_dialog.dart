@@ -5,10 +5,11 @@ import 'package:matrix/matrix.dart';
 
 import '../l10n.dart';
 import '../pages/room_page.dart';
+import '../room_navigator.dart';
 import '../settings.dart';
 import 'mxc_avatar.dart';
 
-enum _NewChatMode { dm, group, join }
+enum _NewChatMode { dm, group }
 
 /// Dialog to start a direct chat, create a group room or join an existing
 /// room by ID or alias.
@@ -96,7 +97,6 @@ class _NewChatDialogState extends State<NewChatDialog> {
   String get _label => switch (_mode) {
     _NewChatMode.dm => context.l10n.userIdLabel,
     _NewChatMode.group => context.l10n.groupName,
-    _NewChatMode.join => context.l10n.roomIdOrAliasLabel,
   };
 
   Future<void> _submit() {
@@ -110,7 +110,6 @@ class _NewChatDialogState extends State<NewChatDialog> {
           enableEncryption: _encrypted,
         ),
       ),
-      _NewChatMode.join => _open(() => widget.client.joinRoom(input)),
     };
   }
 
@@ -124,9 +123,12 @@ class _NewChatDialogState extends State<NewChatDialog> {
     try {
       final roomId = await create();
       if (!mounted) return;
-      final room = widget.client.getRoomById(roomId);
       final navigator = Navigator.of(context);
       navigator.pop();
+      // Let the active home layout select the room in place; only push a
+      // full-screen chat when no layout is listening (plain list layout).
+      if (RoomNavigator.instance.open(roomId)) return;
+      final room = widget.client.getRoomById(roomId);
       if (room != null) {
         navigator.push(MaterialPageRoute(builder: (_) => RoomPage(room: room)));
       }
@@ -161,11 +163,6 @@ class _NewChatDialogState extends State<NewChatDialog> {
                   value: _NewChatMode.group,
                   label: Text(context.l10n.group),
                   icon: const Icon(Icons.group_outlined),
-                ),
-                ButtonSegment(
-                  value: _NewChatMode.join,
-                  label: Text(context.l10n.join),
-                  icon: const Icon(Icons.tag),
                 ),
               ],
               selected: {_mode},
@@ -229,15 +226,14 @@ class _NewChatDialogState extends State<NewChatDialog> {
                   ],
                 ),
               ),
-            if (_mode != _NewChatMode.join)
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(context.l10n.endToEndEncrypted),
-                value: _encrypted,
-                onChanged: _busy
-                    ? null
-                    : (value) => setState(() => _encrypted = value),
-              ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(context.l10n.endToEndEncrypted),
+              value: _encrypted,
+              onChanged: _busy
+                  ? null
+                  : (value) => setState(() => _encrypted = value),
+            ),
           ],
         ),
       ),
@@ -257,7 +253,6 @@ class _NewChatDialogState extends State<NewChatDialog> {
               : Text(switch (_mode) {
                   _NewChatMode.dm => context.l10n.startChat,
                   _NewChatMode.group => context.l10n.create,
-                  _NewChatMode.join => context.l10n.join,
                 }),
         ),
       ],

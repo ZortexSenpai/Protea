@@ -1346,6 +1346,12 @@ abstract class AppLocalizations {
   /// **'New room version'**
   String get newRoomVersion;
 
+  /// No description provided for @newSpace.
+  ///
+  /// In en, this message translates to:
+  /// **'New space'**
+  String get newSpace;
+
   /// No description provided for @newStickerPack.
   ///
   /// In en, this message translates to:
@@ -1585,6 +1591,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Privacy'**
   String get privacy;
+
+  /// No description provided for @publicSpace.
+  ///
+  /// In en, this message translates to:
+  /// **'Public space'**
+  String get publicSpace;
 
   /// No description provided for @question.
   ///
@@ -2059,6 +2071,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Space lobby'**
   String get spaceLobby;
+
+  /// No description provided for @spaceName.
+  ///
+  /// In en, this message translates to:
+  /// **'Space name'**
+  String get spaceName;
 
   /// No description provided for @spaceSettings.
   ///

@@ -31,8 +31,23 @@ enum MessageLayout {
   text,
 }
 
-/// Selectable color themes. Each seed generates a full light and dark
-/// Material color scheme via [ColorScheme.fromSeed].
+/// Selectable full app themes; Material derives its scheme from the chosen
+/// seed color, the others carry complete palettes (see themes.dart).
+enum AppTheme {
+  material('Material'),
+  catppuccin('Catppuccin'),
+  nord('Nord'),
+  dracula('Dracula'),
+  gruvbox('Gruvbox'),
+  tokyoNight('Tokyo Night');
+
+  const AppTheme(this.label);
+
+  final String label;
+}
+
+/// Seed colors for the Material theme. Each seed generates a full light and
+/// dark Material color scheme via [ColorScheme.fromSeed].
 enum AppThemeColor {
   protea(Color(0xFFC2185B), 'Protea'),
   violet(Color(0xFF7B1FA2), 'Violet'),
@@ -77,6 +92,12 @@ class AppSettings extends ChangeNotifier {
   ThemeMode get themeMode =>
       ThemeMode.values.asNameMap()[_prefs.getString('themeMode')] ??
       ThemeMode.system;
+
+  AppTheme get appTheme =>
+      AppTheme.values.asNameMap()[_prefs.getString('appTheme')] ??
+      AppTheme.material;
+
+  Future<void> setAppTheme(AppTheme value) => _set('appTheme', value.name);
 
   AppThemeColor get themeColor =>
       AppThemeColor.values.asNameMap()[_prefs.getString('themeColor')] ??

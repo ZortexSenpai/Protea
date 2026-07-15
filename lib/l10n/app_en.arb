@@ -322,6 +322,7 @@
   "newMessages": "New messages",
   "newPack": "New pack",
   "newRoomVersion": "New room version",
+  "newSpace": "New space",
   "newStickerPack": "New sticker pack",
   "noDevicesWithEncryptionKeys": "No devices with encryption keys found",
   "noGifsFound": "No GIFs found.",
@@ -379,6 +380,7 @@
     }
   },
   "privacy": "Privacy",
+  "publicSpace": "Public space",
   "question": "Question",
   "reactWith": "React with {emoji}",
   "@reactWith": {
@@ -521,6 +523,7 @@
   "space": "Space",
   "spaceHasNoRooms": "This space has no rooms.",
   "spaceLobby": "Space lobby",
+  "spaceName": "Space name",
   "spaceSettings": "Space settings",
   "spacesListPosition": "Spaces list position",
   "split": "Split",

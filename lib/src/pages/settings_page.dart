@@ -157,18 +157,36 @@ class _SettingsDialogState extends State<SettingsDialog> {
     Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
+        spacing: 8,
+        runSpacing: 8,
         children: [
-          for (final color in AppThemeColor.values)
-            _ColorSwatch(
-              color: color,
-              selected: settings.themeColor == color,
-              onTap: () => settings.setThemeColor(color),
+          for (final theme in AppTheme.values)
+            ChoiceChip(
+              label: Text(theme.label),
+              selected: settings.appTheme == theme,
+              onSelected: (_) => settings.setAppTheme(theme),
             ),
         ],
       ),
     ),
+    if (settings.appTheme == AppTheme.material) ...[
+      const SizedBox(height: 12),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final color in AppThemeColor.values)
+              _ColorSwatch(
+                color: color,
+                selected: settings.themeColor == color,
+                onTap: () => settings.setThemeColor(color),
+              ),
+          ],
+        ),
+      ),
+    ],
     const SizedBox(height: 16),
     ListTile(
       title: Text(context.l10n.messageLayout),
