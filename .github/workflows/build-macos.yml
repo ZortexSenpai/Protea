@@ -1,0 +1,37 @@
+name: Build macOS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.6
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build macOS app
+        run: flutter build macos --release
+
+      # Zip with ditto so symlinks and executable bits inside the .app
+      # bundle survive; upload-artifact's own zipping would break them.
+      - name: Zip app bundle
+        run: ditto -c -k --sequesterRsrc --keepParent build/macos/Build/Products/Release/protea.app protea-macos.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: protea-macos
+          path: protea-macos.zip

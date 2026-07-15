@@ -556,35 +556,38 @@ class _SpaceRail extends StatelessWidget {
     return DragTarget<Room>(
       onWillAcceptWithDetails: (details) => details.data.id != space.id,
       onAcceptWithDetails: (details) => onReorder(details.data, space.id),
-      builder: (context, candidates, _) => Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            height: 2,
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            color: candidates.isNotEmpty
-                ? colorScheme.primary
-                : Colors.transparent,
-          ),
-          Draggable<Room>(
-            data: space,
-            feedback: Material(
-              color: Colors.transparent,
-              child: Opacity(
-                opacity: 0.8,
-                child: MxcAvatar(
-                  client: space.client,
-                  name: space.getLocalizedDisplayname(),
-                  avatarUrl: space.avatar,
-                  radius: 24,
+      builder: (context, candidates, _) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              height: 2,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              color: candidates.isNotEmpty
+                  ? colorScheme.primary
+                  : Colors.transparent,
+            ),
+            Draggable<Room>(
+              data: space,
+              feedback: Material(
+                color: Colors.transparent,
+                child: Opacity(
+                  opacity: 0.8,
+                  child: MxcAvatar(
+                    client: space.client,
+                    name: space.getLocalizedDisplayname(),
+                    avatarUrl: space.avatar,
+                    radius: 24,
+                  ),
                 ),
               ),
+              childWhenDragging: Opacity(opacity: 0.35, child: button),
+              child: button,
             ),
-            childWhenDragging: Opacity(opacity: 0.35, child: button),
-            child: button,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -748,7 +751,11 @@ class _RailButtonState extends State<_RailButton> {
         animationDuration: const Duration(milliseconds: 150),
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(borderRadius: radius),
-        child: InkWell(onTap: widget.onTap, child: widget.child),
+        child: InkWell(
+          mouseCursor: SystemMouseCursors.click,
+          onTap: widget.onTap,
+          child: widget.child,
+        ),
       ),
     );
     return Padding(
@@ -759,6 +766,7 @@ class _RailButtonState extends State<_RailButton> {
           alignment: Alignment.center,
           children: [
             MouseRegion(
+              cursor: SystemMouseCursors.click,
               onEnter: (_) => setState(() => _hovered = true),
               onExit: (_) => setState(() => _hovered = false),
               child: Badge(

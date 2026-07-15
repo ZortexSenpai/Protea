@@ -61,6 +61,17 @@ class ProteaApp extends StatelessWidget {
       primaryTextTheme: base.primaryTextTheme.apply(
         fontFamilyFallback: _fontFallback,
       ),
+      // Explicit pointer cursor on all icon buttons (settings, footer,
+      // inline edit icons, …).
+      iconButtonTheme: IconButtonThemeData(
+        style: ButtonStyle(
+          mouseCursor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.disabled)
+                ? SystemMouseCursors.basic
+                : SystemMouseCursors.click,
+          ),
+        ),
+      ),
     );
   }
 

@@ -61,6 +61,7 @@ class _RoomPageState extends State<RoomPage> {
   Event? _editing;
   Event? _threadRoot;
   final _pageScaffoldKey = GlobalKey<ScaffoldState>();
+  final _inputFocusNode = FocusNode();
   List<User> _mentionSuggestions = [];
   List<SlashCommand> _commandSuggestions = [];
 
@@ -143,6 +144,7 @@ class _RoomPageState extends State<RoomPage> {
     _itemPositionsListener.itemPositions.removeListener(_onPositionsChanged);
     _timeline?.cancelSubscriptions();
     _sendController.dispose();
+    _inputFocusNode.dispose();
     super.dispose();
   }
 
@@ -363,6 +365,7 @@ class _RoomPageState extends State<RoomPage> {
     _sendController.selection = TextSelection.collapsed(
       offset: _sendController.text.length,
     );
+    _inputFocusNode.requestFocus();
   }
 
   void _cancelEdit() {
@@ -1202,10 +1205,13 @@ class _RoomPageState extends State<RoomPage> {
                                           unreadMarkerEventId:
                                               _unreadMarkerEventId,
                                           receiptsByEvent: _receiptsByEvent(),
-                                          onReply: (event) => setState(() {
-                                            _replyTo = event;
-                                            _editing = null;
-                                          }),
+                                          onReply: (event) {
+                                            setState(() {
+                                              _replyTo = event;
+                                              _editing = null;
+                                            });
+                                            _inputFocusNode.requestFocus();
+                                          },
                                           onEdit: _startEdit,
                                           onOpenThread: _openThread,
                                           onSaveAttachment: _saveAttachment,
@@ -1422,6 +1428,7 @@ class _RoomPageState extends State<RoomPage> {
                                               },
                                               child: TextField(
                                                 controller: _sendController,
+                                                focusNode: _inputFocusNode,
                                                 enabled:
                                                     !encryptedWithoutSupport,
                                                 decoration: InputDecoration(
@@ -2347,10 +2354,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
       message: tooltip,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
+        mouseCursor: SystemMouseCursors.click,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-          child: Icon(icon, size: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+          child: Icon(icon, size: 16),
         ),
       ),
     );
@@ -2377,15 +2385,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     message: context.l10n.reactWith(emoji),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(14),
+                      mouseCursor: SystemMouseCursors.click,
                       onTap: () => _toggleReaction(context, emoji),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 5,
-                          vertical: 4,
+                          vertical: 3,
                         ),
                         child: Text(
                           emoji,
-                          style: const TextStyle(fontSize: 15),
+                          style: const TextStyle(fontSize: 14),
                         ),
                       ),
                     ),
@@ -2998,6 +3007,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
               : null,
         ),
         child: Stack(
+          // The hover bar may be taller than a single-line row; let it
+          // overflow instead of being cut off.
+          clipBehavior: Clip.none,
           children: [
             inner,
             // Floating action bar: painted on top so it never affects the
