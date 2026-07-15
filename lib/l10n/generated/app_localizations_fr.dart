@@ -70,6 +70,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get attachFile => 'Joindre un fichier';
 
   @override
+  String get attachments => 'Pièces jointes';
+
+  @override
   String get autoAway => 'Absence automatique';
 
   @override
@@ -276,7 +279,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Impossible de déverrouiller la sauvegarde. Vérifiez la clé de récupération.';
 
   @override
-  String get cozy => 'Confortable';
+  String get cozy => 'Par défaut';
 
   @override
   String get create => 'Créer';
@@ -617,6 +620,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get light => 'Clair';
 
   @override
+  String get liquid => 'Liquid';
+
+  @override
   String get list => 'Liste';
 
   @override
@@ -706,6 +712,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get newChat => 'Nouvelle discussion';
 
   @override
+  String get newGroup => 'Nouveau groupe';
+
+  @override
   String get newMessages => 'Nouveaux messages';
 
   @override
@@ -766,6 +775,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get notEncrypted => 'Non chiffré';
 
   @override
+  String get notJoined => 'Non rejoints';
+
+  @override
   String get notificationSounds => 'Sons de notification';
 
   @override
@@ -806,6 +818,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get password => 'Mot de passe';
+
+  @override
+  String get pauseGifsDescription =>
+      'Arrête les animations GIF lorsque la fenêtre est en arrière-plan.';
+
+  @override
+  String get pauseGifsTitle => 'Suspendre les GIF en arrière-plan';
 
   @override
   String get pin => 'Épingler';
@@ -1068,6 +1087,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get showProfileChangeEventsTitle => 'Changements de profil';
 
   @override
+  String get showReadReceiptsDescription =>
+      'Affiche sous un message qui l\'a lu.';
+
+  @override
+  String get showReadReceiptsTitle => 'Afficher les accusés de lecture';
+
+  @override
   String get showUrlPreviewsDescription =>
       'Affiche une carte d’aperçu sous les messages contenant des liens.';
 
@@ -1207,6 +1233,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get unblock => 'Débloquer';
 
   @override
+  String get unknownChannel => 'Canal inconnu';
+
+  @override
   String unknownCommand(String command) {
     return 'Commande inconnue /$command — commencez par // pour l\'envoyer comme texte.';
   }
@@ -1312,7 +1341,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get withdrawKnock => 'Retirer la demande';
 
   @override
-  String get workspace => 'Espace de travail';
+  String get workspace => 'Par défaut';
 
   @override
   String get yesterday => 'Hier';

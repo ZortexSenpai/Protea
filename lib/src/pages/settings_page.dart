@@ -179,19 +179,14 @@ class _SettingsDialogState extends State<SettingsDialog> {
       child: SegmentedButton<MessageLayout>(
         segments: [
           ButtonSegment(
-            value: MessageLayout.bubbles,
-            label: Text(context.l10n.bubbles),
-            icon: const Icon(Icons.chat_bubble_outline),
-          ),
-          ButtonSegment(
             value: MessageLayout.cozy,
             label: Text(context.l10n.cozy),
             icon: const Icon(Icons.view_agenda_outlined),
           ),
           ButtonSegment(
-            value: MessageLayout.compact,
-            label: Text(context.l10n.compact),
-            icon: const Icon(Icons.view_headline),
+            value: MessageLayout.bubbles,
+            label: Text(context.l10n.bubbles),
+            icon: const Icon(Icons.chat_bubble_outline),
           ),
           ButtonSegment(
             value: MessageLayout.text,
@@ -236,6 +231,11 @@ class _SettingsDialogState extends State<SettingsDialog> {
             icon: const Icon(Icons.view_sidebar_outlined),
           ),
           ButtonSegment(
+            value: AppLayout.liquid,
+            label: Text(context.l10n.liquid),
+            icon: const Icon(Icons.water_drop_outlined),
+          ),
+          ButtonSegment(
             value: AppLayout.split,
             label: Text(context.l10n.split),
             icon: const Icon(Icons.vertical_split_outlined),
@@ -253,7 +253,9 @@ class _SettingsDialogState extends State<SettingsDialog> {
     const SizedBox(height: 16),
     ListTile(
       title: Text(context.l10n.spacesListPosition),
-      enabled: settings.layout == AppLayout.workspace,
+      enabled:
+          settings.layout == AppLayout.workspace ||
+          settings.layout == AppLayout.liquid,
     ),
     Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -271,7 +273,9 @@ class _SettingsDialogState extends State<SettingsDialog> {
           ),
         ],
         selected: {settings.railPosition},
-        onSelectionChanged: settings.layout == AppLayout.workspace
+        onSelectionChanged:
+            settings.layout == AppLayout.workspace ||
+                settings.layout == AppLayout.liquid
             ? (selection) => settings.setRailPosition(selection.single)
             : null,
       ),
@@ -318,6 +322,20 @@ class _SettingsDialogState extends State<SettingsDialog> {
       subtitle: Text(context.l10n.showUrlPreviewsDescription),
       value: settings.showUrlPreviews,
       onChanged: (value) => settings.setShowUrlPreviews(value),
+    ),
+    SwitchListTile(
+      secondary: const Icon(Icons.done_all),
+      title: Text(context.l10n.showReadReceiptsTitle),
+      subtitle: Text(context.l10n.showReadReceiptsDescription),
+      value: settings.showReadReceipts,
+      onChanged: (value) => settings.setShowReadReceipts(value),
+    ),
+    SwitchListTile(
+      secondary: const Icon(Icons.gif_box_outlined),
+      title: Text(context.l10n.pauseGifsTitle),
+      subtitle: Text(context.l10n.pauseGifsDescription),
+      value: settings.pauseGifsUnfocused,
+      onChanged: (value) => settings.setPauseGifsUnfocused(value),
     ),
     const Divider(height: 32),
     _SectionHeader(context.l10n.systemMessages),
@@ -1049,10 +1067,15 @@ class _StatusSectionState extends State<_StatusSection> {
     if (userId == null) return;
     try {
       final presence = await widget.client.fetchCurrentPresence(userId);
+      // The visible status text lives in the extended profile (the field
+      // Commet writes), with the presence status message as fallback.
+      final profileStatus = statusFromProfile(
+        await fetchExtendedProfile(widget.client, userId),
+      );
       if (!mounted) return;
       setState(() {
         _presence = presence.presence;
-        _statusController.text = presence.statusMsg ?? '';
+        _statusController.text = profileStatus ?? presence.statusMsg ?? '';
       });
     } catch (_) {}
   }
@@ -1071,6 +1094,12 @@ class _StatusSectionState extends State<_StatusSection> {
         _presence,
         statusMsg: message.isEmpty ? null : message,
       );
+      // Mirror the status into the profile field so it shows in the footer
+      // and in other clients (Commet, VirtualChat).
+      await client.setProfileField(userId, statusReadFields.first, {
+        statusReadFields.first: message,
+      });
+      invalidateUserProfile(userId);
       if (mounted) {
         ScaffoldMessenger.of(
           context,

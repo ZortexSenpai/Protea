@@ -5,6 +5,10 @@ enum AppLayout {
   /// Spaces rail, channel list per space and the chat pane next to it.
   workspace,
 
+  /// The workspace layout as floating frosted-glass panels over a themed
+  /// gradient.
+  liquid,
+
   /// Flat room list on the left with the chat pane next to it.
   split,
 
@@ -19,11 +23,9 @@ enum MessageLayout {
   /// Asymmetric chat bubbles (own messages right, others left).
   bubbles,
 
-  /// Full-width rows with avatars and a sender header per message group.
+  /// Full-width rows with avatars and a sender header per message group —
+  /// the default.
   cozy,
-
-  /// Dense rows with a time gutter and inline sender names.
-  compact,
 
   /// Terminal-style text lines: `[12:34] <name> message`.
   text,
@@ -145,9 +147,30 @@ class AppSettings extends ChangeNotifier {
   Future<void> setEncryptNewDirectChats(bool value) =>
       _setBool('encryptNewDirectChats', value);
 
-  MessageLayout get messageLayout =>
-      MessageLayout.values.asNameMap()[_prefs.getString('messageLayout')] ??
-      MessageLayout.bubbles;
+  /// Whether the member list panel is open in rooms.
+  bool get showMemberList => _prefs.getBool('showMemberList') ?? false;
+
+  Future<void> setShowMemberList(bool value) =>
+      _setBool('showMemberList', value);
+
+  /// Whether other people's read receipts are shown under messages.
+  bool get showReadReceipts => _prefs.getBool('showReadReceipts') ?? true;
+
+  Future<void> setShowReadReceipts(bool value) =>
+      _setBool('showReadReceipts', value);
+
+  /// Whether GIF animations pause while the window is in the background.
+  bool get pauseGifsUnfocused => _prefs.getBool('pauseGifsUnfocused') ?? false;
+
+  Future<void> setPauseGifsUnfocused(bool value) =>
+      _setBool('pauseGifsUnfocused', value);
+
+  MessageLayout get messageLayout {
+    final raw = _prefs.getString('messageLayout');
+    // 'compact' was removed; it renders as the closest surviving layout.
+    if (raw == 'compact') return MessageLayout.cozy;
+    return MessageLayout.values.asNameMap()[raw] ?? MessageLayout.cozy;
+  }
 
   Future<void> setMessageLayout(MessageLayout value) =>
       _set('messageLayout', value.name);

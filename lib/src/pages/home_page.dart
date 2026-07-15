@@ -30,6 +30,12 @@ class HomePage extends StatelessWidget {
           manager: manager,
           settings: settings,
         ),
+        AppLayout.liquid => DiscordHomePage(
+          client: client,
+          manager: manager,
+          settings: settings,
+          liquid: true,
+        ),
         AppLayout.split => SplitHomePage(
           client: client,
           manager: manager,

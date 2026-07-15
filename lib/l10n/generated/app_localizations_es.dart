@@ -70,6 +70,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get attachFile => 'Adjuntar archivo';
 
   @override
+  String get attachments => 'Adjuntos';
+
+  @override
   String get autoAway => 'Ausencia automática';
 
   @override
@@ -275,7 +278,7 @@ class AppLocalizationsEs extends AppLocalizations {
       'No se pudo desbloquear la copia de seguridad. Comprueba la clave de recuperación.';
 
   @override
-  String get cozy => 'Acogedor';
+  String get cozy => 'Predeterminado';
 
   @override
   String get create => 'Crear';
@@ -614,6 +617,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get light => 'Claro';
 
   @override
+  String get liquid => 'Liquid';
+
+  @override
   String get list => 'Lista';
 
   @override
@@ -702,6 +708,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get newChat => 'Nuevo chat';
 
   @override
+  String get newGroup => 'Nuevo grupo';
+
+  @override
   String get newMessages => 'Mensajes nuevos';
 
   @override
@@ -762,6 +771,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get notEncrypted => 'Sin cifrar';
 
   @override
+  String get notJoined => 'No unidos';
+
+  @override
   String get notificationSounds => 'Sonidos de notificación';
 
   @override
@@ -802,6 +814,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get password => 'Contraseña';
+
+  @override
+  String get pauseGifsDescription =>
+      'Detiene las animaciones GIF mientras la ventana está en segundo plano.';
+
+  @override
+  String get pauseGifsTitle => 'Pausar GIFs en segundo plano';
 
   @override
   String get pin => 'Fijar';
@@ -1060,6 +1079,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get showProfileChangeEventsTitle => 'Cambios de perfil';
 
   @override
+  String get showReadReceiptsDescription =>
+      'Muestra debajo de un mensaje quién lo ha leído.';
+
+  @override
+  String get showReadReceiptsTitle => 'Mostrar confirmaciones de lectura';
+
+  @override
   String get showUrlPreviewsDescription =>
       'Muestra una tarjeta de vista previa bajo los mensajes con enlaces.';
 
@@ -1198,6 +1224,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get unblock => 'Desbloquear';
 
   @override
+  String get unknownChannel => 'Canal desconocido';
+
+  @override
   String unknownCommand(String command) {
     return 'Comando desconocido /$command — empieza con // para enviarlo como texto.';
   }
@@ -1303,7 +1332,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get withdrawKnock => 'Retirar la llamada';
 
   @override
-  String get workspace => 'Espacio de trabajo';
+  String get workspace => 'Predeterminado';
 
   @override
   String get yesterday => 'Ayer';

@@ -35,6 +35,10 @@ class NotificationService with WidgetsBindingObserver {
   /// window is focused, no notifications are shown for this room.
   static String? activeRoomId;
 
+  /// Whether the window currently has focus — consumed e.g. to pause GIF
+  /// playback in the background.
+  static final ValueNotifier<bool> appFocused = ValueNotifier(true);
+
   Future<void> init() async {
     WidgetsBinding.instance.addObserver(this);
     _lifecycle =
@@ -82,6 +86,7 @@ class NotificationService with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _lifecycle = state;
+    appFocused.value = state == AppLifecycleState.resumed;
   }
 
   /// Opens the room a tapped notification belongs to. The payload is

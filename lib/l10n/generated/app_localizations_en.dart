@@ -70,6 +70,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get attachFile => 'Attach file';
 
   @override
+  String get attachments => 'Attachments';
+
+  @override
   String get autoAway => 'Auto-away';
 
   @override
@@ -272,7 +275,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Could not unlock the backup. Please check the recovery key.';
 
   @override
-  String get cozy => 'Cozy';
+  String get cozy => 'Default';
 
   @override
   String get create => 'Create';
@@ -610,6 +613,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get light => 'Light';
 
   @override
+  String get liquid => 'Liquid';
+
+  @override
   String get list => 'List';
 
   @override
@@ -697,6 +703,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get newChat => 'New chat';
 
   @override
+  String get newGroup => 'New group';
+
+  @override
   String get newMessages => 'New messages';
 
   @override
@@ -757,6 +766,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notEncrypted => 'Not encrypted';
 
   @override
+  String get notJoined => 'Not joined';
+
+  @override
   String get notificationSounds => 'Notification sounds';
 
   @override
@@ -797,6 +809,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get password => 'Password';
+
+  @override
+  String get pauseGifsDescription =>
+      'Stop GIF animations while the window is in the background.';
+
+  @override
+  String get pauseGifsTitle => 'Pause GIFs while in background';
 
   @override
   String get pin => 'Pin';
@@ -1054,6 +1073,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get showProfileChangeEventsTitle => 'Profile changes';
 
   @override
+  String get showReadReceiptsDescription =>
+      'Show who has read a message beneath it.';
+
+  @override
+  String get showReadReceiptsTitle => 'Show read receipts';
+
+  @override
   String get showUrlPreviewsDescription =>
       'Show a preview card under messages that contain links.';
 
@@ -1190,6 +1216,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get unblock => 'Unblock';
 
   @override
+  String get unknownChannel => 'Unknown channel';
+
+  @override
   String unknownCommand(String command) {
     return 'Unknown command /$command — start with // to send it as text.';
   }
@@ -1295,7 +1324,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get withdrawKnock => 'Withdraw knock';
 
   @override
-  String get workspace => 'Workspace';
+  String get workspace => 'Default';
 
   @override
   String get yesterday => 'Yesterday';

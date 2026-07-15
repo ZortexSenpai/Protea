@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
 import '../l10n.dart';
+import 'mxc_avatar.dart';
 
 /// MSC3381 poll event types (unstable prefixes, as used by Element).
 const pollStartType = 'org.matrix.msc3381.poll.start';
@@ -222,6 +223,7 @@ class PollBubble extends StatelessWidget {
       }
     }
     final counts = <String, int>{};
+    final votersByAnswer = <String, List<User>>{};
     String? ownVote;
     final ownUserId = event.room.client.userID;
     for (final entry in latestBySender.entries) {
@@ -231,6 +233,9 @@ class PollBubble extends StatelessWidget {
       final answerId = votes?.isNotEmpty == true ? votes!.first : null;
       if (answerId == null) continue;
       counts[answerId] = (counts[answerId] ?? 0) + 1;
+      (votersByAnswer[answerId] ??= []).add(
+        event.room.unsafeGetUserFromMemoryOrFallback(entry.key),
+      );
       if (entry.key == ownUserId) ownVote = answerId;
     }
     final totalVotes = counts.values.fold(0, (sum, count) => sum + count);
@@ -260,6 +265,7 @@ class PollBubble extends StatelessWidget {
               final text =
                   answer.tryGet<String>('org.matrix.msc1767.text') ?? '';
               final count = counts[id] ?? 0;
+              final voters = votersByAnswer[id] ?? const <User>[];
               final fraction = totalVotes > 0 ? count / totalVotes : 0.0;
               final isOwn = ownVote == id;
               return Padding(
@@ -304,6 +310,37 @@ class PollBubble extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (voters.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Tooltip(
+                            message: voters
+                                .map((user) => user.calcDisplayname())
+                                .join(', '),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                for (final user in voters.take(5))
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 2),
+                                    child: MxcAvatar(
+                                      client: event.room.client,
+                                      name: user.calcDisplayname(),
+                                      avatarUrl: user.avatarUrl,
+                                      radius: 8,
+                                    ),
+                                  ),
+                                if (voters.length > 5)
+                                  Text(
+                                    '+${voters.length - 5}',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelSmall,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),

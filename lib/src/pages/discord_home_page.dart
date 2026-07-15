@@ -1,11 +1,16 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import '../channel_groups.dart';
 import '../client_manager.dart';
 import '../l10n.dart';
 import '../room_actions.dart';
 import '../settings.dart';
 import '../widgets/account_switcher.dart';
+import '../widgets/initials_avatar.dart';
 import '../widgets/mxc_avatar.dart';
 import '../widgets/new_chat_dialog.dart';
 import '../widgets/pinned_rooms_section.dart';
@@ -56,17 +61,11 @@ List<_ChildEntry> _sortedSpaceChildren(Room space) {
   return indexed.map((entry) => entry.value).toList();
 }
 
-/// Payload of a channel drag: the room and the space it currently lives in.
+/// Payload of a channel drag.
 class _ChannelDrag {
-  const _ChannelDrag({
-    required this.room,
-    required this.parent,
-    required this.via,
-  });
+  const _ChannelDrag({required this.room});
 
   final Room room;
-  final Room parent;
-  final List<String> via;
 }
 
 /// Discord-style home: a vertical spaces rail, a channel list for the
@@ -77,11 +76,16 @@ class DiscordHomePage extends StatefulWidget {
     required this.client,
     required this.manager,
     required this.settings,
+    this.liquid = false,
   });
 
   final Client client;
   final ClientManager manager;
   final AppSettings settings;
+
+  /// Renders the panes as floating frosted-glass panels over a themed
+  /// gradient ("Liquid" layout).
+  final bool liquid;
 
   @override
   State<DiscordHomePage> createState() => _DiscordHomePageState();
@@ -95,8 +99,11 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
 
   Client get _client => widget.client;
 
-  List<Room> get _spaces =>
-      _client.rooms.where((room) => room.isSpace).toList();
+  List<Room> get _spaces => applyOrder(
+    _client.rooms.where((room) => room.isSpace).toList(),
+    spaceOrderOf(_client),
+    (room) => room.id,
+  );
 
   /// All room ids referenced as a child by any joined space.
   Set<String> get _roomIdsInSpaces => {
@@ -137,82 +144,16 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
     });
   }
 
-  /// Moves [_ChannelDrag.room] into [targetParent] (before [beforeRoomId],
-  /// or appended) and persists the new ordering as `order` fields on the
-  /// m.space.child state events, so it is visible to every member.
-  Future<void> _moveChannel(
-    _ChannelDrag drag,
-    Room targetParent,
-    String? beforeRoomId,
+  /// Persists the per-user channel groups and ungrouped order for the
+  /// current scope (selected space or Home), VirtualChat-compatible.
+  Future<void> _saveLayout(
+    List<ChannelGroup> groups,
+    List<String> ungroupedOrder,
   ) async {
+    setState(() {});
     try {
-      final children = _sortedSpaceChildren(targetParent);
-      final ids = [for (final child in children) child.roomId];
-      ids.remove(drag.room.id);
-      var insertAt = beforeRoomId == null
-          ? ids.length
-          : ids.indexOf(beforeRoomId);
-      if (insertAt < 0) insertAt = ids.length;
-      ids.insert(insertAt, drag.room.id);
-      final childById = {for (final child in children) child.roomId: child};
-      final writes = <String, Map<String, Object?>>{};
-      for (var i = 0; i < ids.length; i++) {
-        final id = ids[i];
-        final order = i.toString().padLeft(4, '0');
-        final existing = childById[id];
-        if (existing != null && existing.order == order) continue;
-        final via = existing != null && existing.via.isNotEmpty
-            ? existing.via
-            : drag.via.isNotEmpty
-            ? drag.via
-            : [_client.userID!.domain!];
-        writes[id] = {
-          'via': via,
-          'order': order,
-          if (existing?.suggested != null) 'suggested': existing!.suggested,
-        };
-      }
-      final crossParent = drag.parent.id != targetParent.id;
-      // Apply the new order to the local room state first so the list
-      // reorders instantly; the sync echo confirms it afterwards.
-      for (final entry in writes.entries) {
-        targetParent.setState(
-          StrippedStateEvent(
-            type: EventTypes.SpaceChild,
-            stateKey: entry.key,
-            senderId: _client.userID!,
-            content: entry.value,
-          ),
-        );
-      }
-      if (crossParent) {
-        drag.parent.setState(
-          StrippedStateEvent(
-            type: EventTypes.SpaceChild,
-            stateKey: drag.room.id,
-            senderId: _client.userID!,
-            content: {},
-          ),
-        );
-      }
-      setState(() {});
-      // Persist all changed child events concurrently.
-      await Future.wait([
-        for (final entry in writes.entries)
-          _client.setRoomStateWithKey(
-            targetParent.id,
-            EventTypes.SpaceChild,
-            entry.key,
-            entry.value,
-          ),
-        if (crossParent)
-          _client.setRoomStateWithKey(
-            drag.parent.id,
-            EventTypes.SpaceChild,
-            drag.room.id,
-            {},
-          ),
-      ]);
+      await saveChannelGroups(_client, _selectedSpaceId, groups);
+      await saveChannelOrder(_client, _selectedSpaceId, ungroupedOrder);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -220,6 +161,100 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
         ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     }
+  }
+
+  Future<void> _createGroup() async {
+    final name = await showTextPromptDialog(
+      context,
+      title: context.l10n.newGroup,
+      label: context.l10n.groupName,
+      confirmLabel: context.l10n.create,
+    );
+    if (name == null || name.isEmpty || !mounted) return;
+    final groups = channelGroupsFor(_client, _selectedSpaceId)
+      ..add(ChannelGroup(id: newGroupId(), name: name, roomIds: []));
+    await _saveLayout(groups, channelOrderFor(_client, _selectedSpaceId));
+  }
+
+  Future<void> _renameGroup(ChannelGroup group) async {
+    final name = await showTextPromptDialog(
+      context,
+      title: context.l10n.rename,
+      label: context.l10n.groupName,
+      initial: group.name,
+    );
+    if (name == null || name.isEmpty || !mounted) return;
+    final groups = channelGroupsFor(_client, _selectedSpaceId);
+    for (final candidate in groups) {
+      if (candidate.id == group.id) candidate.name = name;
+    }
+    await _saveLayout(groups, channelOrderFor(_client, _selectedSpaceId));
+  }
+
+  /// Deletes [group]; its channels return to the ungrouped section.
+  Future<void> _deleteGroup(ChannelGroup group) async {
+    final groups = channelGroupsFor(_client, _selectedSpaceId)
+      ..removeWhere((candidate) => candidate.id == group.id);
+    await _saveLayout(groups, channelOrderFor(_client, _selectedSpaceId));
+  }
+
+  /// Reorders the spaces rail: [dragged] is inserted before [beforeSpaceId]
+  /// (or appended), persisted per user like VirtualChat.
+  Future<void> _moveSpace(Room dragged, String? beforeSpaceId) async {
+    final ids = [
+      for (final space in _spaces)
+        if (space.id != dragged.id) space.id,
+    ];
+    var insertAt = beforeSpaceId == null
+        ? ids.length
+        : ids.indexOf(beforeSpaceId);
+    if (insertAt < 0) insertAt = ids.length;
+    ids.insert(insertAt, dragged.id);
+    setState(() {});
+    try {
+      await saveSpaceOrder(_client, ids);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
+  /// Hierarchy chunks per space, fetched once through the hierarchy API —
+  /// the same data the space lobby shows, reused for the "Not joined"
+  /// section.
+  final _hierarchy = <String, List<SpaceRoomsChunk$2>>{};
+  final _hierarchyInFlight = <String>{};
+
+  void _ensureHierarchy(Room space) {
+    if (_hierarchy.containsKey(space.id) || !_hierarchyInFlight.add(space.id)) {
+      return;
+    }
+    () async {
+      final chunks = <SpaceRoomsChunk$2>[];
+      try {
+        String? from;
+        // Paginate a few pages; enough for even large spaces.
+        for (var page = 0; page < 5; page++) {
+          final response = await _client.getSpaceHierarchy(
+            space.id,
+            limit: 100,
+            from: from,
+          );
+          chunks.addAll(response.rooms);
+          from = response.nextBatch;
+          if (from == null) break;
+        }
+      } catch (_) {
+        // Keep whatever was collected.
+      } finally {
+        _hierarchy[space.id] = chunks;
+        _hierarchyInFlight.remove(space.id);
+      }
+      if (mounted) setState(() {});
+    }();
   }
 
   Future<void> _openRoom(Room room) async {
@@ -252,18 +287,22 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
             : _client.getRoomById(_selectedRoomId!);
 
         final rail = _SpaceRail(
+          client: _client,
+          liquid: widget.liquid,
           spaces: _spaces,
           selectedSpaceId: _selectedSpaceId,
           onSelect: (spaceId) => setState(() {
             _selectedSpaceId = spaceId;
             _selectedRoomId = null;
           }),
+          onReorder: _moveSpace,
         );
         final selectedSpace = _selectedSpaceId == null
             ? null
             : _client.getRoomById(_selectedSpaceId!);
         final channels = _ChannelColumn(
           client: _client,
+          liquid: widget.liquid,
           manager: widget.manager,
           settings: widget.settings,
           title: _selectedSpaceId == null
@@ -276,11 +315,69 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
           fillWidth: !wide,
           collapsedCategories: _collapsedCategories,
           onToggleCategory: _toggleCategory,
-          onMoveChannel: _moveChannel,
+          onSaveLayout: _saveLayout,
+          onCreateGroup: _createGroup,
+          onRenameGroup: _renameGroup,
+          onDeleteGroup: _deleteGroup,
+          hierarchyRooms: selectedSpace == null
+              ? const []
+              : _hierarchy[selectedSpace.id] ?? const [],
         );
+        if (selectedSpace != null) _ensureHierarchy(selectedSpace);
 
         if (wide) {
           // Wide window: the navigation stays open next to the chat.
+          if (widget.liquid) {
+            final colorScheme = Theme.of(context).colorScheme;
+            final chatChild = selectedRoom == null
+                ? const _NoRoomSelected(liquid: true)
+                : Theme(
+                    // A translucent scaffold lets the gradient glow through
+                    // the chat pane.
+                    data: Theme.of(context).copyWith(
+                      scaffoldBackgroundColor: colorScheme.surface.withValues(
+                        alpha: 0.55,
+                      ),
+                    ),
+                    child: RoomPage(
+                      key: ValueKey(selectedRoom.id),
+                      room: selectedRoom,
+                    ),
+                  );
+            final panels = [
+              _GlassPanel(child: rail),
+              const SizedBox(width: 10),
+              _GlassPanel(child: channels),
+              const SizedBox(width: 10),
+              Expanded(child: _GlassPanel(child: chatChild)),
+            ];
+            return Scaffold(
+              body: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      colorScheme.primaryContainer,
+                      colorScheme.surfaceContainerLowest,
+                      colorScheme.tertiaryContainer,
+                    ],
+                  ),
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Row(
+                      children:
+                          widget.settings.railPosition == RailPosition.left
+                          ? panels
+                          : panels.reversed.toList(),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
           final chat = Expanded(
             child: selectedRoom == null
                 ? const _NoRoomSelected()
@@ -329,14 +426,20 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
 
 class _SpaceRail extends StatelessWidget {
   const _SpaceRail({
+    required this.client,
     required this.spaces,
     required this.selectedSpaceId,
     required this.onSelect,
+    required this.onReorder,
+    this.liquid = false,
   });
 
+  final Client client;
+  final bool liquid;
   final List<Room> spaces;
   final String? selectedSpaceId;
   final void Function(String? spaceId) onSelect;
+  final void Function(Room dragged, String? beforeSpaceId) onReorder;
 
   Future<void> _showSpaceMenu(
     BuildContext context,
@@ -376,12 +479,89 @@ class _SpaceRail extends StatelessWidget {
     }
   }
 
+  /// Unread notification total of all joined rooms inside [space],
+  /// including one level of sub-spaces.
+  int _spaceNotificationCount(Room space) {
+    var count = 0;
+    for (final child in _sortedSpaceChildren(space)) {
+      final room = client.getRoomById(child.roomId);
+      if (room == null) continue;
+      if (room.isSpace) {
+        for (final grandChild in _sortedSpaceChildren(room)) {
+          final grandRoom = client.getRoomById(grandChild.roomId);
+          if (grandRoom != null && !grandRoom.isSpace) {
+            count += grandRoom.notificationCount;
+          }
+        }
+      } else {
+        count += room.notificationCount;
+      }
+    }
+    return count;
+  }
+
+  int _homeNotificationCount() {
+    final inSpaces = <String>{
+      for (final space in spaces)
+        for (final child in space.spaceChildren)
+          if (child.roomId != null) child.roomId!,
+    };
+    var count = 0;
+    for (final room in client.rooms) {
+      if (!room.isSpace && !inSpaces.contains(room.id)) {
+        count += room.notificationCount;
+      }
+    }
+    return count;
+  }
+
+  /// Wraps a space button so it can be dragged to reorder the rail and
+  /// accepts other space buttons dropped onto it (inserted before).
+  Widget _draggableSpace(BuildContext context, Room space, Widget button) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return DragTarget<Room>(
+      onWillAcceptWithDetails: (details) => details.data.id != space.id,
+      onAcceptWithDetails: (details) => onReorder(details.data, space.id),
+      builder: (context, candidates, _) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 2,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            color: candidates.isNotEmpty
+                ? colorScheme.primary
+                : Colors.transparent,
+          ),
+          Draggable<Room>(
+            data: space,
+            feedback: Material(
+              color: Colors.transparent,
+              child: Opacity(
+                opacity: 0.8,
+                child: MxcAvatar(
+                  client: space.client,
+                  name: space.getLocalizedDisplayname(),
+                  avatarUrl: space.avatar,
+                  radius: 24,
+                ),
+              ),
+            ),
+            childWhenDragging: Opacity(opacity: 0.35, child: button),
+            child: button,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     // Material (not a plain colored box) so descendant ink splashes render.
     return Material(
-      color: colorScheme.surfaceContainerLowest,
+      color: colorScheme.surfaceContainerLowest.withValues(
+        alpha: liquid ? 0.4 : 1,
+      ),
       child: SizedBox(
         width: 72,
         child: Column(
@@ -394,17 +574,15 @@ class _SpaceRail extends StatelessWidget {
                     selected: selectedSpaceId == null,
                     tooltip: context.l10n.home,
                     onTap: () => onSelect(null),
-                    child: CircleAvatar(
-                      radius: 24,
-                      backgroundColor: selectedSpaceId == null
-                          ? colorScheme.primary
-                          : colorScheme.surfaceContainerHighest,
-                      child: Icon(
-                        Icons.home,
-                        color: selectedSpaceId == null
-                            ? colorScheme.onPrimary
-                            : colorScheme.onSurface,
-                      ),
+                    backgroundColor: selectedSpaceId == null
+                        ? colorScheme.primary
+                        : colorScheme.surfaceContainerHighest,
+                    badgeCount: _homeNotificationCount(),
+                    child: Icon(
+                      Icons.home,
+                      color: selectedSpaceId == null
+                          ? colorScheme.onPrimary
+                          : colorScheme.onSurface,
                     ),
                   ),
                   if (spaces.isNotEmpty)
@@ -416,38 +594,72 @@ class _SpaceRail extends StatelessWidget {
                       child: Divider(height: 1),
                     ),
                   for (final space in spaces)
-                    GestureDetector(
-                      onSecondaryTapUp: (details) => _showSpaceMenu(
-                        context,
-                        space,
-                        details.globalPosition,
-                      ),
-                      onLongPressStart: (details) => _showSpaceMenu(
-                        context,
-                        space,
-                        details.globalPosition,
-                      ),
-                      child: _RailButton(
-                        selected: selectedSpaceId == space.id,
-                        tooltip: space.getLocalizedDisplayname(),
-                        unread: space.spaceChildren.any((child) {
-                          final room = child.roomId == null
-                              ? null
-                              : space.client.getRoomById(child.roomId!);
-                          return room?.isUnreadOrInvited ?? false;
-                        }),
-                        onTap: () => onSelect(space.id),
-                        child: MxcAvatar(
-                          client: space.client,
-                          name: space.getLocalizedDisplayname(),
-                          avatarUrl: space.avatar,
-                          radius: 24,
+                    _draggableSpace(
+                      context,
+                      space,
+                      GestureDetector(
+                        onSecondaryTapUp: (details) => _showSpaceMenu(
+                          context,
+                          space,
+                          details.globalPosition,
+                        ),
+                        onLongPressStart: (details) => _showSpaceMenu(
+                          context,
+                          space,
+                          details.globalPosition,
+                        ),
+                        child: _RailButton(
+                          selected: selectedSpaceId == space.id,
+                          tooltip: space.getLocalizedDisplayname(),
+                          unread: space.spaceChildren.any((child) {
+                            final room = child.roomId == null
+                                ? null
+                                : space.client.getRoomById(child.roomId!);
+                            return room?.isUnreadOrInvited ?? false;
+                          }),
+                          onTap: () => onSelect(space.id),
+                          badgeCount: _spaceNotificationCount(space),
+                          child: _SquareAvatar(
+                            client: space.client,
+                            name: space.getLocalizedDisplayname(),
+                            avatarUrl: space.avatar,
+                          ),
                         ),
                       ),
                     ),
+                  // Dropping below the last space appends it to the end.
+                  DragTarget<Room>(
+                    onAcceptWithDetails: (details) =>
+                        onReorder(details.data, null),
+                    builder: (context, candidates, _) => Container(
+                      height: 8,
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      color: candidates.isNotEmpty
+                          ? colorScheme.primary.withValues(alpha: 0.4)
+                          : Colors.transparent,
+                    ),
+                  ),
                 ],
               ),
             ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Divider(height: 1),
+            ),
+            // Discord-style global actions at the bottom of the rail.
+            _RailButton(
+              selected: false,
+              tooltip: context.l10n.newChat,
+              onTap: () => showNewChatDialog(context, client),
+              child: Icon(Icons.add, color: colorScheme.onSurface),
+            ),
+            _RailButton(
+              selected: false,
+              tooltip: context.l10n.explorePublicRooms,
+              onTap: () => showRoomDirectory(context, client),
+              child: Icon(Icons.explore_outlined, color: colorScheme.onSurface),
+            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -455,52 +667,171 @@ class _SpaceRail extends StatelessWidget {
   }
 }
 
-class _RailButton extends StatelessWidget {
+/// A 48x48 rail entry that morphs from a circle to a rounded square on
+/// hover and while selected, Discord-style.
+class _RailButton extends StatefulWidget {
   const _RailButton({
     required this.selected,
     required this.tooltip,
     required this.onTap,
     required this.child,
+    this.backgroundColor,
+    this.badgeCount = 0,
     this.unread = false,
   });
 
   final bool selected;
   final String tooltip;
   final VoidCallback onTap;
+
+  /// Square content (icon or [_SquareAvatar]); the button clips it to the
+  /// animated shape.
   final Widget child;
+  final Color? backgroundColor;
+  final int badgeCount;
   final bool unread;
+
+  @override
+  State<_RailButton> createState() => _RailButtonState();
+}
+
+class _RailButtonState extends State<_RailButton> {
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final rounded = _hovered || widget.selected;
+    final radius = BorderRadius.circular(rounded ? 14 : 24);
+    final icon = AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOut,
+      width: 48,
+      height: 48,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: widget.backgroundColor ?? colorScheme.surfaceContainerHighest,
+        borderRadius: radius,
+      ),
+      child: widget.child,
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Tooltip(
-        message: tooltip,
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const CircleBorder(),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Discord-style selection pill on the side of the rail.
-              Positioned(
-                left: 0,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  width: 4,
-                  height: selected ? 36 : (unread ? 8 : 0),
-                  decoration: BoxDecoration(
-                    color: colorScheme.onSurface,
-                    borderRadius: BorderRadius.circular(2),
+        message: widget.tooltip,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: radius,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Discord-style selection pill on the side of the rail.
+                Positioned(
+                  left: 0,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 4,
+                    height: widget.selected
+                        ? 36
+                        : _hovered
+                        ? 20
+                        : (widget.unread ? 8 : 0),
+                    decoration: BoxDecoration(
+                      color: colorScheme.onSurface,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-              ),
-              child,
-            ],
+                Badge(
+                  isLabelVisible: widget.badgeCount > 0,
+                  label: Text(
+                    widget.badgeCount > 99
+                        ? '99+'
+                        : widget.badgeCount.toString(),
+                  ),
+                  offset: const Offset(-2, 2),
+                  child: icon,
+                ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Square avatar image for the rail: fills its parent so the rail button's
+/// animated clip defines the shape. Falls back to a colored initial.
+class _SquareAvatar extends StatefulWidget {
+  const _SquareAvatar({
+    required this.client,
+    required this.name,
+    this.avatarUrl,
+  });
+
+  final Client client;
+  final String name;
+  final Uri? avatarUrl;
+
+  @override
+  State<_SquareAvatar> createState() => _SquareAvatarState();
+}
+
+class _SquareAvatarState extends State<_SquareAvatar> {
+  Uint8List? _bytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(_SquareAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.avatarUrl != widget.avatarUrl) {
+      _bytes = null;
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final mxc = widget.avatarUrl;
+    if (mxc == null) return;
+    try {
+      final bytes = await fetchMxcThumbnail(widget.client, mxc);
+      if (bytes != null && mounted) setState(() => _bytes = bytes);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = _bytes;
+    if (bytes == null) {
+      return Container(
+        color: InitialsAvatar.colorFor(widget.name),
+        alignment: Alignment.center,
+        child: Text(
+          widget.name.isEmpty
+              ? '?'
+              : widget.name.characters.first.toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+          ),
+        ),
+      );
+    }
+    return Image.memory(
+      bytes,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
     );
   }
 }
@@ -510,6 +841,7 @@ class _ChannelColumn extends StatelessWidget {
     required this.client,
     required this.manager,
     required this.settings,
+    this.liquid = false,
     required this.title,
     required this.space,
     required this.rooms,
@@ -518,26 +850,35 @@ class _ChannelColumn extends StatelessWidget {
     required this.fillWidth,
     required this.collapsedCategories,
     required this.onToggleCategory,
-    required this.onMoveChannel,
+    required this.onSaveLayout,
+    required this.onCreateGroup,
+    required this.onRenameGroup,
+    required this.onDeleteGroup,
+    required this.hierarchyRooms,
   });
 
   final Client client;
   final ClientManager manager;
   final AppSettings settings;
+  final bool liquid;
   final String title;
 
   /// The selected space, or null in the "Home" section.
   final Room? space;
 
-  /// Collapsed category (sub-space) ids.
+  /// Collapsed group and category (sub-space) ids.
   final Set<String> collapsedCategories;
-  final void Function(String spaceId) onToggleCategory;
-  final void Function(
-    _ChannelDrag drag,
-    Room targetParent,
-    String? beforeRoomId,
-  )
-  onMoveChannel;
+  final void Function(String id) onToggleCategory;
+
+  /// Persists the scope's groups and ungrouped channel order.
+  final void Function(List<ChannelGroup> groups, List<String> ungroupedOrder)
+  onSaveLayout;
+  final VoidCallback onCreateGroup;
+  final void Function(ChannelGroup group) onRenameGroup;
+  final void Function(ChannelGroup group) onDeleteGroup;
+
+  /// The space's hierarchy (lobby data), for the "Not joined" section.
+  final List<SpaceRoomsChunk$2> hierarchyRooms;
   final List<Room> rooms;
   final String? selectedRoomId;
   final void Function(Room room) onRoomTap;
@@ -551,7 +892,9 @@ class _ChannelColumn extends StatelessWidget {
     // Material (not a plain colored box) so the ListTiles' ink and selection
     // backgrounds render on top of this color instead of underneath it.
     final column = Material(
-      color: colorScheme.surfaceContainerLow,
+      color: colorScheme.surfaceContainerLow.withValues(
+        alpha: liquid ? 0.5 : 1,
+      ),
       child: Column(
         children: [
           Container(
@@ -574,88 +917,17 @@ class _ChannelColumn extends StatelessWidget {
                     icon: const Icon(Icons.travel_explore_outlined, size: 20),
                     onPressed: () => showSpaceLobby(context, space!),
                   ),
-                if (space != null &&
-                    space!.canChangeStateEvent(EventTypes.SpaceChild))
-                  IconButton(
-                    tooltip: context.l10n.newCategory,
-                    icon: const Icon(
-                      Icons.create_new_folder_outlined,
-                      size: 20,
-                    ),
-                    onPressed: () => _createCategory(context, space!),
-                  ),
                 IconButton(
-                  tooltip: context.l10n.explorePublicRooms,
-                  icon: const Icon(Icons.explore_outlined, size: 20),
-                  onPressed: () => showRoomDirectory(context, client),
-                ),
-                IconButton(
-                  tooltip: context.l10n.newChat,
-                  icon: const Icon(Icons.add_comment_outlined, size: 20),
-                  onPressed: () => showNewChatDialog(context, client),
+                  tooltip: context.l10n.newGroup,
+                  icon: const Icon(Icons.create_new_folder_outlined, size: 20),
+                  onPressed: onCreateGroup,
                 ),
               ],
             ),
           ),
           const Divider(height: 1),
           if (space != null) SpaceBanner(space: space!),
-          Expanded(
-            child: space != null
-                ? _buildSpaceList(context, space!)
-                : rooms.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(context.l10n.noRoomsHereYet),
-                    ),
-                  )
-                : Builder(
-                    builder: (context) {
-                      final pinned = pinnedRooms(rooms);
-                      final pinnedIds = pinned.map((room) => room.id).toSet();
-                      final directs = rooms
-                          .where(
-                            (room) =>
-                                room.isDirectChat &&
-                                !pinnedIds.contains(room.id),
-                          )
-                          .toList();
-                      final channels = rooms
-                          .where(
-                            (room) =>
-                                !room.isDirectChat &&
-                                !pinnedIds.contains(room.id),
-                          )
-                          .toList();
-                      Widget tile(Room room) => _ChannelTile(
-                        room: room,
-                        selected: room.id == selectedRoomId,
-                        onTap: () => onRoomTap(room),
-                      );
-                      return ListView(
-                        children: [
-                          if (pinned.isNotEmpty) ...[
-                            PinnedRoomsSection(
-                              pinned: pinned,
-                              tileBuilder: tile,
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-                          if (directs.isNotEmpty) ...[
-                            _SectionLabel(context.l10n.directMessages),
-                            for (final room in directs) tile(room),
-                          ],
-                          if (directs.isNotEmpty && channels.isNotEmpty)
-                            const SizedBox(height: 16),
-                          if (channels.isNotEmpty) ...[
-                            _SectionLabel(context.l10n.channels),
-                            for (final room in channels) tile(room),
-                          ],
-                        ],
-                      );
-                    },
-                  ),
-          ),
+          Expanded(child: _buildList(context)),
           const Divider(height: 1),
           _UserFooter(client: client, manager: manager, settings: settings),
         ],
@@ -666,66 +938,111 @@ class _ChannelColumn extends StatelessWidget {
         : SizedBox(width: 280, child: column);
   }
 
-  /// Creates a category: a sub-space restricted to members of [space],
-  /// appended as its last child.
-  Future<void> _createCategory(BuildContext context, Room space) async {
-    final name = await showTextPromptDialog(
-      context,
-      title: context.l10n.newCategory,
-      label: context.l10n.categoryName,
-      confirmLabel: context.l10n.create,
+  Future<void> _showGroupMenu(
+    BuildContext context,
+    ChannelGroup group,
+    Offset position,
+  ) async {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        overlay.size.width - position.dx,
+        overlay.size.height - position.dy,
+      ),
+      items: [
+        PopupMenuItem(value: 'rename', child: Text(context.l10n.rename)),
+        PopupMenuItem(value: 'delete', child: Text(context.l10n.delete)),
+      ],
     );
-    if (name == null || name.isEmpty || !context.mounted) return;
-    try {
-      final categoryId = await client.createRoom(
-        name: name,
-        creationContent: {'type': 'm.space'},
-        initialState: [
-          // Members of the parent space can join the category without an
-          // invite, so its channels stay reachable for everyone.
-          StateEvent(
-            type: EventTypes.RoomJoinRules,
-            content: {
-              'join_rule': 'restricted',
-              'allow': [
-                {'type': 'm.room_membership', 'room_id': space.id},
-              ],
-            },
-          ),
-        ],
-      );
-      await space.setSpaceChild(
-        categoryId,
-        order: _sortedSpaceChildren(space).length.toString().padLeft(4, '0'),
-      );
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
+    if (selected == null || !context.mounted) return;
+    switch (selected) {
+      case 'rename':
+        onRenameGroup(group);
+      case 'delete':
+        onDeleteGroup(group);
     }
   }
 
-  /// Channel list of a space: loose channels first, then sub-spaces rendered
-  /// as collapsible Discord-style categories. Channels can be reordered and
-  /// moved between categories via drag & drop when the user may edit the
-  /// space's child events.
-  Widget _buildSpaceList(BuildContext context, Room space) {
-    final canReorder = space.canChangeStateEvent(EventTypes.SpaceChild);
+  Widget _sectionHeader(
+    BuildContext context,
+    String name, {
+    required bool collapsed,
+    required VoidCallback onToggle,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onToggle,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 10, 16, 4),
+        child: Row(
+          children: [
+            Icon(
+              collapsed ? Icons.chevron_right : Icons.expand_more,
+              size: 16,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 2),
+            Expanded(
+              child: Text(
+                name.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  letterSpacing: 0.8,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-    List<(_ChildEntry, Room)> joinedEntries(Room parent, {bool? spaces}) => [
-      for (final child in _sortedSpaceChildren(parent))
-        if (client.getRoomById(child.roomId) case final Room room)
-          if (room.membership != Membership.leave &&
-              room.membership != Membership.ban &&
-              (spaces == null || room.isSpace == spaces))
-            (child, room),
-    ];
+  /// The scope's channel list: pinned/DM sections (Home only), ungrouped
+  /// channels in the user's saved order, per-user groups, read-only
+  /// sub-space categories and not-yet-joined children (space only).
+  /// Drag & drop rearranges everything through account data.
+  Widget _buildList(BuildContext context) {
+    final scopeId = space?.id;
+    final groups = channelGroupsFor(client, scopeId);
+    final groupedIds = {for (final group in groups) ...group.roomIds};
 
-    final rootChannels = joinedEntries(space, spaces: false);
-    final categories = joinedEntries(space, spaces: true);
-    if (rootChannels.isEmpty && categories.isEmpty) {
+    final pool = <Room>[];
+    final categories = <Room>[];
+    final viaByRoomId = <String, List<String>>{};
+    if (space != null) {
+      for (final child in _sortedSpaceChildren(space!)) {
+        viaByRoomId[child.roomId] = child.via;
+        final room = client.getRoomById(child.roomId);
+        if (room == null ||
+            room.membership == Membership.leave ||
+            room.membership == Membership.ban) {
+          continue;
+        }
+        room.isSpace ? categories.add(room) : pool.add(room);
+      }
+    } else {
+      pool.addAll(rooms);
+    }
+    // Not joined: every room the hierarchy describes (any depth, like the
+    // space lobby) that is not already in the local room list.
+    final notJoined = <SpaceRoomsChunk$2>[];
+    for (final chunk in hierarchyRooms) {
+      if (chunk.roomId == space?.id || chunk.roomType == 'm.space') continue;
+      final room = client.getRoomById(chunk.roomId);
+      if (room != null && room.membership != Membership.leave) continue;
+      notJoined.add(chunk);
+    }
+
+    if (pool.isEmpty &&
+        groups.isEmpty &&
+        categories.isEmpty &&
+        notJoined.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -734,73 +1051,138 @@ class _ChannelColumn extends StatelessWidget {
       );
     }
 
-    Widget draggable((_ChildEntry, Room) entry, Room parent) =>
-        _DraggableChannelTile(
-          tile: _ChannelTile(
-            room: entry.$2,
-            selected: entry.$2.id == selectedRoomId,
-            onTap: () => onRoomTap(entry.$2),
-          ),
-          room: entry.$2,
-          parent: parent,
-          via: entry.$1.via,
-          enabled: canReorder,
-          onMove: onMoveChannel,
-        );
+    final ungroupedPool = [
+      for (final room in pool)
+        if (!groupedIds.contains(room.id)) room,
+    ];
+    final pinned = space == null ? pinnedRooms(ungroupedPool) : <Room>[];
+    final pinnedIds = {for (final room in pinned) room.id};
+    final directs = space == null
+        ? [
+            for (final room in ungroupedPool)
+              if (room.isDirectChat && !pinnedIds.contains(room.id)) room,
+          ]
+        : <Room>[];
+    final ungrouped = applyOrder(
+      [
+        for (final room in ungroupedPool)
+          if (!pinnedIds.contains(room.id) &&
+              (space != null || !room.isDirectChat))
+            room,
+      ],
+      channelOrderFor(client, scopeId),
+      (room) => room.id,
+    );
+
+    Widget tile(Room room) => _ChannelTile(
+      room: room,
+      selected: room.id == selectedRoomId,
+      onTap: () => onRoomTap(room),
+    );
+
+    void drop(_ChannelDrag drag, {String? toGroupId, String? beforeRoomId}) {
+      final newGroups = channelGroupsFor(client, scopeId);
+      for (final group in newGroups) {
+        group.roomIds.remove(drag.room.id);
+      }
+      final ungroupedIds = [
+        for (final room in ungrouped)
+          if (room.id != drag.room.id) room.id,
+      ];
+      if (toGroupId == null) {
+        var at = beforeRoomId == null
+            ? ungroupedIds.length
+            : ungroupedIds.indexOf(beforeRoomId);
+        if (at < 0) at = ungroupedIds.length;
+        ungroupedIds.insert(at, drag.room.id);
+      } else {
+        ChannelGroup? target;
+        for (final group in newGroups) {
+          if (group.id == toGroupId) target = group;
+        }
+        if (target == null) return;
+        var at = beforeRoomId == null
+            ? target.roomIds.length
+            : target.roomIds.indexOf(beforeRoomId);
+        if (at < 0) at = target.roomIds.length;
+        target.roomIds.insert(at, drag.room.id);
+      }
+      onSaveLayout(newGroups, ungroupedIds);
+    }
+
+    Widget draggable(Room room, {String? groupId}) => _DraggableChannelTile(
+      tile: tile(room),
+      room: room,
+      onAcceptBefore: (drag) =>
+          drop(drag, toGroupId: groupId, beforeRoomId: room.id),
+    );
 
     return ListView(
       children: [
-        if (rootChannels.isNotEmpty)
+        if (pinned.isNotEmpty) ...[
+          PinnedRoomsSection(pinned: pinned, tileBuilder: tile),
+          const SizedBox(height: 16),
+        ],
+        if (directs.isNotEmpty) ...[
+          _SectionLabel(context.l10n.directMessages),
+          for (final room in directs) draggable(room),
+          const SizedBox(height: 16),
+        ],
+        if (ungrouped.isNotEmpty || groups.isNotEmpty)
           _SectionDropTarget(
-            enabled: canReorder,
-            onDrop: (drag) => onMoveChannel(drag, space, null),
+            enabled: true,
+            onDrop: (drag) => drop(drag),
             child: _SectionLabel(context.l10n.channels),
           ),
-        for (final entry in rootChannels) draggable(entry, space),
-        for (final categoryEntry in categories) ...[
+        for (final room in ungrouped) draggable(room),
+        for (final group in groups) ...[
           const SizedBox(height: 12),
           _SectionDropTarget(
-            enabled: canReorder,
-            onDrop: (drag) => onMoveChannel(drag, categoryEntry.$2, null),
-            child: InkWell(
-              onTap: () => onToggleCategory(categoryEntry.$2.id),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 10, 16, 4),
-                child: Row(
-                  children: [
-                    Icon(
-                      collapsedCategories.contains(categoryEntry.$2.id)
-                          ? Icons.chevron_right
-                          : Icons.expand_more,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 2),
-                    Expanded(
-                      child: Text(
-                        categoryEntry.$2
-                            .getLocalizedDisplayname()
-                            .toUpperCase(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          letterSpacing: 0.8,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+            enabled: true,
+            onDrop: (drag) => drop(drag, toGroupId: group.id),
+            child: GestureDetector(
+              onSecondaryTapUp: (details) =>
+                  _showGroupMenu(context, group, details.globalPosition),
+              onLongPressStart: (details) =>
+                  _showGroupMenu(context, group, details.globalPosition),
+              child: _sectionHeader(
+                context,
+                group.name,
+                collapsed: collapsedCategories.contains(group.id),
+                onToggle: () => onToggleCategory(group.id),
               ),
             ),
           ),
-          if (!collapsedCategories.contains(categoryEntry.$2.id))
-            for (final childEntry in joinedEntries(
-              categoryEntry.$2,
-              spaces: false,
-            ))
-              draggable(childEntry, categoryEntry.$2),
+          if (!collapsedCategories.contains(group.id))
+            for (final id in group.roomIds)
+              if (client.getRoomById(id) case final Room room)
+                if (room.membership != Membership.leave &&
+                    room.membership != Membership.ban)
+                  draggable(room, groupId: group.id),
+        ],
+        for (final category in categories) ...[
+          const SizedBox(height: 12),
+          _sectionHeader(
+            context,
+            category.getLocalizedDisplayname(),
+            collapsed: collapsedCategories.contains(category.id),
+            onToggle: () => onToggleCategory(category.id),
+          ),
+          if (!collapsedCategories.contains(category.id))
+            for (final child in _sortedSpaceChildren(category))
+              if (client.getRoomById(child.roomId) case final Room room)
+                if (!room.isSpace && room.membership != Membership.leave)
+                  tile(room),
+        ],
+        if (notJoined.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _SectionLabel(context.l10n.notJoined),
+          for (final chunk in notJoined)
+            _NotJoinedTile(
+              client: client,
+              chunk: chunk,
+              via: viaByRoomId[chunk.roomId],
+            ),
         ],
       ],
     );
@@ -808,7 +1190,7 @@ class _ChannelColumn extends StatelessWidget {
 }
 
 /// Highlights and accepts channel drops for a whole section (the top-level
-/// label or a category header).
+/// label or a group header).
 class _SectionDropTarget extends StatelessWidget {
   const _SectionDropTarget({
     required this.enabled,
@@ -835,37 +1217,116 @@ class _SectionDropTarget extends StatelessWidget {
   }
 }
 
+/// Lobby-style tile for a hierarchy room the user has not joined: avatar,
+/// member count, topic and a join/knock action with its own busy state.
+class _NotJoinedTile extends StatefulWidget {
+  const _NotJoinedTile({required this.client, required this.chunk, this.via});
+
+  final Client client;
+  final SpaceRoomsChunk$2 chunk;
+  final List<String>? via;
+
+  @override
+  State<_NotJoinedTile> createState() => _NotJoinedTileState();
+}
+
+class _NotJoinedTileState extends State<_NotJoinedTile> {
+  bool _busy = false;
+  bool _knocked = false;
+
+  List<String>? get _via {
+    final via = widget.via;
+    return (via == null || via.isEmpty) ? null : via;
+  }
+
+  void _showError(Object error) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(error.toString())));
+  }
+
+  Future<void> _join() async {
+    setState(() => _busy = true);
+    try {
+      await widget.client.joinRoom(widget.chunk.roomId, via: _via);
+    } catch (e) {
+      _showError(e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _knock() async {
+    setState(() => _busy = true);
+    try {
+      await widget.client.knockRoom(widget.chunk.roomId, via: _via);
+      if (mounted) setState(() => _knocked = true);
+    } catch (e) {
+      _showError(e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final chunk = widget.chunk;
+    final name = chunk.name ?? chunk.canonicalAlias ?? chunk.roomId;
+    final knocked =
+        _knocked ||
+        widget.client.getRoomById(chunk.roomId)?.membership == Membership.knock;
+    return ListTile(
+      dense: true,
+      leading: MxcAvatar(
+        client: widget.client,
+        name: name,
+        avatarUrl: chunk.avatarUrl,
+        radius: 14,
+      ),
+      title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        [
+          context.l10n.membersCount(chunk.numJoinedMembers),
+          if (chunk.topic?.isNotEmpty ?? false) chunk.topic!,
+        ].join(' · '),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: _busy
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : knocked
+          ? Text(context.l10n.knocked)
+          : chunk.joinRule == 'knock'
+          ? OutlinedButton(onPressed: _knock, child: Text(context.l10n.knock))
+          : TextButton(onPressed: _join, child: Text(context.l10n.join)),
+    );
+  }
+}
+
 /// Makes a channel tile draggable and a drop target: dropping another
 /// channel on it inserts that channel right before this one.
 class _DraggableChannelTile extends StatelessWidget {
   const _DraggableChannelTile({
     required this.tile,
     required this.room,
-    required this.parent,
-    required this.via,
-    required this.enabled,
-    required this.onMove,
+    required this.onAcceptBefore,
   });
 
   final Widget tile;
   final Room room;
-  final Room parent;
-  final List<String> via;
-  final bool enabled;
-  final void Function(
-    _ChannelDrag drag,
-    Room targetParent,
-    String? beforeRoomId,
-  )
-  onMove;
+  final void Function(_ChannelDrag drag) onAcceptBefore;
 
   @override
   Widget build(BuildContext context) {
-    if (!enabled) return tile;
     final colorScheme = Theme.of(context).colorScheme;
     return DragTarget<_ChannelDrag>(
       onWillAcceptWithDetails: (details) => details.data.room.id != room.id,
-      onAcceptWithDetails: (details) => onMove(details.data, parent, room.id),
+      onAcceptWithDetails: (details) => onAcceptBefore(details.data),
       builder: (context, candidates, _) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -878,7 +1339,7 @@ class _DraggableChannelTile extends StatelessWidget {
                 : Colors.transparent,
           ),
           Draggable<_ChannelDrag>(
-            data: _ChannelDrag(room: room, parent: parent, via: via),
+            data: _ChannelDrag(room: room),
             feedback: Material(
               elevation: 4,
               borderRadius: BorderRadius.circular(8),
@@ -898,6 +1359,47 @@ class _DraggableChannelTile extends StatelessWidget {
             child: tile,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A floating frosted-glass panel for the Liquid layout: rounded corners,
+/// backdrop blur, translucent tint, hairline border and soft shadow.
+class _GlassPanel extends StatelessWidget {
+  const _GlassPanel({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colorScheme.surface.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: colorScheme.onSurface.withValues(alpha: 0.08),
+              ),
+            ),
+            child: child,
+          ),
+        ),
       ),
     );
   }
@@ -1145,12 +1647,16 @@ class _UserFooter extends StatelessWidget {
 }
 
 class _NoRoomSelected extends StatelessWidget {
-  const _NoRoomSelected();
+  const _NoRoomSelected({this.liquid = false});
+
+  final bool liquid;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Theme.of(context).colorScheme.surface,
+      color: Theme.of(
+        context,
+      ).colorScheme.surface.withValues(alpha: liquid ? 0.35 : 1),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

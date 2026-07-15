@@ -218,6 +218,12 @@ abstract class AppLocalizations {
   /// **'Attach file'**
   String get attachFile;
 
+  /// No description provided for @attachments.
+  ///
+  /// In en, this message translates to:
+  /// **'Attachments'**
+  String get attachments;
+
   /// No description provided for @autoAway.
   ///
   /// In en, this message translates to:
@@ -605,7 +611,7 @@ abstract class AppLocalizations {
   /// No description provided for @cozy.
   ///
   /// In en, this message translates to:
-  /// **'Cozy'**
+  /// **'Default'**
   String get cozy;
 
   /// No description provided for @create.
@@ -1166,6 +1172,12 @@ abstract class AppLocalizations {
   /// **'Light'**
   String get light;
 
+  /// No description provided for @liquid.
+  ///
+  /// In en, this message translates to:
+  /// **'Liquid'**
+  String get liquid;
+
   /// No description provided for @list.
   ///
   /// In en, this message translates to:
@@ -1310,6 +1322,12 @@ abstract class AppLocalizations {
   /// **'New chat'**
   String get newChat;
 
+  /// No description provided for @newGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'New group'**
+  String get newGroup;
+
   /// No description provided for @newMessages.
   ///
   /// In en, this message translates to:
@@ -1424,6 +1442,12 @@ abstract class AppLocalizations {
   /// **'Not encrypted'**
   String get notEncrypted;
 
+  /// No description provided for @notJoined.
+  ///
+  /// In en, this message translates to:
+  /// **'Not joined'**
+  String get notJoined;
+
   /// No description provided for @notificationSounds.
   ///
   /// In en, this message translates to:
@@ -1501,6 +1525,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Password'**
   String get password;
+
+  /// No description provided for @pauseGifsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop GIF animations while the window is in the background.'**
+  String get pauseGifsDescription;
+
+  /// No description provided for @pauseGifsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause GIFs while in background'**
+  String get pauseGifsTitle;
 
   /// No description provided for @pin.
   ///
@@ -1928,6 +1964,18 @@ abstract class AppLocalizations {
   /// **'Profile changes'**
   String get showProfileChangeEventsTitle;
 
+  /// No description provided for @showReadReceiptsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Show who has read a message beneath it.'**
+  String get showReadReceiptsDescription;
+
+  /// No description provided for @showReadReceiptsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show read receipts'**
+  String get showReadReceiptsTitle;
+
   /// No description provided for @showUrlPreviewsDescription.
   ///
   /// In en, this message translates to:
@@ -2174,6 +2222,12 @@ abstract class AppLocalizations {
   /// **'Unblock'**
   String get unblock;
 
+  /// No description provided for @unknownChannel.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown channel'**
+  String get unknownChannel;
+
   /// No description provided for @unknownCommand.
   ///
   /// In en, this message translates to:
@@ -2339,7 +2393,7 @@ abstract class AppLocalizations {
   /// No description provided for @workspace.
   ///
   /// In en, this message translates to:
-  /// **'Workspace'**
+  /// **'Default'**
   String get workspace;
 
   /// No description provided for @yesterday.

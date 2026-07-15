@@ -1,10 +1,13 @@
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
 import '../l10n.dart';
+import '../notifications.dart';
+import '../settings.dart';
 
 /// Displays the image attachment of an [Event] (m.image or sticker).
 ///
@@ -37,6 +40,56 @@ class _EventImageState extends State<EventImage> {
 
   Uint8List? _bytes;
   bool _error = false;
+
+  /// First frame of an animated GIF, decoded on demand while playback is
+  /// paused in the background.
+  ui.Image? _staticFrame;
+  bool _decodingStaticFrame = false;
+
+  bool get _isGif =>
+      widget.event.infoMap['mimetype'] == 'image/gif' ||
+      (widget.event.content.tryGet<String>('filename') ?? widget.event.body)
+          .toLowerCase()
+          .endsWith('.gif');
+
+  Future<void> _decodeStaticFrame(Uint8List bytes) async {
+    if (_staticFrame != null || _decodingStaticFrame) return;
+    _decodingStaticFrame = true;
+    try {
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      codec.dispose();
+      if (mounted) {
+        setState(() => _staticFrame = frame.image);
+      } else {
+        frame.image.dispose();
+      }
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _staticFrame?.dispose();
+    super.dispose();
+  }
+
+  /// The image itself; GIFs render their first frame while the window is in
+  /// the background and the pause setting is on.
+  Widget _image(Uint8List bytes, BoxFit fit) {
+    if (!_isGif || !SettingsScope.of(context).pauseGifsUnfocused) {
+      return Image.memory(bytes, fit: fit);
+    }
+    return ValueListenableBuilder<bool>(
+      valueListenable: NotificationService.appFocused,
+      builder: (context, focused, _) {
+        if (focused) return Image.memory(bytes, fit: fit);
+        _decodeStaticFrame(bytes);
+        final still = _staticFrame;
+        if (still == null) return Image.memory(bytes, fit: fit);
+        return RawImage(image: still, fit: fit);
+      },
+    );
+  }
 
   String? get _cacheKey => widget.event
       .attachmentOrThumbnailMxcUrl(getThumbnail: widget.thumbnail)
@@ -108,7 +161,7 @@ class _EventImageState extends State<EventImage> {
     final bytes = _bytes;
     if (bytes != null) {
       if (widget.fit != null) {
-        return Image.memory(bytes, fit: widget.fit);
+        return _image(bytes, widget.fit!);
       }
       final size = _previewSize;
       return ConstrainedBox(
@@ -118,7 +171,7 @@ class _EventImageState extends State<EventImage> {
         ),
         child: AspectRatio(
           aspectRatio: size.width / size.height,
-          child: Image.memory(bytes, fit: BoxFit.cover),
+          child: _image(bytes, BoxFit.cover),
         ),
       );
     }

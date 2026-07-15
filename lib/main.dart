@@ -43,6 +43,25 @@ class ProteaApp extends StatelessWidget {
   final AppSettings settings;
   final AutoAwayService? autoAway;
 
+  /// Bundled color emoji as the fallback font, so emojis render in color on
+  /// platforms whose system fallback is monochrome (Linux).
+  static const _fontFallback = ['Noto Color Emoji'];
+
+  static ThemeData _theme(Color seed, Brightness brightness) {
+    final base = ThemeData(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: seed,
+        brightness: brightness,
+      ),
+    );
+    return base.copyWith(
+      textTheme: base.textTheme.apply(fontFamilyFallback: _fontFallback),
+      primaryTextTheme: base.primaryTextTheme.apply(
+        fontFamilyFallback: _fontFallback,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -56,17 +75,8 @@ class ProteaApp extends StatelessWidget {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: settings.locale,
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: settings.themeColor.seed,
-            ),
-          ),
-          darkTheme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: settings.themeColor.seed,
-              brightness: Brightness.dark,
-            ),
-          ),
+          theme: _theme(settings.themeColor.seed, Brightness.light),
+          darkTheme: _theme(settings.themeColor.seed, Brightness.dark),
           themeMode: settings.themeMode,
           builder: (context, child) => SettingsScope(
             settings: settings,

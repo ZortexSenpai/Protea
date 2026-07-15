@@ -27,6 +27,7 @@ import '../widgets/initials_avatar.dart';
 import '../widgets/link_preview.dart';
 import '../widgets/message_search_dialog.dart';
 import '../widgets/mxc_avatar.dart';
+import '../widgets/pdf_preview.dart';
 import '../widgets/pinned_messages_dialog.dart';
 import '../widgets/poll.dart';
 import '../widgets/presence_indicator.dart';
@@ -63,7 +64,6 @@ class _RoomPageState extends State<RoomPage> {
 
   /// File/GIF sends in flight, shown as skeleton bubbles above the composer.
   final List<_PendingSend> _pendingSends = [];
-  bool _showMembers = false;
   DateTime? _typingLastSent;
   String? _highlightedEventId;
   Timer? _highlightTimer;
@@ -1127,8 +1127,15 @@ class _RoomPageState extends State<RoomPage> {
           ),
           IconButton(
             tooltip: context.l10n.members,
-            icon: Icon(_showMembers ? Icons.people : Icons.people_outline),
-            onPressed: () => setState(() => _showMembers = !_showMembers),
+            icon: Icon(
+              SettingsScope.of(context).showMemberList
+                  ? Icons.people
+                  : Icons.people_outline,
+            ),
+            onPressed: () {
+              final settings = SettingsScope.of(context);
+              settings.setShowMemberList(!settings.showMemberList);
+            },
           ),
           IconButton(
             tooltip: context.l10n.channelSettings,
@@ -1276,142 +1283,206 @@ class _RoomPageState extends State<RoomPage> {
                           padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
                           child: _recording
                               ? _buildRecordingBar()
-                              : Row(
-                                  children: [
-                                    IconButton(
-                                      tooltip: context.l10n.attachFile,
-                                      onPressed: encryptedWithoutSupport
-                                          ? null
-                                          : _attachFile,
-                                      icon: const Icon(Icons.attach_file),
-                                    ),
-                                    IconButton(
-                                      tooltip: context.l10n.gif,
-                                      onPressed: encryptedWithoutSupport
-                                          ? null
-                                          : _pickGif,
-                                      icon: const Icon(Icons.gif_box_outlined),
-                                    ),
-                                    IconButton(
-                                      tooltip: context.l10n.voiceMessage,
-                                      onPressed: encryptedWithoutSupport
-                                          ? null
-                                          : _startRecording,
-                                      icon: const Icon(Icons.mic_none),
-                                    ),
-                                    PopupMenuButton<String>(
-                                      tooltip: context.l10n.moreAttachments,
-                                      enabled: !encryptedWithoutSupport,
-                                      icon: const Icon(
-                                        Icons.add_circle_outline,
-                                      ),
-                                      onSelected: (value) {
-                                        switch (value) {
-                                          case 'poll':
-                                            showCreatePollDialog(
-                                              context,
-                                              widget.room,
-                                            );
-                                          case 'sticker':
-                                            showStickerPicker(
-                                              context,
-                                              widget.room,
-                                            );
-                                        }
-                                      },
-                                      itemBuilder: (context) => [
-                                        PopupMenuItem(
-                                          value: 'poll',
-                                          child: Text(context.l10n.poll),
+                              : Container(
+                                  // Discord-style composer: one rounded box
+                                  // with every control inside it.
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.surfaceContainerHigh,
+                                    borderRadius: BorderRadius.circular(26),
+                                  ),
+                                  child: Row(
+                                    // Icons hug the bottom while the field
+                                    // grows over multiple lines.
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      const SizedBox(width: 4),
+                                      SizedBox(
+                                        height: 48,
+                                        child: Center(
+                                          child: PopupMenuButton<String>(
+                                            tooltip: context.l10n.attachments,
+                                            enabled: !encryptedWithoutSupport,
+                                            icon: Icon(
+                                              Icons.add_circle_outline,
+                                              size: 22,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
+                                            ),
+                                            onSelected: (value) {
+                                              switch (value) {
+                                                case 'file':
+                                                  _attachFile();
+                                                case 'poll':
+                                                  showCreatePollDialog(
+                                                    context,
+                                                    widget.room,
+                                                  );
+                                                case 'sticker':
+                                                  showStickerPicker(
+                                                    context,
+                                                    widget.room,
+                                                  );
+                                              }
+                                            },
+                                            itemBuilder: (context) => [
+                                              PopupMenuItem(
+                                                value: 'file',
+                                                child: Text(
+                                                  context.l10n.attachFile,
+                                                ),
+                                              ),
+                                              PopupMenuItem(
+                                                value: 'poll',
+                                                child: Text(context.l10n.poll),
+                                              ),
+                                              PopupMenuItem(
+                                                value: 'sticker',
+                                                child: Text(
+                                                  context.l10n.sticker,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                        PopupMenuItem(
-                                          value: 'sticker',
-                                          child: Text(context.l10n.sticker),
-                                        ),
-                                      ],
-                                    ),
-                                    IconButton(
-                                      tooltip: context.l10n.emoji,
-                                      onPressed: encryptedWithoutSupport
-                                          ? null
-                                          : _pickEmoji,
-                                      icon: const Icon(
-                                        Icons.emoji_emotions_outlined,
                                       ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Focus(
-                                        onKeyEvent: (node, event) {
-                                          if (event is! KeyDownEvent) {
-                                            return KeyEventResult.ignored;
-                                          }
-                                          // Enter sends, Shift+Enter (or any other
-                                          // modifier) inserts a line break.
-                                          if (event.logicalKey ==
-                                                  LogicalKeyboardKey.enter ||
-                                              event.logicalKey ==
-                                                  LogicalKeyboardKey
-                                                      .numpadEnter) {
-                                            final keyboard =
-                                                HardwareKeyboard.instance;
-                                            if (!keyboard.isShiftPressed &&
-                                                !keyboard.isAltPressed &&
-                                                !keyboard.isControlPressed &&
-                                                !keyboard.isMetaPressed) {
-                                              _send();
-                                              return KeyEventResult.handled;
+                                      Expanded(
+                                        child: Focus(
+                                          onKeyEvent: (node, event) {
+                                            if (event is! KeyDownEvent) {
+                                              return KeyEventResult.ignored;
+                                            }
+                                            // Enter sends, Shift+Enter (or any other
+                                            // modifier) inserts a line break.
+                                            if (event.logicalKey ==
+                                                    LogicalKeyboardKey.enter ||
+                                                event.logicalKey ==
+                                                    LogicalKeyboardKey
+                                                        .numpadEnter) {
+                                              final keyboard =
+                                                  HardwareKeyboard.instance;
+                                              if (!keyboard.isShiftPressed &&
+                                                  !keyboard.isAltPressed &&
+                                                  !keyboard.isControlPressed &&
+                                                  !keyboard.isMetaPressed) {
+                                                _send();
+                                                return KeyEventResult.handled;
+                                              }
+                                              return KeyEventResult.ignored;
+                                            }
+                                            // Sends a pasted image alongside the field's
+                                            // own (text) paste handling.
+                                            if (event.logicalKey ==
+                                                    LogicalKeyboardKey.keyV &&
+                                                (HardwareKeyboard
+                                                        .instance
+                                                        .isMetaPressed ||
+                                                    HardwareKeyboard
+                                                        .instance
+                                                        .isControlPressed)) {
+                                              _tryPasteImage();
                                             }
                                             return KeyEventResult.ignored;
-                                          }
-                                          // Sends a pasted image alongside the field's
-                                          // own (text) paste handling.
-                                          if (event.logicalKey ==
-                                                  LogicalKeyboardKey.keyV &&
-                                              (HardwareKeyboard
-                                                      .instance
-                                                      .isMetaPressed ||
-                                                  HardwareKeyboard
-                                                      .instance
-                                                      .isControlPressed)) {
-                                            _tryPasteImage();
-                                          }
-                                          return KeyEventResult.ignored;
-                                        },
-                                        child: TextField(
-                                          controller: _sendController,
-                                          enabled: !encryptedWithoutSupport,
-                                          decoration: InputDecoration(
-                                            hintText: context.l10n.message,
-                                            filled: true,
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(24),
-                                              borderSide: BorderSide.none,
+                                          },
+                                          child: TextField(
+                                            controller: _sendController,
+                                            enabled: !encryptedWithoutSupport,
+                                            decoration: InputDecoration(
+                                              hintText: context.l10n.message,
+                                              border: InputBorder.none,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 12,
+                                                  ),
                                             ),
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                                  horizontal: 16,
-                                                  vertical: 10,
-                                                ),
+                                            keyboardType:
+                                                TextInputType.multiline,
+                                            textInputAction:
+                                                TextInputAction.newline,
+                                            onChanged: _onInputChanged,
+                                            minLines: 1,
+                                            maxLines: 8,
                                           ),
-                                          keyboardType: TextInputType.multiline,
-                                          textInputAction:
-                                              TextInputAction.newline,
-                                          onChanged: _onInputChanged,
-                                          minLines: 1,
-                                          maxLines: 8,
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    IconButton.filled(
-                                      onPressed: encryptedWithoutSupport
-                                          ? null
-                                          : _send,
-                                      icon: const Icon(Icons.send),
-                                    ),
-                                  ],
+                                      SizedBox(
+                                        height: 48,
+                                        child: Center(
+                                          child: IconButton(
+                                            tooltip: context.l10n.gif,
+                                            onPressed: encryptedWithoutSupport
+                                                ? null
+                                                : _pickGif,
+                                            icon: Icon(
+                                              Icons.gif_box_outlined,
+                                              size: 22,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        height: 48,
+                                        child: Center(
+                                          child: IconButton(
+                                            tooltip: context.l10n.emoji,
+                                            onPressed: encryptedWithoutSupport
+                                                ? null
+                                                : _pickEmoji,
+                                            icon: Icon(
+                                              Icons.emoji_emotions_outlined,
+                                              size: 22,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        height: 48,
+                                        child: Center(
+                                          child: IconButton(
+                                            tooltip: context.l10n.voiceMessage,
+                                            onPressed: encryptedWithoutSupport
+                                                ? null
+                                                : _startRecording,
+                                            icon: Icon(
+                                              Icons.mic_none,
+                                              size: 22,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        height: 48,
+                                        child: Center(
+                                          child: IconButton(
+                                            tooltip: context.l10n.send,
+                                            onPressed: encryptedWithoutSupport
+                                                ? null
+                                                : _send,
+                                            icon: Icon(
+                                              Icons.send,
+                                              size: 22,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.primary,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                    ],
+                                  ),
                                 ),
                         ),
                       ),
@@ -1425,7 +1496,8 @@ class _RoomPageState extends State<RoomPage> {
                     root: _threadRoot!,
                     onClose: () => setState(() => _threadRoot = null),
                   ),
-                if (_showMembers) _MemberListPanel(room: widget.room),
+                if (SettingsScope.of(context).showMemberList)
+                  _MemberListPanel(room: widget.room),
               ],
             ),
             if (_dragging)
@@ -1798,6 +1870,29 @@ class _DateDivider extends StatelessWidget {
         : DateFormat.yMMMd(
             Localizations.localeOf(context).toString(),
           ).format(date);
+    final layout = SettingsScope.of(context).messageLayout;
+    if (layout == MessageLayout.cozy || layout == MessageLayout.text) {
+      // Discord style: a hairline with the date resting in the middle.
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+        child: Row(
+          children: [
+            Expanded(child: Divider(color: colorScheme.outlineVariant)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Expanded(child: Divider(color: colorScheme.outlineVariant)),
+          ],
+        ),
+      );
+    }
     return Center(
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 8),
@@ -2273,17 +2368,22 @@ class _MessageBubbleState extends State<_MessageBubble> {
         ],
       ),
     );
-    if (!TextFilePreview.isPreviewable(displayEvent)) return chip;
+    final Widget? preview = TextFilePreview.isPreviewable(displayEvent)
+        ? TextFilePreview(
+            event: displayEvent,
+            onSave: () => onSaveAttachment(displayEvent),
+          )
+        : PdfFilePreview.isPreviewable(displayEvent)
+        ? PdfFilePreview(
+            event: displayEvent,
+            onSave: () => onSaveAttachment(displayEvent),
+          )
+        : null;
+    if (preview == null) return chip;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
-      children: [
-        chip,
-        TextFilePreview(
-          event: displayEvent,
-          onSave: () => onSaveAttachment(displayEvent),
-        ),
-      ],
+      children: [chip, preview],
     );
   }
 
@@ -2323,17 +2423,17 @@ class _MessageBubbleState extends State<_MessageBubble> {
     );
   }
 
-  Widget _buildReceiptsRow(BuildContext context) {
+  Widget _buildReceiptsRow(BuildContext context, List<User> receipts) {
     return Padding(
       padding: const EdgeInsets.only(top: 2),
       child: Tooltip(
         message: context.l10n.readBy(
-          widget.receipts.map((user) => user.calcDisplayname()).join(', '),
+          receipts.map((user) => user.calcDisplayname()).join(', '),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (final user in widget.receipts.take(6))
+            for (final user in receipts.take(6))
               Padding(
                 padding: const EdgeInsets.only(left: 2),
                 child: MxcAvatar(
@@ -2343,11 +2443,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   radius: 7,
                 ),
               ),
-            if (widget.receipts.length > 6)
+            if (receipts.length > 6)
               Padding(
                 padding: const EdgeInsets.only(left: 2),
                 child: Text(
-                  '+${widget.receipts.length - 6}',
+                  '+${receipts.length - 6}',
                   style: Theme.of(context).textTheme.labelSmall,
                 ),
               ),
@@ -2434,8 +2534,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final threadChip = threadReplyCount > 0
         ? _buildThreadChip(context, threadReplyCount)
         : null;
-    final receiptsRow = widget.receipts.isNotEmpty
-        ? _buildReceiptsRow(context)
+    final receiptUsers = [
+      for (final user in widget.receipts)
+        if (user.id != event.senderId) user,
+    ];
+    final receiptsRow =
+        receiptUsers.isNotEmpty && SettingsScope.of(context).showReadReceipts
+        ? _buildReceiptsRow(context, receiptUsers)
         : null;
 
     // The message content itself, shared by all layouts. In the text layout
@@ -2732,7 +2837,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final inner = switch (layout) {
       MessageLayout.bubbles => bubblesLayout(),
       MessageLayout.cozy => flatLayout(compact: false),
-      MessageLayout.compact => flatLayout(compact: true),
       MessageLayout.text => textLayout(),
     };
 
