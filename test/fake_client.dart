@@ -14,7 +14,8 @@ const fakeUserId = '@test:fakeServer.notExisting';
 
 var _clientCounter = 0;
 
-Future<Client> buildFakeClient({String name = 'Protea'}) async {
+/// A fresh in-memory Matrix SDK database.
+Future<DatabaseApi> openFakeDatabase() async {
   // Fedora ships libsqlite3.so.0 without the dev symlink sqlite3 looks for.
   if (Platform.isLinux) {
     open.overrideFor(
@@ -23,7 +24,7 @@ Future<Client> buildFakeClient({String name = 'Protea'}) async {
     );
   }
   sqfliteFfiInit();
-  final database = await MatrixSdkDatabase.init(
+  return MatrixSdkDatabase.init(
     'test_${_clientCounter++}',
     database: await databaseFactoryFfiNoIsolate.openDatabase(
       ':memory:',
@@ -31,10 +32,13 @@ Future<Client> buildFakeClient({String name = 'Protea'}) async {
     ),
     sqfliteFactory: databaseFactoryFfiNoIsolate,
   );
+}
+
+Future<Client> buildFakeClient({String name = 'Protea'}) async {
   final client = Client(
     name,
     httpClient: FakeMatrixApi(),
-    database: database,
+    database: await openFakeDatabase(),
     // Mirrors buildMatrixClient: custom state events are dropped from
     // partially-loaded rooms unless registered here.
     importantStateEvents: {roomBannerEventType, roomEmotesStateType},

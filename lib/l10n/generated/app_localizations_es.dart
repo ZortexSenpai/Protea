@@ -1505,6 +1505,20 @@ class AppLocalizationsEs extends AppLocalizations {
       'Inicia sesión en tu cuenta de Matrix';
 
   @override
+  String get continueButton => 'Continuar';
+
+  @override
+  String get changeHomeserver => 'Cambiar servidor';
+
+  @override
+  String get homeserverUnreachable =>
+      'No se pudo conectar con este servidor. Comprueba la dirección e inténtalo de nuevo.';
+
+  @override
+  String get homeserverNoSupportedLogin =>
+      'Este servidor no ofrece ningún método de inicio de sesión compatible con Protea.';
+
+  @override
   String signInWithProvider(String provider) {
     return 'Iniciar sesión con $provider';
   }

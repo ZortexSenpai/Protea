@@ -1497,6 +1497,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get signInToYourMatrixAccount => 'Sign in to your Matrix account';
 
   @override
+  String get continueButton => 'Continue';
+
+  @override
+  String get changeHomeserver => 'Change homeserver';
+
+  @override
+  String get homeserverUnreachable =>
+      'Could not connect to this homeserver. Check the address and try again.';
+
+  @override
+  String get homeserverNoSupportedLogin =>
+      'This homeserver doesn\'t offer a sign-in method Protea supports.';
+
+  @override
   String signInWithProvider(String provider) {
     return 'Sign in with $provider';
   }
