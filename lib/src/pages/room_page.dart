@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:matrix/matrix.dart';
 import 'package:pasteboard/pasteboard.dart';
+import 'package:path/path.dart' as p;
 import 'package:record/record.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1172,16 +1173,47 @@ class _RoomPageState extends State<RoomPage> {
     await _stageAndSend(files);
   }
 
-  /// Sends an image from the clipboard, if there is one. Called alongside
-  /// the text field's own paste handling, which covers plain text.
-  Future<void> _tryPasteImage() async {
+  late final _composerPasteAction = _ComposerPasteAction(_pasteFromClipboard);
+
+  /// Ctrl/Cmd+V in the composer. Files copied in a file manager are offered
+  /// for sending instead of pasting their names, which come along as text;
+  /// on macOS they also carry the file's icon as image data, so they must
+  /// win over the image check. Otherwise [pasteText] pastes the text as
+  /// usual and an image on the clipboard (a screenshot, an image copied in
+  /// a browser) is offered for sending as well.
+  Future<void> _pasteFromClipboard(VoidCallback pasteText) async {
+    var files = const <File>[];
+    try {
+      files = await readClipboardFiles();
+    } catch (e, s) {
+      Logs().w('Could not read files from the clipboard', e, s);
+    }
+    if (!mounted) return;
+    if (files.isNotEmpty) {
+      try {
+        await _stageAndSend([
+          for (final file in files)
+            (
+              bytes: await file.readAsBytes(),
+              name: p.basename(file.path),
+              mimeType: null,
+            ),
+        ]);
+      } catch (e) {
+        _showError(e);
+      }
+      return;
+    }
+    pasteText();
     try {
       final bytes = await Pasteboard.image;
-      if (bytes == null || bytes.isEmpty) return;
+      if (bytes == null || bytes.isEmpty || !mounted) return;
       await _stageAndSend([
         (bytes: bytes, name: 'pasted-image.png', mimeType: 'image/png'),
       ]);
-    } catch (_) {}
+    } catch (e, s) {
+      Logs().w('Could not read an image from the clipboard', e, s);
+    }
   }
 
   Future<void> _saveAttachment(Event event) => saveAttachment(context, event);
@@ -2227,43 +2259,36 @@ class _RoomPageState extends State<RoomPage> {
                                                     _editLastOwnMessage()) {
                                                   return KeyEventResult.handled;
                                                 }
-                                                // Sends a pasted image alongside the field's
-                                                // own (text) paste handling.
-                                                if (event.logicalKey ==
-                                                        LogicalKeyboardKey
-                                                            .keyV &&
-                                                    (HardwareKeyboard
-                                                            .instance
-                                                            .isMetaPressed ||
-                                                        HardwareKeyboard
-                                                            .instance
-                                                            .isControlPressed)) {
-                                                  _tryPasteImage();
-                                                }
                                                 return KeyEventResult.ignored;
                                               },
-                                              child: TextField(
-                                                controller: _sendController,
-                                                focusNode: _inputFocusNode,
-                                                enabled:
-                                                    !encryptedWithoutSupport,
-                                                decoration: InputDecoration(
-                                                  hintText:
-                                                      context.l10n.message,
-                                                  border: InputBorder.none,
-                                                  contentPadding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 12,
-                                                      ),
+                                              child: Actions(
+                                                actions: {
+                                                  PasteTextIntent:
+                                                      _composerPasteAction,
+                                                },
+                                                child: TextField(
+                                                  controller: _sendController,
+                                                  focusNode: _inputFocusNode,
+                                                  enabled:
+                                                      !encryptedWithoutSupport,
+                                                  decoration: InputDecoration(
+                                                    hintText:
+                                                        context.l10n.message,
+                                                    border: InputBorder.none,
+                                                    contentPadding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 12,
+                                                        ),
+                                                  ),
+                                                  keyboardType:
+                                                      TextInputType.multiline,
+                                                  textInputAction:
+                                                      TextInputAction.newline,
+                                                  onChanged: _onInputChanged,
+                                                  minLines: 1,
+                                                  maxLines: 8,
                                                 ),
-                                                keyboardType:
-                                                    TextInputType.multiline,
-                                                textInputAction:
-                                                    TextInputAction.newline,
-                                                onChanged: _onInputChanged,
-                                                minLines: 1,
-                                                maxLines: 8,
                                               ),
                                             ),
                                           ),
@@ -4583,6 +4608,25 @@ class _MessageBubbleState extends State<_MessageBubble> {
       mainAxisSize: MainAxisSize.min,
       children: [const _UnreadMarker(), messageRow],
     );
+  }
+}
+
+/// Overrides the composer's paste shortcut (Ctrl/Cmd+V) so the clipboard
+/// can be checked for files and images before the field's own text paste.
+class _ComposerPasteAction extends Action<PasteTextIntent> {
+  _ComposerPasteAction(this.onPaste);
+
+  /// Handles the paste; calls the passed callback to run the field's own
+  /// text paste.
+  final Future<void> Function(VoidCallback pasteText) onPaste;
+
+  @override
+  Object? invoke(PasteTextIntent intent) {
+    // The field's own paste action. Only set while this call runs, so it is
+    // captured before [onPaste] goes async.
+    final textPaste = callingAction;
+    onPaste(() => textPaste?.invoke(intent));
+    return null;
   }
 }
 
