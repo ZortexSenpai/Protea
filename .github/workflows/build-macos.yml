@@ -1,0 +1,52 @@
+name: Build macOS
+
+on:
+  # push:
+  #   branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.9
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # flutter_vodozemac's pub.dev archive has its framework symlinks
+      # flattened, which makes codesign reject the embedded framework.
+      - name: Repair flutter_vodozemac framework
+        run: ./tool/fix-vodozemac-framework.sh
+
+      # The runner has no signing certificate; force ad-hoc signing so
+      # locally-committed signing settings (identity/team) can't break CI.
+      - name: Force ad-hoc code signing
+        run: |
+          sed -i '' \
+            -e 's/CODE_SIGN_IDENTITY = "[^"]*";/CODE_SIGN_IDENTITY = "-";/g' \
+            -e 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' \
+            -e 's/DEVELOPMENT_TEAM = [^;]*;/DEVELOPMENT_TEAM = "";/g' \
+            macos/Runner.xcodeproj/project.pbxproj
+
+      - name: Build macOS app
+        run: flutter build macos --release
+
+      # Zip with ditto so symlinks and executable bits inside the .app
+      # bundle survive; upload-artifact's own zipping would break them.
+      - name: Zip app bundle
+        run: ditto -c -k --sequesterRsrc --keepParent build/macos/Build/Products/Release/protea.app protea-macos.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: protea-macos
+          path: protea-macos.zip

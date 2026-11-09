@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>energy.vgt.protea</id>
+  <name>Protea</name>
+  <summary>Matrix chat client</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <description>
+    <p>
+      Protea is a cross-platform Matrix chat client built with Flutter.
+      It supports end-to-end encryption, voice messages, file sharing,
+      themes and custom statuses.
+    </p>
+  </description>
+  <launchable type="desktop-id">energy.vgt.protea.desktop</launchable>
+  <url type="homepage">https://github.com/ZortexSenpai/Protea</url>
+  <developer id="energy.vgt">
+    <name>VGT</name>
+  </developer>
+  <categories>
+    <category>Network</category>
+    <category>InstantMessaging</category>
+  </categories>
+  <content_rating type="oars-1.1">
+    <content_attribute id="social-chat">intense</content_attribute>
+    <content_attribute id="social-audio">intense</content_attribute>
+  </content_rating>
+  <releases>
+    <release version="1.0.0" date="2026-07-20"/>
+  </releases>
+</component>

@@ -1,0 +1,108 @@
+# Flatpak manifest for Protea.
+#
+# The Flutter bundle is built OUTSIDE the sandbox (flatpak-builder has no
+# network access for pub/cargo), then copied in. Build with:
+#
+#   tool/build-flatpak.sh
+#
+# which stages the release bundle into build/flatpak/bundle (the `dir`
+# source below) before invoking flatpak-builder.
+app-id: energy.vgt.protea
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: protea
+separate-locales: false
+
+# Full-codec ffmpeg at runtime for inline video playback (the bundled
+# libmpv is built against the SDK's restricted ffmpeg, the extension
+# swaps in the full one).
+add-extensions:
+  org.freedesktop.Platform.ffmpeg-full:
+    version: '24.08'
+    directory: lib/ffmpeg
+    add-ld-path: .
+
+cleanup-commands:
+  - mkdir -p /app/lib/ffmpeg
+
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio # voice message recording and playback
+  - --device=dri
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.kde.StatusNotifierWatcher # system tray icon
+  - --filesystem=xdg-download # saving attachments
+
+modules:
+  # libayatana-appindicator3 for the tray icon (tray_manager links against
+  # it, and the freedesktop runtime doesn't ship it). Vendored from
+  # flathub/shared-modules@cb9ec60 together with its dbusmenu/ido/indicator
+  # dependencies and patches.
+  - shared-modules/libayatana-appindicator/libayatana-appindicator-gtk3.json
+
+  # libmpv for inline video playback (media_kit dlopens libmpv.so.2).
+  # Built as a library only, against the SDK's ffmpeg; libass and
+  # libplacebo are not in the freedesktop runtime, so they are built too.
+  - name: libass
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+    sources:
+      - type: archive
+        url: https://github.com/libass/libass/releases/download/0.17.3/libass-0.17.3.tar.xz
+        sha256: eae425da50f0015c21f7b3a9c7262a910f0218af469e22e2931462fed3c50959
+
+  - name: libplacebo
+    buildsystem: meson
+    config-opts:
+      - -Ddemos=false
+      - -Dtests=false
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+    sources:
+      - type: git
+        url: https://code.videolan.org/videolan/libplacebo.git
+        tag: v7.351.0
+
+  - name: libmpv
+    buildsystem: meson
+    config-opts:
+      - -Dlibmpv=true
+      - -Dcplayer=false
+      - -Dbuild-date=false
+      - -Dmanpage-build=disabled
+      - -Dlua=disabled
+      - -Djavascript=disabled
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+    sources:
+      - type: archive
+        url: https://github.com/mpv-player/mpv/archive/refs/tags/v0.40.0.tar.gz
+        sha256: 10a0f4654f62140a6dd4d380dcf0bbdbdcf6e697556863dc499c296182f081a3
+
+  - name: protea
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/protea /app/bin
+      - cp -a bundle/. /app/protea/
+      - chmod +x /app/protea/protea
+      - ln -s /app/protea/protea /app/bin/protea
+      - install -Dm644 energy.vgt.protea.desktop -t /app/share/applications
+      - install -Dm644 energy.vgt.protea.png -t /app/share/icons/hicolor/512x512/apps
+      - install -Dm644 energy.vgt.protea.metainfo.xml -t /app/share/metainfo
+    sources:
+      - type: dir
+        path: ../build/flatpak/bundle
+        dest: bundle
+      - type: file
+        path: energy.vgt.protea.desktop
+      - type: file
+        path: energy.vgt.protea.png
+      - type: file
+        path: energy.vgt.protea.metainfo.xml

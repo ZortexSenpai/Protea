@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Protea
+Comment=A cross-platform Matrix chat client built with Flutter
+Exec=protea
+Icon=energy.vgt.protea
+Terminal=false
+Categories=Network;InstantMessaging;Chat;
+Keywords=matrix;chat;messenger;
+StartupWMClass=protea

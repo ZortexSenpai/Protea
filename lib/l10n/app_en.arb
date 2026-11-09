@@ -1,0 +1,825 @@
+{
+  "accentColor": "Accent color",
+  "accentColorDescription": "Wear a color of your own over this theme, or keep the one it ships with.",
+  "appBackground": "App background",
+  "appBackgroundDescription": "A colour behind the whole app — the page under the panels, and the glow in the corners of the Liquid layout.",
+  "backgroundGlow": "Glowing corners",
+  "backgroundGlowDescription": "Colours the top-left and bottom-right of the Liquid layout’s background. Off makes it one flat colour.",
+  "blur": "Blur",
+  "chatWallpaper": "Chat wallpaper",
+  "chatWallpaperDescription": "An image behind the messages. Fades and blurs to taste so text stays readable.",
+  "chooseImage": "Choose image",
+  "clearSearch": "Clear search",
+  "closeToTrayDescription": "Closing the window keeps Protea running in the system tray.",
+  "closeToTrayTitle": "Close to tray",
+  "@@locale": "en",
+  "accept": "Accept",
+  "access": "Access",
+  "accessToken": "Access token",
+  "accessTokenWarning": "Never share your access token. It grants full control over your account.",
+  "account": "Account",
+  "accounts": "Accounts",
+  "activitiesAndObjects": "Activities & objects",
+  "addACaption": "Add a caption…",
+  "addAccount": "Add account",
+  "addOption": "Add option",
+  "addReaction": "Add reaction",
+  "addSticker": "Add sticker",
+  "addToFavorites": "Add to favorites",
+  "admin": "Admin",
+  "all": "All",
+  "animalsAndNature": "Animals & nature",
+  "anyone": "Anyone",
+  "appLayout": "App layout",
+  "appLayoutDescription": "Workspace shows a spaces rail with a channel list per space, Split pairs the room list with the chat, List opens chats as their own page.",
+  "appTitle": "Protea",
+  "appearance": "Appearance",
+  "areTyping": "{name1} and {name2} are typing…",
+  "@areTyping": {
+    "placeholders": {
+      "name1": {
+        "type": "String"
+      },
+      "name2": {
+        "type": "String"
+      }
+    }
+  },
+  "arrowUpToEditDescription": "Pressing arrow up in the empty message box starts editing your last message.",
+  "arrowUpToEditTitle": "Edit last message with arrow up",
+  "attachFile": "Attach file",
+  "attachments": "Attachments",
+  "autoAway": "Auto-away",
+  "autoAwayDescription": "Set the status to away after 10 minutes without keyboard or mouse input.",
+  "away": "Away",
+  "ban": "Ban",
+  "banUserTitle": "Ban {name}?",
+  "@banUserTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "bannedUsers": "Banned users",
+  "block": "Block",
+  "bubbles": "Bubbles",
+  "cancel": "Cancel",
+  "categoryName": "Category name",
+  "changeBanner": "Change banner",
+  "changeImage": "Change image",
+  "changeProfilePicture": "Change profile picture",
+  "changeSettings": "Change settings",
+  "changeSpaceImage": "Change space image",
+  "channelSettings": "Channel settings",
+  "channels": "Channels",
+  "chatBackup": "Chat backup",
+  "chatBackupEnabled": "Chat backup enabled",
+  "chatBackupEnabledDescription": "Cross-signing and key backup are active on this device.",
+  "chatBackupLocked": "Chat backup is locked",
+  "chatBackupLockedDescription": "Unlock it with your recovery key to read old encrypted messages on this device.",
+  "chatBackupNotSetUp": "Chat backup is not set up",
+  "chatBackupNotSetUpDescription": "Set up cross-signing and key backup so encrypted messages survive on new devices.",
+  "chatBackupSetUp": "Chat backup is set up!",
+  "checking": "Checking…",
+  "clickToSave": "Click to save",
+  "close": "Close",
+  "closeThread": "Close thread",
+  "cmdBan": "Ban a user from this room",
+  "cmdDiscardSession": "Discard the outbound encryption session",
+  "cmdDm": "Open a direct chat",
+  "cmdHelp": "List available commands",
+  "cmdHtml": "Send raw HTML",
+  "cmdIgnore": "Ignore a user",
+  "cmdInvite": "Invite a user to this room",
+  "cmdJoin": "Join a room",
+  "cmdKick": "Kick a user from this room",
+  "cmdLeave": "Leave this room",
+  "cmdLenny": "Append ( ͡° ͜ʖ ͡°)",
+  "cmdMe": "Send an emote",
+  "cmdMyRoomNick": "Change your name in this room only",
+  "cmdNick": "Change your display name",
+  "cmdOp": "Set a user's power level",
+  "cmdPlain": "Send without markdown formatting",
+  "cmdReact": "React to the message you reply to",
+  "cmdRoomUpgrade": "Upgrade this room",
+  "cmdShrug": "Append ¯\\_(ツ)_/¯",
+  "cmdSpoiler": "Hide the message behind a spoiler",
+  "cmdTableflip": "Append (╯°□°)╯︵ ┻━┻",
+  "cmdTopic": "Set the room topic",
+  "cmdUnban": "Unban a user",
+  "cmdUnflip": "Append ┬─┬ ノ( ゜-゜ノ)",
+  "cmdUnignore": "Stop ignoring a user",
+  "color": "Color",
+  "colorAccent": "Accent",
+  "colorBackground": "Background",
+  "colorMutedText": "Muted text",
+  "colorOutline": "Outline",
+  "colorPanels": "Panels",
+  "colorText": "Text",
+  "commands": "Commands",
+  "compact": "Compact",
+  "compareAndConfirmMatch": "Compare with the other device. Confirm only if they match exactly, in the same order.",
+  "compareEmojis": "Compare emojis",
+  "compareEmojisToVerify": "Compare a short list of emojis with the other device to verify it.",
+  "copiedToClipboard": "Copied to clipboard",
+  "copy": "Copy",
+  "copyRoomId": "Copy room ID",
+  "copyText": "Copy text",
+  "copyImage": "Copy image",
+  "findOrStartConversation": "Find or start a conversation",
+  "imageCopied": "Image copied",
+  "noSearchResults": "No results.",
+  "quickSwitcherHint": "Where would you like to go?",
+  "quickSwitcherTip": "Tip: start with @ to search people or # to search rooms. ↑↓ to navigate, Enter to open.",
+  "retrySend": "Retry",
+  "messageNotSent": "Not sent",
+  "spreadsheetEmpty": "This sheet is empty.",
+  "spreadsheetTruncated": "Large sheet: only the first {rows} rows and {columns} columns are shown.",
+  "@spreadsheetTruncated": {
+    "placeholders": {
+      "rows": {
+        "type": "int"
+      },
+      "columns": {
+        "type": "int"
+      }
+    }
+  },
+  "spreadsheetUnreadable": "This spreadsheet could not be read.",
+  "uploadFailed": "Upload failed: {filename}",
+  "@uploadFailed": {"placeholders": {"filename": {"type": "String"}}},
+  "fileNoLongerCached": "The file is no longer available to resend. Delete the message and send it again.",
+  "downloadImage": "Download",
+  "copyThemeCode": "Copy theme code",
+  "couldNotUnlock": "Could not unlock. Please check the recovery key.",
+  "couldNotUnlockBackup": "Could not unlock the backup. Please check the recovery key.",
+  "cozy": "Default",
+  "create": "Create",
+  "createPoll": "Create poll",
+  "crossSignedPendingVerification": "cross-signed · trusted once this session is verified",
+  "currentRoomVersion": "Currently room version {version}",
+  "@currentRoomVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "customThemeColors": "Custom colors",
+  "customThemeColorsDescription": "Six colors make the whole theme: the surface shades in between are worked out from the background and the panel color.",
+  "dark": "Dark",
+  "decline": "Decline",
+  "delete": "Delete",
+  "deleteMessageTitle": "Delete message?",
+  "deleteMessageWarning": "The message will be removed for everyone.",
+  "desktopNotificationsDescription": "Show system notifications for new messages while the window is in the background.",
+  "desktopNotificationsTitle": "Desktop notifications",
+  "direct": "Direct",
+  "directMessages": "Direct messages",
+  "discardRecording": "Discard recording",
+  "displayName": "Display name",
+  "done": "Done",
+  "doubleSlashHint": "Start a message with // to send text beginning with a slash.",
+  "dropFilesToUpload": "Drop files to upload",
+  "edit": "Edit",
+  "editDisplayName": "Edit display name",
+  "editTopic": "Edit topic",
+  "edited": "(edited)",
+  "editingMessage": "Editing message",
+  "emoji": "Emoji",
+  "enableEncryptionTitle": "Enable end-to-end encryption",
+  "enableEncryptionWarning": "Encryption cannot be turned off later. Messages will only be readable on verified devices.",
+  "emotes": "Emotes",
+  "encryptedNotSearchable": "Encrypted rooms are not included — the server cannot search encrypted messages.",
+  "encryptNewDmsDescription": "Enable end-to-end encryption when starting a new direct chat.",
+  "encryptNewDmsTitle": "Encrypt new direct chats",
+  "encryptionNotAvailable": "End-to-end encryption is not available",
+  "encryptionNotAvailableDescription": "The crypto library could not be initialized on this platform.",
+  "endPoll": "End poll",
+  "endToEndEncrypted": "End-to-end encrypted",
+  "endToEndEncryptionNotAvailable": "End-to-end encryption is not available.",
+  "enterRecoveryKeyToUnlockBackup": "Enter your recovery key to unlock the chat backup and verify this session. You got the recovery key when the backup was set up (it looks like: EsT* ****…).",
+  "enterRecoveryKeyToVerify": "Enter your recovery key to verify with your secure backup, or skip to compare emojis with the other device instead.",
+  "expert": "Expert",
+  "explorePublicRooms": "Explore public rooms",
+  "exploreRooms": "Explore rooms",
+  "fadeAmount": "Fade",
+  "favorites": "Favorites",
+  "filterRoomsHint": "Filter rooms…",
+  "finalResults": "{count, plural, one{Final results · {count} vote} other{Final results · {count} votes}}",
+  "@finalResults": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "floating": "Floating",
+  "focus": "Focus",
+  "fontSize": "Font size",
+  "foodAndDrink": "Food & drink",
+  "formatBold": "Bold",
+  "formatCodeBlock": "Code block",
+  "formatInlineCode": "Inline code",
+  "formatItalic": "Italic",
+  "formatLink": "Link",
+  "formatSpoiler": "Spoiler",
+  "formatStrikethrough": "Strikethrough",
+  "formatting": "Text formatting",
+  "forward": "Forward",
+  "forwardTo": "Forward to…",
+  "forwardedTo": "Forwarded to {name}",
+  "@forwardedTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "gestures": "Gestures",
+  "gif": "GIF",
+  "gifSearchKlipy": "GIF search (Klipy)",
+  "gifSearchNeedsKlipyKey": "GIF search needs a free Klipy API key.\nGet one at klipy.com and add it in the settings.",
+  "gifs": "GIFs",
+  "gifProxyTitle": "Send GIFs through a proxy",
+  "gifProxyDescription": "Sends a link to the GIF instead of uploading a copy to your homeserver. Faster, and the file stays off your server — the proxy and everyone’s homeserver see the request.",
+  "gifProxyServer": "GIF proxy server",
+  "goToPage": "Go to page",
+  "group": "Group",
+  "groupName": "Group name",
+  "guestAccess": "Guest access",
+  "heartsAndSymbols": "Hearts & symbols",
+  "hexColor": "Hex",
+  "hide": "Hide",
+  "home": "Home",
+  "homeserver": "Homeserver",
+  "hue": "Hue",
+  "huge": "Huge",
+  "iSavedMyRecoveryKey": "I saved my recovery key",
+  "images": "Images",
+  "integrations": "Integrations",
+  "invisible": "Invisible",
+  "invitation": "Invitation",
+  "invitationTapToRespond": "Invitation — tap to respond",
+  "invite": "Invite",
+  "inviteToRoom": "Invite to room",
+  "inviteToSpace": "Invite to space",
+  "inviteUser": "Invite {userId}",
+  "@inviteUser": {
+    "placeholders": {
+      "userId": {
+        "type": "String"
+      }
+    }
+  },
+  "invitedBy": "Invited by {name}",
+  "@invitedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "invitedUser": "Invited {userId}",
+  "@invitedUser": {
+    "placeholders": {
+      "userId": {
+        "type": "String"
+      }
+    }
+  },
+  "isTyping": "{name} is typing…",
+  "@isTyping": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "join": "Join",
+  "joined": "Joined",
+  "jumpToLatestMessages": "Jump to latest messages",
+  "jumpToRoomHint": "Jump to room…",
+  "kick": "Kick",
+  "kickUserTitle": "Kick {name}?",
+  "@kickUserTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "klipyApiKey": "Klipy API key",
+  "klipyApiKeyDescription": "The GIF picker uses the Klipy API. Get a free API key at klipy.com and paste it here.",
+  "knock": "Knock",
+  "knockPending": "Knock pending",
+  "knockPendingWaiting": "Knock pending — waiting for a room moderator to let you in.",
+  "knocked": "Knocked",
+  "knockedWaitingForApproval": "Knocked — waiting for approval.",
+  "language": "Language",
+  "large": "Large",
+  "lastSeenDaysAgo": "{count, plural, one{Last seen {count} day ago} other{Last seen {count} days ago}}",
+  "@lastSeenDaysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "lastSeenHoursAgo": "{count, plural, one{Last seen {count} hour ago} other{Last seen {count} hours ago}}",
+  "@lastSeenHoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "lastSeenJustNow": "Last seen just now",
+  "lastSeenMinutesAgo": "{count, plural, one{Last seen {count} minute ago} other{Last seen {count} minutes ago}}",
+  "@lastSeenMinutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "layout": "Layout",
+  "leave": "Leave",
+  "leaveRoom": "Leave room?",
+  "leaveRoomAction": "Leave room",
+  "leaveRoomTitle": "Leave room?",
+  "leaveSpace": "Leave space",
+  "leaveSpaceTitle": "Leave space?",
+  "left": "Left",
+  "light": "Light",
+  "lightness": "Lightness",
+  "liquid": "Liquid",
+  "loading": "Loading…",
+  "loadingDevices": "Loading devices…",
+  "location": "Location",
+  "locationInputHelp": "Paste \"lat, lon\", a geo: URI or an OpenStreetMap / Google Maps link.",
+  "locationInputHint": "Coordinates or map link",
+  "makeAdmin": "Make admin",
+  "makeAdminWarning": "Admins have the same power as you — you may not be able to demote them afterwards.",
+  "makeModerator": "Make moderator",
+  "makeUserAdminTitle": "Make {name} an admin?",
+  "@makeUserAdminTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "managePacks": "Manage packs",
+  "manyTyping": "{count} people are typing…",
+  "@manyTyping": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "markUnread": "Mark as unread",
+  "member": "Member",
+  "members": "Members",
+  "membersCount": "{count, plural, =1{1 member} other{{count} members}}",
+  "@membersCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "membersWithCount": "Members — {count}",
+  "@membersWithCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "mentions": "Mentions",
+  "message": "Message",
+  "messageHistory": "Message history",
+  "messageLayout": "Message layout",
+  "messageLayoutDescription": "How messages are displayed in chats.",
+  "microphonePermissionDenied": "Microphone permission denied.",
+  "moderator": "Moderator",
+  "more": "More",
+  "moreAttachments": "More attachments",
+  "moreResults": "More results",
+  "muted": "Muted",
+  "myStickers": "My stickers",
+  "name": "Name",
+  "newCategory": "New category",
+  "newChat": "New chat",
+  "newGroup": "New group",
+  "newMessages": "New messages",
+  "newRoomVersion": "New room version",
+  "newSpace": "New space",
+  "nextPage": "Next page",
+  "noDevicesWithEncryptionKeys": "No devices with encryption keys found",
+  "noFavoriteGifsHint": "No favorite GIFs yet. Hover a GIF and press the star to keep it here.",
+  "noGifsFound": "No GIFs found.",
+  "noMatchingMembers": "No matching members.",
+  "noMatchingRooms": "No matching rooms.",
+  "noMessagesFound": "No messages found.",
+  "noMessagesYet": "No messages yet. Say hello!",
+  "noMessagesYetShort": "No messages yet",
+  "noPinnedMessages": "No pinned messages in this room.",
+  "noPublicRoomsFound": "No public rooms found.",
+  "noRepliesYet": "No replies yet.",
+  "noRoomsHereYet": "No rooms here yet.",
+  "noRoomsYet": "No rooms yet.\nJoin a room from another client to get started.",
+  "noStickerPacksHint": "No sticker packs yet.\nUse \"Manage packs\" to add your own stickers, or join rooms that share sticker packs.",
+  "noTopicSet": "No topic set",
+  "normal": "Normal",
+  "notEncrypted": "Not encrypted",
+  "notJoined": "Not joined",
+  "notificationSounds": "Notification sounds",
+  "notificationSoundsDescription": "Play the system sound with desktop notifications.",
+  "notifications": "Notifications",
+  "offline": "Offline",
+  "ofPages": "of {total}",
+  "@ofPages": {
+    "placeholders": {
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "ok": "OK",
+  "online": "Online",
+  "opacity": "Opacity",
+  "openMap": "Open map",
+  "openPreview": "Open preview",
+  "openSettings": "Open settings",
+  "optionNumber": "Option {number}",
+  "@optionNumber": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "or": "or",
+  "otherDeviceShowsShield": "Is the other device showing a green shield?",
+  "owner": "Owner",
+  "packEmpty": "This pack is empty.",
+  "password": "Password",
+  "pasteThemeCode": "Paste a theme code",
+  "pauseGifsDescription": "Stop GIF animations while the window is in the background.",
+  "pauseGifsTitle": "Pause GIFs while in background",
+  "permissions": "Permissions",
+  "pin": "Pin",
+  "pinned": "Pinned",
+  "pinnedMessages": "Pinned messages",
+  "playVideo": "Play video",
+  "pleaseFillInAllFields": "Please fill in all fields.",
+  "poll": "Poll",
+  "pollNeedsQuestionAndOptions": "A poll needs a question and at least two options.",
+  "presenceWithStatus": "{presence} — {status}",
+  "@presenceWithStatus": {
+    "placeholders": {
+      "presence": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "previousPage": "Previous page",
+  "privacy": "Privacy",
+  "public": "Public",
+  "publicSpace": "Public space",
+  "publishToDirectory": "Publish in room directory",
+  "question": "Question",
+  "quit": "Quit",
+  "reactWith": "React with {emoji}",
+  "@reactWith": {
+    "placeholders": {
+      "emoji": {
+        "type": "String"
+      }
+    }
+  },
+  "readBy": "Read by {names}",
+  "@readBy": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "recoveryKey": "Recovery key",
+  "refresh": "Refresh",
+  "reject": "Reject",
+  "removeBanner": "Remove banner",
+  "removeFromFavorites": "Remove from favorites",
+  "removeImage": "Remove",
+  "removeMessages": "Remove messages",
+  "removeOption": "Remove option",
+  "rename": "Rename",
+  "repliesCount": "{count, plural, =1{1 reply} other{{count} replies}}",
+  "@repliesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reply": "Reply",
+  "replyInThread": "Reply in thread",
+  "requests": "Requests",
+  "reset": "Reset",
+  "resetBackup": "Reset backup",
+  "resetChatBackup": "Reset chat backup?",
+  "resetChatBackupWarning": "This discards the existing cross-signing keys and key backup and creates new ones. Devices verified before will need to be verified again, and history encrypted with lost keys stays unreadable.",
+  "resetToMember": "Reset to member",
+  "resetToTheme": "Start over from the Material theme",
+  "resetZoom": "Reset zoom",
+  "right": "Right",
+  "roomAddress": "Room address",
+  "roomEncryptedNoE2eeSupport": "This room is end-to-end encrypted. This build of Protea was compiled without E2EE support, so messages cannot be read or sent here.",
+  "roomIdOrAliasLabel": "Room ID or alias (#room:server)",
+  "roomUpgradedNotice": "Room upgraded — the replacement appears shortly.",
+  "rooms": "Rooms",
+  "saturation": "Saturation",
+  "save": "Save",
+  "saveFile": "Save file",
+  "saveRecoveryKeySomewhereSafe": "Save this recovery key somewhere safe (e.g. a password manager). You will need it to read your encrypted message history on new devices:",
+  "saveWithSize": "{size} · save",
+  "@saveWithSize": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "savedFile": "Saved {name}",
+  "@savedFile": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "scanQrToVerify": "Scan this QR code with the other device, or compare emojis instead.",
+  "searchAllRooms": "Search all rooms",
+  "searchAllRoomsPrompt": "Search your message history in all rooms.",
+  "searchFurtherBack": "Search further back",
+  "searchGifs": "Search GIFs…",
+  "searchEmoji": "Search emoji…",
+  "defaultRole": "Default role",
+  "notifyEveryone": "Notify everyone (@room)",
+  "changePermissions": "Change permissions",
+  "changeHistoryVisibility": "Change history visibility",
+  "roles": "Roles",
+  "assignRole": "Assign role",
+  "noEmojiFound": "No emoji found",
+  "overview": "Overview",
+  "changeAccess": "Change access settings",
+  "searchResultCount": "{count, plural, one{{count} result} other{{count} results}}",
+  "@searchResultCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "serverAcl": "Change server ACLs",
+  "manageSpaceRooms": "Manage rooms in this space",
+  "deleteOwnMessages": "Delete own messages",
+  "shareLocation": "Share location",
+  "shareTheme": "Share theme",
+  "showApp": "Show Protea",
+  "startCalls": "Start calls",
+  "messageDeletedFrom": "Message from {name} deleted",
+  "@messageDeletedFrom": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "searchMembersHint": "Search members…",
+  "searchMessages": "Search messages",
+  "searchMessagesHint": "Search messages…",
+  "searchRoomHistoryPrompt": "Search the history of this room.",
+  "searchRoomsHint": "Search rooms…",
+  "searchUserHint": "Search by name, or enter @user:server",
+  "searchedBackTo": "Searched back to {date}",
+  "@searchedBackTo": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "searchedBackToBeginning": "Searched back to {date} (beginning)",
+  "@searchedBackToBeginning": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "security": "Security",
+  "selectChannelToStartChatting": "Select a channel to start chatting.",
+  "selectChatToStartMessaging": "Select a chat to start messaging.",
+  "send": "Send",
+  "sendFilesTitle": "{count, plural, =1{Send file?} other{Send {count} files?}}",
+  "@sendFilesTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sendMessages": "Send messages",
+  "sendReadReceiptsDescription": "Let others see which messages you have read.",
+  "sendReadReceiptsTitle": "Send read receipts",
+  "sendTypingNotificationsDescription": "Let others see when you are typing.",
+  "sendTypingNotificationsTitle": "Send typing indicators",
+  "sendVoiceMessage": "Send voice message",
+  "sending": "Sending…",
+  "server": "Server",
+  "sessionNotVerified": "This session is not verified",
+  "sessionNotVerifiedDescription": "Your other devices are cross-signed, but this session does not trust your identity key yet, so they all show as unverified. Verify this session from one of your other devices to fix that.",
+  "setStatus": "Set status",
+  "setUp": "Set up",
+  "settingUp": "Setting up…",
+  "settingUpBackupFailed": "Setting up the backup failed.",
+  "settings": "Settings",
+  "show": "Show",
+  "showDeletedMessagesDescription": "Keep a placeholder where a message was deleted.",
+  "showDeletedMessagesTitle": "Deleted messages",
+  "showMembershipEventsDescription": "Show when members join, leave, or are invited.",
+  "showMembershipEventsTitle": "Joins and leaves",
+  "showProfileChangeEventsDescription": "Show display name and profile picture changes.",
+  "showProfileChangeEventsTitle": "Profile changes",
+  "showReadReceiptsDescription": "Show who has read a message beneath it.",
+  "showReadReceiptsTitle": "Show read receipts",
+  "showUrlPreviewsDescription": "Show a preview card under messages that contain links.",
+  "showUrlPreviewsTitle": "Show link previews",
+  "signIn": "Sign in",
+  "signInToYourMatrixAccount": "Sign in to your Matrix account",
+  "signInWithProvider": "Sign in with {provider}",
+  "@signInWithProvider": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "signInWithSso": "Sign in with SSO",
+  "signOut": "Sign out",
+  "signOutConfirmation": "Do you want to sign out of your account?",
+  "sinceInvited": "Since invited",
+  "sinceJoined": "Since joined",
+  "skip": "Skip",
+  "small": "Small",
+  "smileys": "Smileys",
+  "smoothScrollingDescription": "Glide smoothly when scrolling with the mouse wheel instead of jumping in steps.",
+  "smoothScrollingTitle": "Smooth scrolling",
+  "space": "Space",
+  "spaceHasNoRooms": "This space has no rooms.",
+  "spaceLobby": "Space lobby",
+  "spaceMembers": "Space members",
+  "spaceName": "Space name",
+  "spaceSettings": "Space settings",
+  "spacesListPosition": "Spaces list position",
+  "ssoLoginTimedOut": "SSO login timed out. Please try again.",
+  "startChat": "Start chat",
+  "status": "Status",
+  "statusMessage": "Status message",
+  "statusUpdated": "Status updated",
+  "sticker": "Sticker",
+  "stickers": "Stickers",
+  "switchAccount": "Switch account",
+  "syncing": "Syncing…",
+  "systemDefault": "System",
+  "systemMessages": "System messages",
+  "systemMessagesDescription": "Choose which room events appear in the timeline.",
+  "text": "Text",
+  "theme": "Theme",
+  "themeCode": "Theme code",
+  "themeCodeApplied": "Theme applied.",
+  "themeCodeCopied": "Theme code copied.",
+  "themeCodeInvalid": "That is not a Protea theme code.",
+  "themeDefault": "Theme default",
+  "theyDontMatch": "They don't match",
+  "theyMatch": "They match",
+  "thisDevice": "this device",
+  "thread": "Thread",
+  "today": "Today",
+  "topic": "Topic",
+  "trending": "Trending",
+  "typeTwoCharactersToSearch": "Type at least two characters to search the user directory.",
+  "unban": "Unban",
+  "unblock": "Unblock",
+  "unknownChannel": "Unknown channel",
+  "unknownCommand": "Unknown command /{command} — start with // to send it as text.",
+  "@unknownCommand": {
+    "placeholders": {
+      "command": {
+        "type": "String"
+      }
+    }
+  },
+  "unknownUser": "Unknown user",
+  "unlock": "Unlock",
+  "unpin": "Unpin",
+  "unverified": "unverified",
+  "upgrade": "Upgrade",
+  "upgradeRoom": "Upgrade room",
+  "upgradeRoomExplanation": "This creates a new room on version {newVersion} and closes this one (version {currentVersion}) with a pointer to the replacement. Members need to rejoin the new room.",
+  "@upgradeRoomExplanation": {
+    "placeholders": {
+      "newVersion": {
+        "type": "String"
+      },
+      "currentVersion": {
+        "type": "String"
+      }
+    }
+  },
+  "upgradeRoomTitle": "Upgrade room?",
+  "userIdLabel": "User ID (@user:server)",
+  "username": "Username",
+  "verificationFailed": "Verification failed or was cancelled.\n{reason}",
+  "@verificationFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "verificationSuccessful": "Verification successful! The device is now trusted.",
+  "verified": "verified",
+  "verify": "Verify",
+  "verifyDevice": "Verify device",
+  "verifySession": "Verify session",
+  "versionDefault": "{version} (default)",
+  "@versionDefault": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "voiceMessage": "Voice message",
+  "voteCount": "{count, plural, one{{count} vote} other{{count} votes}}",
+  "@voteCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "waitingForOtherDeviceToAccept": "Waiting for the other device to accept…\n\nMake sure the other device is online and the request was accepted there.",
+  "waitingForOtherDeviceToConfirm": "Waiting for the other device to confirm…",
+  "wantsToVerifyDevice": "{user} wants to verify a device.",
+  "@wantsToVerifyDevice": {
+    "placeholders": {
+      "user": {
+        "type": "String"
+      }
+    }
+  },
+  "wantsToVerifyDeviceWithId": "{user} wants to verify a device ({deviceId}).",
+  "@wantsToVerifyDeviceWithId": {
+    "placeholders": {
+      "user": {
+        "type": "String"
+      },
+      "deviceId": {
+        "type": "String"
+      }
+    }
+  },
+  "whatsHappening": "What's happening?",
+  "whoCanJoin": "Who can join",
+  "withdrawKnock": "Withdraw knock",
+  "workspace": "Default",
+  "yesterday": "Yesterday",
+  "yesVerify": "Yes, verify",
+  "youHaveBeenInvited": "You have been invited to this room.",
+  "youWillNoLongerSee": "You will no longer see {roomName}.",
+  "@youWillNoLongerSee": {
+    "placeholders": {
+      "roomName": {
+        "type": "String"
+      }
+    }
+  },
+  "zoomIn": "Zoom in",
+  "zoomOut": "Zoom out",
+  "setNickname": "Set nickname",
+  "nicknameHint": "Only you can see this. Leave empty to remove it.",
+  "roomNameResetHint": "Leave empty to reset to the default name",
+  "reactions": "Reactions",
+  "viewReactions": "View reactions"
+}

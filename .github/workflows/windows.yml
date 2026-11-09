@@ -1,0 +1,64 @@
+name: Windows
+
+on:
+  # push:
+  #   branches: [main, development]
+  #   tags: ['v*']
+  # pull_request:
+  #   branches: [main, development]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # flutter_vodozemac builds its Rust crypto library through cargokit,
+      # which requires rustup (preinstalled on GitHub runners; this keeps
+      # the toolchain current and explicit).
+      - name: Set up Rust
+        run: rustup update stable && rustup default stable
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.9
+          cache: true
+
+      - name: Dependencies
+        run: flutter pub get
+
+      - name: Generate localizations
+        run: flutter gen-l10n
+
+      - name: Build release bundle
+        run: flutter build windows --release
+
+      - name: Package
+        run: Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath protea-windows-x64.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: protea-windows-x64
+          path: protea-windows-x64.zip
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: protea-windows-x64
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: protea-windows-x64.zip
+          generate_release_notes: true
