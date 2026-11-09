@@ -10,7 +10,6 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:matrix/matrix.dart';
 import 'package:pasteboard/pasteboard.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,6 +25,7 @@ import '../nicknames.dart';
 import '../notifications.dart';
 import '../room_navigator.dart';
 import '../settings.dart';
+import '../temp_directory.dart';
 import '../widgets/chat_wallpaper.dart';
 import '../widgets/emoji_picker.dart';
 import '../widgets/event_image.dart';
@@ -867,7 +867,7 @@ class _RoomPageState extends State<RoomPage> {
         await recorder.dispose();
         return;
       }
-      final dir = await getTemporaryDirectory();
+      final dir = await temporaryDirectory();
       final path = '${dir.path}/protea_voice_${widget.room.id.hashCode}.m4a';
       await recorder.start(
         const RecordConfig(encoder: AudioEncoder.aacLc, numChannels: 1),

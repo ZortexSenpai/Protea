@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../l10n.dart';
+import '../temp_directory.dart';
 import 'voice_message.dart' show formatAudioDuration;
 
 /// Inline player for `m.video` events.
@@ -108,7 +108,7 @@ class _EventVideoState extends State<EventVideo> {
       var path = mxc == null ? null : _fileCache[mxc];
       if (path == null || !File(path).existsSync()) {
         final file = await widget.event.downloadAndDecryptAttachment();
-        final dir = await getTemporaryDirectory();
+        final dir = await temporaryDirectory();
         final extension = file.name.contains('.')
             ? file.name.split('.').last
             : 'mp4';
