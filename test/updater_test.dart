@@ -556,4 +556,122 @@ void main() {
       expect((await waitForFile(launched)).trim(), 'old');
     });
   });
+
+  group('Windows update helper', skip: !Platform.isWindows, () {
+    late Directory root;
+    late Directory staging;
+    late Directory appDir;
+    late String log;
+    late String result;
+    late String launched;
+    setUp(() async {
+      root = await Directory.systemTemp.createTemp('protea-helper-test-');
+      staging = Directory(p.join(root.path, 'staging'))..createSync();
+      appDir = Directory(p.join(root.path, 'Programs', 'Protea'))
+        ..createSync(recursive: true);
+      log = p.join(root.path, 'update.log');
+      result = p.join(root.path, 'update-result.json');
+      launched = p.join(root.path, 'launched.txt');
+    });
+    tearDown(() async {
+      // The restarted "app" may still be on its way out.
+      for (var attempt = 0; ; attempt++) {
+        try {
+          return await root.delete(recursive: true);
+        } on FileSystemException {
+          if (attempt == 50) rethrow;
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
+      }
+    });
+
+    /// A stand-in for protea.exe that records which folder it was started in.
+    File app(String path, String name) => File(path)
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync('@echo off\r\n>"$launched" echo $name %CD%\r\n');
+
+    /// An installer that replaces [appDir] with the bundle, the way
+    /// install-windows.ps1 once did — which fails while any process has
+    /// [appDir] as its working directory.
+    File installer(String body) =>
+        File(p.join(staging.path, 'install-windows.ps1'))..writeAsStringSync(
+          'param([string] \$Bundle, [switch] \$AllUsers)\n'
+          '\$ErrorActionPreference = "Stop"\n'
+          "\$InstallDir = '${appDir.path.replaceAll("'", "''")}'\n"
+          '$body\n',
+        );
+
+    /// Starts the helper the way the updater does, as if Protea (an
+    /// already-exited process) had handed over to it with [appDir] as its
+    /// working directory — as it is when started from the Start Menu — and
+    /// waits for the helper to finish.
+    Future<void> runHelper(File installer) async {
+      final script = File(p.join(staging.path, 'apply-update.ps1'))
+        ..writeAsStringSync(windowsUpdateHelper);
+      final protea = await Process.start('cmd.exe', ['/c', 'exit']);
+      await protea.exitCode;
+      final previous = Directory.current;
+      Directory.current = appDir;
+      final Process helper;
+      try {
+        helper = await startWindowsUpdateHelper(
+          script.path,
+          appPid: protea.pid,
+          installer: installer.path,
+          bundle: p.join(staging.path, 'protea'),
+          executable: p.join(appDir.path, 'protea.cmd'),
+          log: log,
+          result: result,
+          staging: staging.path,
+          version: '1.2.0',
+        );
+      } finally {
+        Directory.current = previous;
+      }
+      await helper.exitCode.timeout(const Duration(minutes: 1));
+    }
+
+    Future<String> waitForLaunch() async {
+      for (var i = 0; i < 200 && !File(launched).existsSync(); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+      return File(launched).readAsStringSync().trim();
+    }
+
+    test('replaces the app folder and starts the new version in it', () async {
+      app(p.join(staging.path, 'protea', 'protea.cmd'), 'new');
+      app(p.join(appDir.path, 'protea.cmd'), 'old');
+
+      await runHelper(
+        installer(
+          'Remove-Item -Recurse -Force \$InstallDir\n'
+          'New-Item -ItemType Directory \$InstallDir | Out-Null\n'
+          'Copy-Item (Join-Path \$Bundle "*") \$InstallDir -Recurse',
+        ),
+      );
+
+      expect(
+        File(log).existsSync() ? File(log).readAsStringSync() : '',
+        contains('installer exited with 0'),
+      );
+      expect(jsonDecode(File(result).readAsStringSync()), {
+        'version': '1.2.0',
+        'status': 0,
+      });
+      expect(staging.existsSync(), isFalse, reason: 'staging cleaned up');
+      expect(await waitForLaunch(), 'new ${appDir.path}');
+    });
+
+    test('records a failed install and starts the old version again', () async {
+      app(p.join(appDir.path, 'protea.cmd'), 'old');
+
+      await runHelper(installer('exit 3'));
+
+      expect(jsonDecode(File(result).readAsStringSync()), {
+        'version': '1.2.0',
+        'status': 3,
+      });
+      expect(await waitForLaunch(), 'old ${appDir.path}');
+    });
+  });
 }

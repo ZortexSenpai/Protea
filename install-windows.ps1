@@ -219,7 +219,10 @@ foreach ($c in @((Join-Path $Bundle "$BinName.ico"),
 Assert-NotRunning
 if (Test-Path $InstallDir) {
     Write-Host "Updating $AppName in $InstallDir ..."
-    Remove-Item -Recurse -Force $InstallDir
+    # Empty the folder rather than delete it: Windows refuses to delete a
+    # folder that is some process's current directory (a terminal opened in
+    # it, say), and failing there would leave the old files already gone.
+    Get-ChildItem -LiteralPath $InstallDir -Force | Remove-Item -Recurse -Force
 } else {
     Write-Host "Installing $AppName to $InstallDir ..."
 }
