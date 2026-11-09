@@ -10,6 +10,7 @@ import '../room_actions.dart';
 import '../gif_proxy.dart';
 import '../settings.dart';
 import '../themes.dart';
+import '../updater.dart';
 import '../widgets/bootstrap_dialog.dart';
 import '../widgets/chat_wallpaper.dart';
 import '../widgets/color_picker_dialog.dart';
@@ -17,6 +18,7 @@ import '../widgets/initials_avatar.dart';
 import '../widgets/key_verification_dialog.dart';
 import '../widgets/mxc_avatar.dart';
 import '../widgets/text_prompt_dialog.dart';
+import '../widgets/update_section.dart';
 import '../widgets/user_banner.dart';
 
 /// Opens the settings as a modal dialog.
@@ -38,6 +40,7 @@ enum _SettingsTab {
   security,
   integrations,
   expert,
+  about,
 }
 
 class SettingsDialog extends StatefulWidget {
@@ -73,6 +76,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
     _SettingsTab.security => context.l10n.security,
     _SettingsTab.integrations => context.l10n.integrations,
     _SettingsTab.expert => context.l10n.expert,
+    _SettingsTab.about => context.l10n.about,
   };
 
   IconData _tabIcon(_SettingsTab tab) => switch (tab) {
@@ -83,6 +87,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
     _SettingsTab.security => Icons.lock_outline,
     _SettingsTab.integrations => Icons.extension_outlined,
     _SettingsTab.expert => Icons.code,
+    _SettingsTab.about => Icons.info_outline,
   };
 
   List<Widget> _tabChildren(BuildContext context) => switch (_tab) {
@@ -93,7 +98,21 @@ class _SettingsDialogState extends State<SettingsDialog> {
     _SettingsTab.security => _securityChildren(context),
     _SettingsTab.integrations => _integrationsChildren(context),
     _SettingsTab.expert => _expertChildren(context),
+    _SettingsTab.about => [AboutSection(settings: settings)],
   };
+
+  /// The tab's icon, with a dot on About while an update is waiting.
+  Widget _tabIconWidget(_SettingsTab tab) {
+    final icon = Icon(_tabIcon(tab), size: 20);
+    if (tab != _SettingsTab.about) return icon;
+    return ListenableBuilder(
+      listenable: Updater.instance,
+      builder: (context, _) => Badge(
+        isLabelVisible: Updater.instance.status == UpdateStatus.available,
+        child: icon,
+      ),
+    );
+  }
 
   List<Widget> _accountChildren(BuildContext context) => [
     _ProfileSection(client: client),
@@ -571,7 +590,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                       children: [
                         for (final tab in _SettingsTab.values)
                           ListTile(
-                            leading: Icon(_tabIcon(tab), size: 20),
+                            leading: _tabIconWidget(tab),
                             title: Text(_tabLabel(context, tab)),
                             trailing: const Icon(Icons.chevron_right),
                             onTap: () => setState(() {
@@ -624,7 +643,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          leading: Icon(_tabIcon(tab), size: 20),
+                          leading: _tabIconWidget(tab),
                           title: Text(
                             _tabLabel(context, tab),
                             maxLines: 1,

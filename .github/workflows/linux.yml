@@ -3,7 +3,7 @@ name: Linux
 on:
   # push:
   #   branches: [main, development]
-  #   tags: ['v*']
+  # Releases (pushes to main/development, v* tags) are built by release.yml.
   # pull_request:
   #   branches: [main, development]
   workflow_dispatch:
@@ -61,20 +61,3 @@ jobs:
           name: protea-linux-x64
           path: protea-linux-x64.tar.gz
           if-no-files-found: error
-
-  release:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: protea-linux-x64
-
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: protea-linux-x64.tar.gz
-          generate_release_notes: true

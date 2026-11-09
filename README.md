@@ -184,6 +184,50 @@ build time, so the local settings never break the pipeline). A machine
 without that certificate in its keychain must either create one under that
 name or build with `CODE_SIGN_IDENTITY=-`.
 
+## Versions, releases and updates
+
+**Settings > About** shows the running version, build number and commit
+(copyable for bug reports) and has **Check for updates**. Desktop builds also
+check GitHub once a day in the background (can be switched off) and announce
+a new version with a notice. Turning on **Include beta versions** also offers
+pre-releases.
+
+How an update is installed depends on how Protea was installed:
+
+| Installed with | Update |
+|----------------|--------|
+| `install-linux.sh` (per user) / `install-windows.ps1` | **Install and restart**: downloads the release zip, checks it against GitHub's SHA-256, quits, runs the bundled installer and starts the new version |
+| `sudo install-linux.sh` / `install-windows.ps1 -AllUsers` | the same, with a pkexec / UAC prompt for the installer |
+| Flatpak, macOS, a source build, anything else | **Download** button for the release file, installed by hand |
+
+Chat data is never touched (it's the same installer that's run by hand). The
+outcome is reported on the next start; if the install failed, the old version
+starts again and the log's path is shown.
+
+### Releases
+
+`.github/workflows/release.yml` builds Linux, Windows and macOS packages and
+publishes them as a GitHub release — after `flutter analyze` and the tests
+pass — whenever you push:
+
+| Push | Release | Example |
+|------|---------|---------|
+| to `main` | stable, offered to everyone | `v1.2.1` |
+| to `development` | pre-release, offered only with "Include beta versions" (the 10 newest are kept) | `v1.2.1-dev.57` |
+| a `v*` tag | exactly that version | `v2.0.0`, `v2.0.0-rc.1` |
+
+Versions count up by themselves (`tool/release-version.sh`): main releases
+`pubspec.yaml`'s version if it hasn't been released yet, otherwise the last
+stable release plus one patch; development builds are named after the version
+main would release next, so beta users move back to stable once it's out. To
+start a new minor or major version, bump `version:` in `pubspec.yaml`. The
+workflow run number is the build number; pushes that only touch Markdown or
+`docs/` don't release.
+
+Local builds made with the `tool/` scripts carry their commit and report
+`pubspec.yaml`'s version; set `PROTEA_VERSION` / `PROTEA_BUILD_NUMBER` to stamp
+one explicitly (see `tool/flutter-version-args.sh`).
+
 ## How SSO login works
 
 The login page fetches the homeserver's supported login flows as you type and

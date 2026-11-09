@@ -3259,6 +3259,180 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'View reactions'**
   String get viewReactions;
+
+  /// No description provided for @about.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get about;
+
+  /// No description provided for @versionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Version'**
+  String get versionLabel;
+
+  /// No description provided for @buildLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Build'**
+  String get buildLabel;
+
+  /// No description provided for @commitLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Commit'**
+  String get commitLabel;
+
+  /// No description provided for @localBuild.
+  ///
+  /// In en, this message translates to:
+  /// **'Local build'**
+  String get localBuild;
+
+  /// No description provided for @copyVersionInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy version info'**
+  String get copyVersionInfo;
+
+  /// No description provided for @checkForUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for updates'**
+  String get checkForUpdates;
+
+  /// No description provided for @checkingForUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking for updates…'**
+  String get checkingForUpdates;
+
+  /// No description provided for @upToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Protea is up to date.'**
+  String get upToDate;
+
+  /// No description provided for @updateAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Protea {version} is available'**
+  String updateAvailable(String version);
+
+  /// No description provided for @preReleaseBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Beta'**
+  String get preReleaseBadge;
+
+  /// No description provided for @updateCheckFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t check for updates: {error}'**
+  String updateCheckFailed(String error);
+
+  /// No description provided for @installAndRestart.
+  ///
+  /// In en, this message translates to:
+  /// **'Install and restart'**
+  String get installAndRestart;
+
+  /// No description provided for @downloadUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get downloadUpdate;
+
+  /// No description provided for @downloadingUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading… {percent}%'**
+  String downloadingUpdate(int percent);
+
+  /// No description provided for @installingUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Installing — Protea restarts in a moment.'**
+  String get installingUpdate;
+
+  /// No description provided for @updateInstallFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The update failed: {error}'**
+  String updateInstallFailed(String error);
+
+  /// No description provided for @releaseNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Release notes'**
+  String get releaseNotes;
+
+  /// No description provided for @allReleases.
+  ///
+  /// In en, this message translates to:
+  /// **'All releases'**
+  String get allReleases;
+
+  /// No description provided for @autoCheckUpdatesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for updates automatically'**
+  String get autoCheckUpdatesTitle;
+
+  /// No description provided for @autoCheckUpdatesDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Looks for a new release on GitHub once a day.'**
+  String get autoCheckUpdatesDescription;
+
+  /// No description provided for @betaUpdatesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Include beta versions'**
+  String get betaUpdatesTitle;
+
+  /// No description provided for @betaUpdatesDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Also offer pre-releases. They get new features first but can be less stable.'**
+  String get betaUpdatesDescription;
+
+  /// No description provided for @updateManualInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'This copy of Protea can\'t update itself (Flatpak, macOS, or not installed with the install script). Download the new version and install it the way you installed this one.'**
+  String get updateManualInstall;
+
+  /// No description provided for @updateNeedsAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Installing needs administrator rights — you\'ll be asked once Protea has closed.'**
+  String get updateNeedsAdmin;
+
+  /// No description provided for @updatedTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Protea was updated to {version}.'**
+  String updatedTo(String version);
+
+  /// No description provided for @updateFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update failed'**
+  String get updateFailedTitle;
+
+  /// No description provided for @updateFailedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Protea {version} could not be installed, so this version was started again. Details are in the log:'**
+  String updateFailedBody(String version);
+
+  /// No description provided for @viewUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'View'**
+  String get viewUpdate;
 }
 
 class _AppLocalizationsDelegate

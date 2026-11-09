@@ -1,0 +1,268 @@
+name: Release
+
+# Builds the Linux, Windows and macOS packages and publishes them as a GitHub
+# release — which is where Protea's in-app updater (Settings > About) looks
+# for new versions.
+#
+#   push to main         stable release; version from tool/release-version.sh:
+#                        pubspec.yaml's version if unreleased, else the last
+#                        stable release + 1 patch (1.2.0 -> 1.2.1)
+#   push to development  pre-release <next stable>-dev.<run>, e.g. 1.2.1-dev.57,
+#                        offered only to users with "Include beta versions";
+#                        only the newest $KEEP_DEV_RELEASES are kept
+#   push of a v* tag     release with exactly that version (v2.0.0, v2.0.0-rc.1)
+#
+# To start a new minor/major version, bump `version:` in pubspec.yaml.
+# The workflow run number is the build number. Nothing is published unless
+# analyze, tests and all three builds succeed.
+#
+# The updater relies on the asset names: protea-<version>-linux-x64.zip and
+# protea-<version>-windows-x64.zip (made by tool/package-*, with the
+# installer script inside) and protea-<version>-macos.zip.
+
+on:
+  push:
+    branches: [main, development]
+    tags: ['v*']
+    # Docs-only pushes don't make a release (tags ignore this filter).
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build and publish (e.g. v1.2.0)
+        required: true
+
+permissions:
+  contents: read
+
+# One release run per branch/tag at a time, so two quick pushes can't both
+# claim the same version.
+concurrency:
+  group: release-${{ inputs.tag || github.ref }}
+
+env:
+  FLUTTER_VERSION: 3.47.9
+  KEEP_DEV_RELEASES: 10
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      channel: ${{ steps.version.outputs.channel }}
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Work out the version
+        id: version
+        env:
+          REF_TYPE: ${{ inputs.tag && 'tag' || github.ref_type }}
+          REF_NAME: ${{ inputs.tag || github.ref_name }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          if [[ "${REF_TYPE}" == tag ]]; then
+            if [[ ! "${REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "::error::'${REF_NAME}' is not a version tag (vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-pre)"
+              exit 1
+            fi
+            version="${REF_NAME#v}"
+            channel=tag
+          else
+            tags="$(git ls-remote --tags --refs origin 'refs/tags/v*' | sed 's#.*refs/tags/##')"
+            case "${REF_NAME}" in
+              main)        channel=stable; version="$(tool/release-version.sh stable <<< "${tags}")" ;;
+              development) channel=dev; version="$(tool/release-version.sh dev "${RUN_NUMBER}" <<< "${tags}")" ;;
+              *) echo "::error::No release channel for branch ${REF_NAME}"; exit 1 ;;
+            esac
+          fi
+          prerelease=false
+          [[ "${version}" == *-* ]] && prerelease=true
+          echo "Releasing v${version} (${channel})" >> "${GITHUB_STEP_SUMMARY}"
+          {
+            echo "tag=v${version}"
+            echo "version=${version}"
+            echo "prerelease=${prerelease}"
+            echo "channel=${channel}"
+            echo "commit=$(git rev-parse HEAD)"
+          } >> "${GITHUB_OUTPUT}"
+
+  linux:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.commit }}
+
+      - name: Install Linux desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang cmake git ninja-build pkg-config zip \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libayatana-appindicator3-dev libmpv-dev
+
+      - name: Set up Rust
+        run: rustup update stable && rustup default stable
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Tests
+        run: flutter test
+
+      - name: Build and package
+        env:
+          PROTEA_VERSION: ${{ needs.version.outputs.version }}
+          PROTEA_BUILD_NUMBER: ${{ github.run_number }}
+        run: tool/package-linux.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: protea-linux-x64
+          path: dist/protea-*-linux-x64.zip
+          if-no-files-found: error
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.commit }}
+
+      - name: Set up Rust
+        run: rustup update stable && rustup default stable
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Build and package
+        shell: pwsh
+        env:
+          PROTEA_VERSION: ${{ needs.version.outputs.version }}
+          PROTEA_BUILD_NUMBER: ${{ github.run_number }}
+        run: ./tool/package-windows.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: protea-windows-x64
+          path: dist/protea-*-windows-x64.zip
+          if-no-files-found: error
+
+  macos:
+    needs: version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.commit }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - run: flutter pub get
+
+      # See build-macos.yml for why these two steps exist.
+      - name: Repair flutter_vodozemac framework
+        run: ./tool/fix-vodozemac-framework.sh
+
+      - name: Force ad-hoc code signing
+        run: |
+          sed -i '' \
+            -e 's/CODE_SIGN_IDENTITY = "[^"]*";/CODE_SIGN_IDENTITY = "-";/g' \
+            -e 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' \
+            -e 's/DEVELOPMENT_TEAM = [^;]*;/DEVELOPMENT_TEAM = "";/g' \
+            macos/Runner.xcodeproj/project.pbxproj
+
+      - name: Build macOS app
+        env:
+          PROTEA_VERSION: ${{ needs.version.outputs.version }}
+          PROTEA_BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          version_args="$(tool/flutter-version-args.sh)"
+          flutter build macos --release ${version_args}
+
+      - name: Zip app bundle
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/macos/Build/Products/Release/protea.app \
+            "protea-${VERSION}-macos.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: protea-macos
+          path: protea-*-macos.zip
+          if-no-files-found: error
+
+  publish:
+    needs: [version, linux, windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      # Creates the tag on the built commit for branch pushes. A tag made with
+      # the workflow token doesn't trigger this workflow again.
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          target_commitish: ${{ needs.version.outputs.commit }}
+          name: Protea ${{ needs.version.outputs.version }}
+          prerelease: ${{ needs.version.outputs.prerelease == 'true' }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: dist/*.zip
+
+  prune-dev-releases:
+    needs: [version, publish]
+    if: needs.version.outputs.channel == 'dev'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      # Only automatic dev pre-releases (…-dev.N) are touched; stable releases
+      # and hand-made pre-releases (…-beta.1, …-rc.1) are never deleted.
+      - name: Delete all but the newest dev pre-releases
+        run: |
+          gh release list --limit 500 --json tagName,isPrerelease,createdAt \
+            --jq '[.[] | select(.isPrerelease and (.tagName | test("^v[0-9]+[.][0-9]+[.][0-9]+-dev[.][0-9]+$")))]
+                  | sort_by(.createdAt) | reverse | .[]."tagName"' \
+            | tail -n +"$((KEEP_DEV_RELEASES + 1))" \
+            | while read -r tag; do
+                echo "Deleting ${tag}"
+                gh release delete "${tag}" --yes --cleanup-tag
+              done

@@ -68,8 +68,11 @@ if [[ ${BUILD} -eq 1 ]]; then
     echo "Error: flutter not found on PATH (or in ~/development/flutter)." >&2
     exit 1
   fi
+  # Version, build number and commit for Settings > About (see the script).
+  VERSION_ARGS=($("${REPO_DIR}/tool/flutter-version-args.sh"))
   echo "Building ${APP_NAME} (linux ${ARCH}, release) ..."
-  (cd "${REPO_DIR}" && "${FLUTTER}" build linux --release)
+  (cd "${REPO_DIR}" && "${FLUTTER}" build linux --release \
+    ${VERSION_ARGS[@]+"${VERSION_ARGS[@]}"})
 fi
 
 [[ -x "${BUNDLE_DIR}/${BIN_NAME}" ]] || {
@@ -90,7 +93,9 @@ echo "Building Flatpak (this pulls the freedesktop runtime on first run) ..."
   "${STAGE}/builddir" "${MANIFEST}"
 
 # --- Export a distributable single-file bundle -----------------------------------
-VERSION="$(sed -n 's/^version: *\([0-9][^+ ]*\).*/\1/p' "${REPO_DIR}/pubspec.yaml")"
+# A release build's version (PROTEA_VERSION, from the tag) wins over pubspec.yaml.
+VERSION="${PROTEA_VERSION:-$(sed -n 's/^version: *\([0-9][^+ ]*\).*/\1/p' "${REPO_DIR}/pubspec.yaml")}"
+VERSION="${VERSION#v}"
 DIST_DIR="${REPO_DIR}/dist"
 FLATPAK_PATH="${DIST_DIR}/${BIN_NAME}-${VERSION:-unknown}-linux-${ARCH}.flatpak"
 mkdir -p "${DIST_DIR}"

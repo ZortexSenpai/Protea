@@ -278,6 +278,28 @@ class AppSettings extends ChangeNotifier {
 
   Future<void> setCloseToTray(bool value) => _setBool('closeToTray', value);
 
+  /// Whether Protea looks for new releases in the background (desktop).
+  bool get autoCheckUpdates => _prefs.getBool('autoCheckUpdates') ?? true;
+
+  Future<void> setAutoCheckUpdates(bool value) =>
+      _setBool('autoCheckUpdates', value);
+
+  /// Whether pre-releases (`v1.2.0-beta.1`) are offered as updates.
+  bool get betaUpdates => _prefs.getBool('betaUpdates') ?? false;
+
+  Future<void> setBetaUpdates(bool value) => _setBool('betaUpdates', value);
+
+  /// When the last successful background update check ran.
+  DateTime? get lastUpdateCheck {
+    final millis = _prefs.getInt('lastUpdateCheck');
+    return millis == null ? null : DateTime.fromMillisecondsSinceEpoch(millis);
+  }
+
+  /// Not announced to listeners: nothing on screen shows it, and a
+  /// notification would rebuild the whole app.
+  Future<void> setLastUpdateCheck(DateTime value) =>
+      _prefs.setInt('lastUpdateCheck', value.millisecondsSinceEpoch);
+
   /// Whether GIF animations pause while the window is in the background.
   bool get pauseGifsUnfocused => _prefs.getBool('pauseGifsUnfocused') ?? false;
 

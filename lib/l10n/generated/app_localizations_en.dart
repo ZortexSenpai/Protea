@@ -1786,4 +1786,107 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get viewReactions => 'View reactions';
+
+  @override
+  String get about => 'About';
+
+  @override
+  String get versionLabel => 'Version';
+
+  @override
+  String get buildLabel => 'Build';
+
+  @override
+  String get commitLabel => 'Commit';
+
+  @override
+  String get localBuild => 'Local build';
+
+  @override
+  String get copyVersionInfo => 'Copy version info';
+
+  @override
+  String get checkForUpdates => 'Check for updates';
+
+  @override
+  String get checkingForUpdates => 'Checking for updates…';
+
+  @override
+  String get upToDate => 'Protea is up to date.';
+
+  @override
+  String updateAvailable(String version) {
+    return 'Protea $version is available';
+  }
+
+  @override
+  String get preReleaseBadge => 'Beta';
+
+  @override
+  String updateCheckFailed(String error) {
+    return 'Couldn\'t check for updates: $error';
+  }
+
+  @override
+  String get installAndRestart => 'Install and restart';
+
+  @override
+  String get downloadUpdate => 'Download';
+
+  @override
+  String downloadingUpdate(int percent) {
+    return 'Downloading… $percent%';
+  }
+
+  @override
+  String get installingUpdate => 'Installing — Protea restarts in a moment.';
+
+  @override
+  String updateInstallFailed(String error) {
+    return 'The update failed: $error';
+  }
+
+  @override
+  String get releaseNotes => 'Release notes';
+
+  @override
+  String get allReleases => 'All releases';
+
+  @override
+  String get autoCheckUpdatesTitle => 'Check for updates automatically';
+
+  @override
+  String get autoCheckUpdatesDescription =>
+      'Looks for a new release on GitHub once a day.';
+
+  @override
+  String get betaUpdatesTitle => 'Include beta versions';
+
+  @override
+  String get betaUpdatesDescription =>
+      'Also offer pre-releases. They get new features first but can be less stable.';
+
+  @override
+  String get updateManualInstall =>
+      'This copy of Protea can\'t update itself (Flatpak, macOS, or not installed with the install script). Download the new version and install it the way you installed this one.';
+
+  @override
+  String get updateNeedsAdmin =>
+      'Installing needs administrator rights — you\'ll be asked once Protea has closed.';
+
+  @override
+  String updatedTo(String version) {
+    return 'Protea was updated to $version.';
+  }
+
+  @override
+  String get updateFailedTitle => 'Update failed';
+
+  @override
+  String updateFailedBody(String version) {
+    return 'Protea $version could not be installed, so this version was started again. Details are in the log:';
+  }
+
+  @override
+  String get viewUpdate => 'View';
 }

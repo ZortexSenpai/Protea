@@ -1797,4 +1797,108 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get viewReactions => 'Ver reacciones';
+
+  @override
+  String get about => 'Acerca de';
+
+  @override
+  String get versionLabel => 'Versión';
+
+  @override
+  String get buildLabel => 'Compilación';
+
+  @override
+  String get commitLabel => 'Commit';
+
+  @override
+  String get localBuild => 'Compilación local';
+
+  @override
+  String get copyVersionInfo => 'Copiar información de versión';
+
+  @override
+  String get checkForUpdates => 'Buscar actualizaciones';
+
+  @override
+  String get checkingForUpdates => 'Buscando actualizaciones…';
+
+  @override
+  String get upToDate => 'Protea está actualizado.';
+
+  @override
+  String updateAvailable(String version) {
+    return 'Protea $version está disponible';
+  }
+
+  @override
+  String get preReleaseBadge => 'Beta';
+
+  @override
+  String updateCheckFailed(String error) {
+    return 'No se pudieron buscar actualizaciones: $error';
+  }
+
+  @override
+  String get installAndRestart => 'Instalar y reiniciar';
+
+  @override
+  String get downloadUpdate => 'Descargar';
+
+  @override
+  String downloadingUpdate(int percent) {
+    return 'Descargando… $percent %';
+  }
+
+  @override
+  String get installingUpdate =>
+      'Instalando — Protea se reiniciará en un momento.';
+
+  @override
+  String updateInstallFailed(String error) {
+    return 'La actualización falló: $error';
+  }
+
+  @override
+  String get releaseNotes => 'Notas de la versión';
+
+  @override
+  String get allReleases => 'Todas las versiones';
+
+  @override
+  String get autoCheckUpdatesTitle => 'Buscar actualizaciones automáticamente';
+
+  @override
+  String get autoCheckUpdatesDescription =>
+      'Busca una nueva versión en GitHub una vez al día.';
+
+  @override
+  String get betaUpdatesTitle => 'Incluir versiones beta';
+
+  @override
+  String get betaUpdatesDescription =>
+      'Ofrecer también versiones preliminares. Reciben las novedades antes, pero pueden ser menos estables.';
+
+  @override
+  String get updateManualInstall =>
+      'Esta copia de Protea no puede actualizarse sola (Flatpak, macOS o no instalada con el script de instalación). Descarga la nueva versión e instálala igual que instalaste esta.';
+
+  @override
+  String get updateNeedsAdmin =>
+      'La instalación necesita permisos de administrador; se te pedirán cuando Protea se haya cerrado.';
+
+  @override
+  String updatedTo(String version) {
+    return 'Protea se actualizó a $version.';
+  }
+
+  @override
+  String get updateFailedTitle => 'La actualización falló';
+
+  @override
+  String updateFailedBody(String version) {
+    return 'No se pudo instalar Protea $version, así que se volvió a iniciar esta versión. Los detalles están en el registro:';
+  }
+
+  @override
+  String get viewUpdate => 'Ver';
 }

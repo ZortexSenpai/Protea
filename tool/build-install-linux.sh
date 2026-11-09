@@ -54,8 +54,11 @@ if [[ ${BUILD} -eq 1 ]]; then
     echo "Error: flutter not found on PATH (or in ~/development/flutter)." >&2
     exit 1
   fi
+  # Version, build number and commit for Settings > About (see the script).
+  VERSION_ARGS=($("${REPO_DIR}/tool/flutter-version-args.sh"))
   echo "Building ${APP_NAME} (linux ${ARCH}, release) ..."
-  (cd "${REPO_DIR}" && "${FLUTTER}" build linux --release)
+  (cd "${REPO_DIR}" && "${FLUTTER}" build linux --release \
+    ${VERSION_ARGS[@]+"${VERSION_ARGS[@]}"})
 fi
 
 [[ -x "${BUNDLE_DIR}/${BIN_NAME}" ]] || {

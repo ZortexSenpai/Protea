@@ -821,5 +821,76 @@
   "nicknameHint": "Only you can see this. Leave empty to remove it.",
   "roomNameResetHint": "Leave empty to reset to the default name",
   "reactions": "Reactions",
-  "viewReactions": "View reactions"
+  "viewReactions": "View reactions",
+  "about": "About",
+  "versionLabel": "Version",
+  "buildLabel": "Build",
+  "commitLabel": "Commit",
+  "localBuild": "Local build",
+  "copyVersionInfo": "Copy version info",
+  "checkForUpdates": "Check for updates",
+  "checkingForUpdates": "Checking for updates…",
+  "upToDate": "Protea is up to date.",
+  "updateAvailable": "Protea {version} is available",
+  "@updateAvailable": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "preReleaseBadge": "Beta",
+  "updateCheckFailed": "Couldn't check for updates: {error}",
+  "@updateCheckFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "installAndRestart": "Install and restart",
+  "downloadUpdate": "Download",
+  "downloadingUpdate": "Downloading… {percent}%",
+  "@downloadingUpdate": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "installingUpdate": "Installing — Protea restarts in a moment.",
+  "updateInstallFailed": "The update failed: {error}",
+  "@updateInstallFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "releaseNotes": "Release notes",
+  "allReleases": "All releases",
+  "autoCheckUpdatesTitle": "Check for updates automatically",
+  "autoCheckUpdatesDescription": "Looks for a new release on GitHub once a day.",
+  "betaUpdatesTitle": "Include beta versions",
+  "betaUpdatesDescription": "Also offer pre-releases. They get new features first but can be less stable.",
+  "updateManualInstall": "This copy of Protea can't update itself (Flatpak, macOS, or not installed with the install script). Download the new version and install it the way you installed this one.",
+  "updateNeedsAdmin": "Installing needs administrator rights — you'll be asked once Protea has closed.",
+  "updatedTo": "Protea was updated to {version}.",
+  "@updatedTo": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateFailedTitle": "Update failed",
+  "updateFailedBody": "Protea {version} could not be installed, so this version was started again. Details are in the log:",
+  "@updateFailedBody": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "viewUpdate": "View"
 }

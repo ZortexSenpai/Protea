@@ -43,10 +43,35 @@ if (-not $NoBuild) {
     if (-not $flutter) {
         Write-Error "flutter not found on PATH."
     }
+    # Version, build number and commit for Settings > About — the same
+    # arguments tool/flutter-version-args.sh prints for the Linux builds.
+    $versionArgs = @()
+    if ($env:PROTEA_VERSION) {
+        $full = $env:PROTEA_VERSION.TrimStart('v')
+        if ($full -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
+            Write-Error "PROTEA_VERSION '$env:PROTEA_VERSION' is not MAJOR.MINOR.PATCH[-pre]."
+        }
+        # Windows version fields are numeric, so the build name drops a
+        # pre-release suffix; the app reads the full version from the define.
+        $versionArgs += "--build-name=$($full.Split('-')[0])", "--dart-define=PROTEA_VERSION=$full"
+    }
+    if ($env:PROTEA_BUILD_NUMBER) {
+        if ($env:PROTEA_BUILD_NUMBER -notmatch '^\d+$') {
+            Write-Error "PROTEA_BUILD_NUMBER '$env:PROTEA_BUILD_NUMBER' is not a number."
+        }
+        $versionArgs += "--build-number=$env:PROTEA_BUILD_NUMBER", "--dart-define=PROTEA_BUILD=$env:PROTEA_BUILD_NUMBER"
+    }
+    $commit = $env:PROTEA_COMMIT
+    if (-not $commit) {
+        # No git, or not a checkout: the build just goes without a commit.
+        try { $commit = git -C $RepoDir rev-parse HEAD 2>$null } catch { $commit = $null }
+    }
+    if ($commit) { $versionArgs += "--dart-define=PROTEA_COMMIT=$commit" }
+
     Write-Host "Building $AppName (windows $Arch, release) ..."
     Push-Location $RepoDir
     try {
-        & $flutter.Source build windows --release
+        & $flutter.Source build windows --release @versionArgs
         if ($LASTEXITCODE -ne 0) { Write-Error "flutter build windows failed ($LASTEXITCODE)." }
     } finally {
         Pop-Location
@@ -61,7 +86,14 @@ if (-not (Test-Path (Join-Path $BundleDir "$BinName.exe"))) {
 $versionMatch = Select-String -Path (Join-Path $RepoDir 'pubspec.yaml') `
                               -Pattern '^version:\s*([0-9][^+\s]*)' |
                 Select-Object -First 1
-$Version = if ($versionMatch) { $versionMatch.Matches[0].Groups[1].Value } else { 'unknown' }
+$Version = if ($env:PROTEA_VERSION) {
+    # A release build's version (from the tag) wins over pubspec.yaml.
+    $env:PROTEA_VERSION.TrimStart('v')
+} elseif ($versionMatch) {
+    $versionMatch.Matches[0].Groups[1].Value
+} else {
+    'unknown'
+}
 
 $PkgName = "$BinName-$Version-windows-$Arch"
 $DistDir = Join-Path $RepoDir 'dist'

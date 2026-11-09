@@ -18,6 +18,7 @@ import 'src/tray_service.dart';
 import 'src/widgets/global_search_dialog.dart';
 import 'src/widgets/key_verification_dialog.dart';
 import 'src/widgets/quick_switcher.dart';
+import 'src/widgets/update_section.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 
@@ -40,6 +41,7 @@ Future<void> main() async {
   );
   unawaited(TrayService(settings).init());
   DockBadgeService(manager).init();
+  announceUpdates(navigatorKey: navigatorKey, settings: settings);
 }
 
 class ProteaApp extends StatelessWidget {
