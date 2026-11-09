@@ -216,11 +216,20 @@ pass — whenever you push:
 | to `development` | pre-release, offered only with "Include beta versions" (the 10 newest are kept) | `v1.2.1-dev.57` |
 | a `v*` tag | exactly that version | `v2.0.0`, `v2.0.0-rc.1` |
 
-Versions count up by themselves (`tool/release-version.sh`): main releases
-`pubspec.yaml`'s version if it hasn't been released yet, otherwise the last
-stable release plus one patch; development builds are named after the version
-main would release next, so beta users move back to stable once it's out. To
-start a new minor or major version, bump `version:` in `pubspec.yaml`. The
+Versions count up by themselves (`tool/release-version.sh`), following the
+[Conventional Commits](https://www.conventionalcommits.org) since the last
+stable release:
+
+| Commits since the last release include | Bump | Example |
+|---|---|---|
+| `feat!: …`, `fix(api)!: …` or a `BREAKING CHANGE:` footer | major | 1.4.2 → 2.0.0 |
+| `feat: …` / `feat(scope): …` | minor | 1.4.2 → 1.5.0 |
+| anything else (`fix:`, `chore:`, non-conventional messages) | patch | 1.4.2 → 1.4.3 |
+
+`version:` in `pubspec.yaml` is the floor: when it's higher than that, it's
+released as is (and it's the first release when there are no tags yet).
+Development builds are named after the version main would release next, so
+beta users move back to stable once it's out. The
 workflow run number is the build number; pushes that only touch Markdown or
 `docs/` don't release.
 
