@@ -8,17 +8,38 @@ import 'package:pasteboard/pasteboard.dart';
 
 import 'l10n.dart';
 
-/// Implemented by the Linux runner (linux/runner/my_application.cc):
-/// pasteboard's writeImage is a no-op on Linux.
-const _linuxClipboard = MethodChannel('protea/clipboard');
+/// Clipboard calls pasteboard gets wrong, implemented by the runners:
+/// `writeImage` on Linux (linux/runner/my_application.cc), where
+/// pasteboard's is a no-op, and `files` on macOS
+/// (macos/Runner/MainFlutterWindow.swift), where pasteboard's also returns
+/// the path component of copied web links.
+const _nativeClipboard = MethodChannel('protea/clipboard');
 
 /// Puts encoded image [bytes] (PNG, JPEG, GIF, …) on the system clipboard.
 Future<void> writeImageToClipboard(Uint8List bytes) async {
   if (Platform.isLinux) {
-    await _linuxClipboard.invokeMethod<void>('writeImage', bytes);
+    await _nativeClipboard.invokeMethod<void>('writeImage', bytes);
   } else {
     await Pasteboard.writeImage(bytes);
   }
+}
+
+/// The files on the clipboard, as a file manager's Copy puts them there;
+/// folders are left out. Empty on mobile.
+Future<List<File>> readClipboardFiles() async {
+  final List<String> paths;
+  if (Platform.isMacOS) {
+    paths =
+        await _nativeClipboard.invokeListMethod<String>('files') ?? const [];
+  } else if (Platform.isLinux || Platform.isWindows) {
+    paths = await Pasteboard.files();
+  } else {
+    return const [];
+  }
+  return [
+    for (final path in paths)
+      if (await FileSystemEntity.isFile(path)) File(path),
+  ];
 }
 
 /// Downloads the full image of [event] and copies it to the clipboard.
