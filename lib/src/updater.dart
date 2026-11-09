@@ -653,33 +653,18 @@ class Updater extends ChangeNotifier {
     if (Platform.isWindows) {
       final script = p.join(staging, 'apply-update.ps1');
       await File(script).writeAsString(windowsUpdateHelper);
-      await Process.start('powershell.exe', [
-        '-NoProfile',
-        '-NonInteractive',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-WindowStyle',
-        'Hidden',
-        '-File',
+      await startWindowsUpdateHelper(
         script,
-        '-AppPid',
-        '$pid',
-        '-Installer',
-        installer,
-        '-Bundle',
-        bundle,
-        '-Executable',
-        executable,
-        '-Log',
-        log,
-        '-Result',
-        result,
-        '-Staging',
-        staging,
-        '-Version',
-        version,
-        if (kind == InstallKind.windowsAllUsers) '-AllUsers',
-      ], mode: ProcessStartMode.detached);
+        appPid: pid,
+        installer: installer,
+        bundle: bundle,
+        executable: executable,
+        log: log,
+        result: result,
+        staging: staging,
+        version: version,
+        allUsers: kind == InstallKind.windowsAllUsers,
+      );
     } else {
       final script = p.join(staging, 'apply-update.sh');
       await File(script).writeAsString(linuxUpdateHelper);
@@ -801,6 +786,68 @@ Future<void> _verifyAndExtract(
   await extractFileToDisk(archive, destination);
 });
 
+/// Starts [windowsUpdateHelper], saved as [script], so that it outlives
+/// Protea: it waits for [appPid] to exit before it installs.
+@visibleForTesting
+Future<Process> startWindowsUpdateHelper(
+  String script, {
+  required int appPid,
+  required String installer,
+  required String bundle,
+  required String executable,
+  required String log,
+  required String result,
+  required String staging,
+  required String version,
+  bool allUsers = false,
+}) async {
+  // Not ProcessStartMode.detached: on Windows that creates the process
+  // without a console (DETACHED_PROCESS), and Windows PowerShell exits
+  // straight away without one, before running a line of the script. A
+  // normal child gets a console without a window and keeps running after
+  // Protea exits all the same.
+  final helper = await Process.start(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-WindowStyle',
+      'Hidden',
+      '-File',
+      script,
+      '-AppPid',
+      '$appPid',
+      '-Installer',
+      installer,
+      '-Bundle',
+      bundle,
+      '-Executable',
+      executable,
+      '-Log',
+      log,
+      '-Result',
+      result,
+      '-Staging',
+      staging,
+      '-Version',
+      version,
+      if (allUsers) '-AllUsers',
+    ],
+    // Anywhere but Protea's own working directory, which is the install
+    // folder when it was started from the Start Menu: Windows can't delete a
+    // folder that is a running process's current directory, so the installer
+    // would fail halfway through replacing it.
+    workingDirectory: Directory.systemTemp.path,
+  );
+  // Nothing reads the helper's output; draining it keeps the pipes from
+  // filling up while Protea is still running.
+  unawaited(helper.stdout.drain<void>());
+  unawaited(helper.stderr.drain<void>());
+  return helper;
+}
+
 /// Waits for Protea to exit, runs the bundled install-linux.sh (through
 /// pkexec for a system-wide install), records the outcome and starts Protea
 /// again — the old version if the install failed or was cancelled.
@@ -886,6 +933,11 @@ try {
 Write-Log "installer exited with $status"
 [IO.File]::WriteAllText($Result, "{""version"":""$Version"",""status"":$status}")
 
-Start-Process -FilePath $Executable
+try {
+    # Started from its own folder, as the Start Menu shortcut does.
+    Start-Process -FilePath $Executable -WorkingDirectory (Split-Path -Parent $Executable) -ErrorAction Stop
+} catch {
+    Write-Log "could not start Protea again: $_"
+}
 Remove-Item -Recurse -Force -Path $Staging -ErrorAction SilentlyContinue
 ''';
