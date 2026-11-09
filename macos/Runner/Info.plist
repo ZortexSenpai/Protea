@@ -30,5 +30,15 @@
 	<string>NSApplication</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Protea uses the microphone to record voice messages.</string>
+	<!--
+	  Workaround: render with Skia instead of Impeller on macOS.
+	  Flutter 3.47.9's macOS back-buffer cache can hand out a surface of the
+	  wrong size after the window size changes and changes back (e.g. a display
+	  change while hidden to the tray). Impeller then silently drops the
+	  invalid colour attachment and segfaults in Canvas::SetupRenderPass on the
+	  raster thread. Remove once the engine bug is fixed upstream.
+	-->
+	<key>FLTEnableImpeller</key>
+	<false/>
 </dict>
 </plist>
