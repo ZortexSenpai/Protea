@@ -5,7 +5,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:matrix/matrix.dart';
-import 'package:path_provider/path_provider.dart';
+
+import '../temp_directory.dart';
 
 /// Waveform bars; [progress] (0..1) tints the played part.
 class Waveform extends StatelessWidget {
@@ -177,7 +178,7 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
       _player = null;
 
       final file = await widget.event.downloadAndDecryptAttachment();
-      final dir = await getTemporaryDirectory();
+      final dir = await temporaryDirectory();
       final extension = file.name.contains('.')
           ? file.name.split('.').last
           : 'm4a';
