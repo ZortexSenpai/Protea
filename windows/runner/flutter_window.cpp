@@ -7,7 +7,17 @@
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
-FlutterWindow::~FlutterWindow() {}
+FlutterWindow::~FlutterWindow() {
+  // Quitting with the window still open (window_manager's destroy() posts
+  // WM_QUIT) leaves the teardown to the destructors, and the member
+  // destructor would delete the controller without clearing
+  // flutter_controller_ first. Deleting it destroys the Flutter view's
+  // window, which notifies this window (WM_PARENTNOTIFY), and MessageHandler
+  // would hand that to the half-destroyed controller: an access violation
+  // on every quit. Tear down the way closing the window does instead,
+  // Flutter first (OnDestroy) and then the window.
+  Destroy();
+}
 
 bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {
