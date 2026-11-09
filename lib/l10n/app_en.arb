@@ -666,6 +666,10 @@
   "showUrlPreviewsTitle": "Show link previews",
   "signIn": "Sign in",
   "signInToYourMatrixAccount": "Sign in to your Matrix account",
+  "continueButton": "Continue",
+  "changeHomeserver": "Change homeserver",
+  "homeserverUnreachable": "Could not connect to this homeserver. Check the address and try again.",
+  "homeserverNoSupportedLogin": "This homeserver doesn't offer a sign-in method Protea supports.",
   "signInWithProvider": "Sign in with {provider}",
   "@signInWithProvider": {
     "placeholders": {

@@ -2738,6 +2738,30 @@ abstract class AppLocalizations {
   /// **'Sign in to your Matrix account'**
   String get signInToYourMatrixAccount;
 
+  /// No description provided for @continueButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get continueButton;
+
+  /// No description provided for @changeHomeserver.
+  ///
+  /// In en, this message translates to:
+  /// **'Change homeserver'**
+  String get changeHomeserver;
+
+  /// No description provided for @homeserverUnreachable.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not connect to this homeserver. Check the address and try again.'**
+  String get homeserverUnreachable;
+
+  /// No description provided for @homeserverNoSupportedLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'This homeserver doesn\'t offer a sign-in method Protea supports.'**
+  String get homeserverNoSupportedLogin;
+
   /// No description provided for @signInWithProvider.
   ///
   /// In en, this message translates to:
