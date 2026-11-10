@@ -1,6 +1,6 @@
-// The macOS Dock badge shows what waits across all accounts: unread
-// notification counts plus pending invitations, updated by every sync —
-// including the echo of a room being read.
+// The app icon badge (macOS Dock, Windows taskbar) shows what waits across
+// all accounts: unread notification counts plus pending invitations,
+// updated by every sync — including the echo of a room being read.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,7 +24,7 @@ SyncUpdate _unread(String batch, String roomId, int count) => SyncUpdate(
 
 void main() {
   testWidgets(
-    'the Dock badge follows unread counts and invites',
+    'the app icon badge follows unread counts and invites',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
       late final Client client;
@@ -107,6 +107,9 @@ void main() {
       await tester.pump(const Duration(seconds: 31));
       await tester.runAsync(() => client.dispose(closeDatabase: false));
     },
-    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    variant: TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+    }),
   );
 }

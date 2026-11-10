@@ -8,27 +8,31 @@ import 'client_manager.dart';
 import 'room_actions.dart';
 
 /// Shows how much is waiting across all logged-in accounts as a badge on
-/// the app's Dock icon, so new messages are visible while the window is in
-/// the background or hidden to the tray.
+/// the app's icon, so new messages are visible while the window is in the
+/// background: on the Dock icon on macOS, as an overlay on the taskbar
+/// button on Windows.
 ///
-/// macOS only; elsewhere [init] does nothing.
+/// macOS and Windows only; elsewhere [init] does nothing.
 class DockBadgeService {
   DockBadgeService(this.manager, {MethodChannel? channel})
     : _channel = channel ?? const MethodChannel('protea/dock');
 
   final ClientManager manager;
 
-  /// Implemented by the macOS runner (macos/Runner/MainFlutterWindow.swift).
+  /// Implemented by the macOS runner (macos/Runner/MainFlutterWindow.swift)
+  /// and the Windows runner (windows/runner/taskbar_badge.cpp).
   final MethodChannel _channel;
   final _listening = <Client>{};
   final _subscriptions = <StreamSubscription<Object?>>[];
 
-  /// The count last sent to the Dock, so syncs that change nothing don't
+  /// The count last sent to the runner, so syncs that change nothing don't
   /// cross the channel.
   int? _shown;
 
   static bool get _supported =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.windows);
 
   void init() {
     if (!_supported) return;
@@ -62,7 +66,7 @@ class DockBadgeService {
     try {
       await _channel.invokeMethod<void>('setBadgeCount', count);
     } catch (e, s) {
-      Logs().w('Failed to update the Dock badge', e, s);
+      Logs().w('Failed to update the app icon badge', e, s);
     }
   }
 }
