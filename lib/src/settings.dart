@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart' show PresenceType;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -333,6 +335,40 @@ class AppSettings extends ChangeNotifier {
 
   Future<void> setPresenceFor(String clientName, PresenceType value) =>
       _set('presence.$clientName', value.name);
+
+  /// The channel last opened in [spaceId] (null for Home) by the account
+  /// named [clientName], so going back to a space reopens it.
+  String? lastRoomFor(String clientName, String? spaceId) =>
+      _lastRooms(clientName)[spaceId ?? ''];
+
+  /// Not announced to listeners: nothing on screen shows it, and a
+  /// notification would rebuild the whole app on every channel switch.
+  Future<void> setLastRoomFor(
+    String clientName,
+    String? spaceId,
+    String roomId,
+  ) async {
+    final rooms = _lastRooms(clientName);
+    if (rooms[spaceId ?? ''] == roomId) return;
+    rooms[spaceId ?? ''] = roomId;
+    await _prefs.setString('lastRooms.$clientName', jsonEncode(rooms));
+  }
+
+  /// Space id ('' for Home) → last opened room id, for [clientName].
+  Map<String, String> _lastRooms(String clientName) {
+    final raw = _prefs.getString('lastRooms.$clientName');
+    if (raw == null) return {};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return {};
+      return {
+        for (final MapEntry(:key, :value) in decoded.entries)
+          if (key is String && value is String) key: value,
+      };
+    } on FormatException {
+      return {};
+    }
+  }
 
   /// UI language as a locale code ('de', 'en', …), or null to follow the
   /// system locale.

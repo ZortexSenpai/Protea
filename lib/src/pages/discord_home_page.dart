@@ -179,6 +179,56 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
       _selectedSpaceId = spaceId;
       _selectedRoomId = roomId;
     });
+    _rememberRoom(roomId);
+  }
+
+  /// Switches to [spaceId] (null for Home), reopening the channel last
+  /// opened there.
+  void _selectSpace(String? spaceId) {
+    final lastRoomId = widget.settings.lastRoomFor(_client.clientName, spaceId);
+    setState(() {
+      _selectedSpaceId = spaceId;
+      _selectedRoomId = lastRoomId != null && _isChannelIn(spaceId, lastRoomId)
+          ? lastRoomId
+          : null;
+    });
+  }
+
+  /// Records [roomId] as the selected space's last opened channel — unless
+  /// it isn't one of that space's channels (a pinned room from elsewhere),
+  /// which would otherwise replace the space's own.
+  void _rememberRoom(String roomId) {
+    if (!_isChannelIn(_selectedSpaceId, roomId)) return;
+    widget.settings.setLastRoomFor(
+      _client.clientName,
+      _selectedSpaceId,
+      roomId,
+    );
+  }
+
+  /// Whether [roomId] is a joined channel listed under [spaceId]: a room of
+  /// the space itself or of one of its sub-space categories, or for Home
+  /// (null) a room outside every space.
+  bool _isChannelIn(String? spaceId, String roomId) {
+    final room = _client.getRoomById(roomId);
+    if (room == null || room.isSpace || room.membership != Membership.join) {
+      return false;
+    }
+    if (spaceId == null) return !_roomIdsInSpaces.contains(roomId);
+    final space = _client.getRoomById(spaceId);
+    if (space == null) return false;
+    for (final child in space.spaceChildren) {
+      if (child.roomId == roomId) return true;
+      final category = child.roomId == null
+          ? null
+          : _client.getRoomById(child.roomId!);
+      if (category != null &&
+          category.isSpace &&
+          category.spaceChildren.any((child) => child.roomId == roomId)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Category (sub-space) ids collapsed in the channel list this session.
@@ -315,13 +365,11 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
   void _showRoom(Room room) {
     if (!mounted) return;
     if (room.isSpace) {
-      setState(() {
-        _selectedSpaceId = room.id;
-        _selectedRoomId = null;
-      });
+      _selectSpace(room.id);
       return;
     }
     setState(() => _selectedRoomId = room.id);
+    _rememberRoom(room.id);
     // Close the drawer when navigating on a narrow window.
     final scaffold = _scaffoldKey.currentState;
     if (scaffold?.isDrawerOpen ?? false) scaffold!.closeDrawer();
@@ -356,10 +404,7 @@ class _DiscordHomePageState extends State<DiscordHomePage> {
           liquid: liquid,
           spaces: _spaces,
           selectedSpaceId: _selectedSpaceId,
-          onSelect: (spaceId) => setState(() {
-            _selectedSpaceId = spaceId;
-            _selectedRoomId = null;
-          }),
+          onSelect: _selectSpace,
           onReorder: _moveSpace,
         );
         final selectedSpace = _selectedSpaceId == null
