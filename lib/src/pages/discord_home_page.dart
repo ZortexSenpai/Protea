@@ -12,6 +12,7 @@ import '../nicknames.dart';
 import '../room_actions.dart';
 import '../room_navigator.dart';
 import '../settings.dart';
+import '../svg.dart';
 import '../themes.dart';
 import '../widgets/account_switcher.dart';
 import '../widgets/global_search_dialog.dart';
@@ -991,7 +992,7 @@ class _SquareAvatarState extends State<_SquareAvatar> {
         ),
       );
     }
-    return Image.memory(
+    return memoryImage(
       bytes,
       fit: BoxFit.cover,
       width: double.infinity,

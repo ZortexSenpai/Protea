@@ -7,6 +7,7 @@ import 'package:matrix/matrix.dart';
 import 'package:pasteboard/pasteboard.dart';
 
 import 'l10n.dart';
+import 'svg.dart';
 
 /// Clipboard calls pasteboard gets wrong, implemented by the runners:
 /// `writeImage` on Linux (linux/runner/my_application.cc), where
@@ -48,7 +49,14 @@ Future<void> copyImageAttachment(BuildContext context, Event event) async {
   final l10n = context.l10n;
   try {
     final file = await event.downloadAndDecryptAttachment();
-    await writeImageToClipboard(file.bytes);
+    var bytes = file.bytes;
+    // Clipboard targets want a bitmap; an SVG goes over as a PNG of it.
+    if (looksLikeSvg(bytes)) {
+      final raster = await rasterizeSvg(bytes, maxExtent: 4096);
+      if (raster == null) throw Exception('Could not render the SVG image');
+      bytes = raster.png;
+    }
+    await writeImageToClipboard(bytes);
     messenger.showSnackBar(SnackBar(content: Text(l10n.imageCopied)));
   } catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(e.toString())));

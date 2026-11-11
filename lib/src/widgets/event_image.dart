@@ -10,6 +10,7 @@ import '../event_body.dart';
 import '../l10n.dart';
 import '../notifications.dart';
 import '../settings.dart';
+import '../svg.dart';
 
 /// Displays the image attachment of an [Event] (m.image or sticker).
 ///
@@ -73,14 +74,27 @@ class _EventImageState extends State<EventImage> {
     super.dispose();
   }
 
-  /// The image itself; GIFs render their first frame while the window is in
-  /// the background and the pause setting is on.
+  /// The image itself; SVGs are drawn as vectors, GIFs render their first
+  /// frame while the window is in the background and the pause setting is
+  /// on.
   ///
   /// [cacheWidth] bounds the decoded bitmap: timeline previews render in a
   /// box of at most [_maxPreviewExtent] logical pixels, while the bytes can
   /// be a multi-megapixel original (when the event has no thumbnail), whose
   /// full decode stutters scrolling.
   Widget _image(Uint8List bytes, BoxFit fit, {int? cacheWidth}) {
+    if (looksLikeSvg(bytes)) {
+      return memoryImage(
+        bytes,
+        fit: fit,
+        errorBuilder: (context) => Center(
+          child: Icon(
+            Icons.broken_image_outlined,
+            color: Theme.of(context).colorScheme.error,
+          ),
+        ),
+      );
+    }
     if (!_isGif || !SettingsScope.of(context).pauseGifsUnfocused) {
       return Image.memory(bytes, fit: fit, cacheWidth: cacheWidth);
     }

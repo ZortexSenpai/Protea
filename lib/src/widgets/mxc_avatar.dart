@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:matrix/matrix.dart';
 
+import '../svg.dart';
 import 'initials_avatar.dart';
 
 /// Small in-memory cache for mxc thumbnails, shared by [MxcAvatar] and
@@ -210,7 +211,7 @@ class _MxcImageState extends State<MxcImage> {
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
           );
     }
-    return Image.memory(
+    return memoryImage(
       bytes,
       fit: widget.fit,
       alignment: widget.alignment,

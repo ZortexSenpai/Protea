@@ -26,6 +26,7 @@ import '../nicknames.dart';
 import '../notifications.dart';
 import '../room_navigator.dart';
 import '../settings.dart';
+import '../svg.dart';
 import '../temp_directory.dart';
 import '../widgets/chat_wallpaper.dart';
 import '../widgets/emoji_picker.dart';
@@ -780,6 +781,7 @@ class _RoomPageState extends State<RoomPage> {
     'avif',
     'heic',
     'tiff',
+    'svg',
   };
 
   bool _looksLikeImage(String name, String? mimeType) =>
@@ -833,7 +835,7 @@ class _RoomPageState extends State<RoomPage> {
                   if (_looksLikeImage(file.name, file.mimeType))
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.memory(
+                      child: memoryImage(
                         file.bytes,
                         height: 160,
                         fit: BoxFit.contain,
@@ -1180,16 +1182,37 @@ class _RoomPageState extends State<RoomPage> {
       if (isImage) {
         int? width;
         int? height;
-        try {
-          final image = await decodeImageFromList(bytes);
-          width = image.width;
-          height = image.height;
-          image.dispose();
-        } catch (_) {}
+        final svg = looksLikeSvg(bytes);
+        if (svg) {
+          // The engine can't decode SVG, and neither can the SDK's
+          // thumbnailer: take the size from the document and send a PNG
+          // rendering as the thumbnail, for clients that can't draw SVG.
+          final raster = await rasterizeSvg(bytes, maxExtent: 800);
+          if (raster != null) {
+            width = raster.intrinsicWidth;
+            height = raster.intrinsicHeight;
+            thumbnail = MatrixImageFile(
+              bytes: raster.png,
+              name: 'thumbnail.png',
+              mimeType: 'image/png',
+              width: raster.width,
+              height: raster.height,
+            );
+          }
+        } else {
+          try {
+            final image = await decodeImageFromList(bytes);
+            width = image.width;
+            height = image.height;
+            image.dispose();
+          } catch (_) {}
+        }
         file = MatrixImageFile(
           bytes: bytes,
           name: name,
-          mimeType: mimeType,
+          // Pasted files arrive without a mimetype, and the SDK's sniffing
+          // only knows SVG by its file extension.
+          mimeType: mimeType ?? (svg ? 'image/svg+xml' : null),
           width: width,
           height: height,
         );

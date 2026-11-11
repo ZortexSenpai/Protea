@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../emoji_shortcodes.dart';
 import '../nicknames.dart';
+import '../svg.dart';
 import 'mxc_avatar.dart';
 import 'user_profile_card.dart';
 
@@ -382,11 +383,11 @@ class _InlineEmoteState extends State<InlineEmote> {
     final bytes = _bytes;
     final image = bytes == null
         ? SizedBox.square(dimension: widget.size)
-        : Image.memory(
+        : memoryImage(
             bytes,
             height: widget.size,
             fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => Text(widget.name),
+            errorBuilder: (_) => Text(widget.name),
           );
     // No name, no tooltip: an empty tooltip renders as a bare hover bubble.
     if (widget.name.isEmpty) return image;
