@@ -23,6 +23,27 @@ void main() {
     expect(replaceEmojiShortcodes(':eyes::fire:'), '👀🔥');
   });
 
+  test('replaceEmojiShortcodes leaves URLs intact', () {
+    expect(
+      replaceEmojiShortcodes('see https://example.com/a:x:b/:fire: :fire:'),
+      'see https://example.com/a:x:b/:fire: 🔥',
+    );
+    expect(
+      replaceEmojiShortcodes('www.example.com/:eyes: and :eyes:'),
+      'www.example.com/:eyes: and 👀',
+    );
+    expect(
+      replaceEmojiShortcodes('hi:https://example.com/:x:'),
+      'hi:https://example.com/:x:',
+    );
+    expect(
+      replaceEmojiShortcodes(
+        '<a href="https://example.com/:x:">https://example.com/:x:</a> :x:',
+      ),
+      '<a href="https://example.com/:x:">https://example.com/:x:</a> ❌',
+    );
+  });
+
   testWidgets('shortcodes in received messages render as emoji', (
     tester,
   ) async {

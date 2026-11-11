@@ -6,15 +6,29 @@ library;
 
 final _shortcodePattern = RegExp(r':([a-zA-Z0-9_+\-]+):');
 
+/// URLs (any `scheme://…`, or a bare `www.…`), up to whitespace, a quote
+/// or an HTML tag boundary — so both plain-text links and `href="…"`
+/// attribute values in formatted bodies are covered. Shortcode-looking
+/// path segments like `/a:x:b` belong to the link, not to the emoji
+/// syntax, and must survive intact for the link to still open.
+final _urlPattern = RegExp(
+  r'''(?:[a-zA-Z][a-zA-Z0-9+.\-]*://|www\.)[^\s<>"']+''',
+);
+
 /// Replaces every known `:shortcode:` in [text] with its emoji; unknown
-/// names (and things that merely look like shortcodes, e.g. times in
-/// `12:30:45`) are left untouched.
+/// names, URLs, and things that merely look like shortcodes (e.g. times
+/// in `12:30:45`) are left untouched.
 String replaceEmojiShortcodes(String text) {
   if (!text.contains(':')) return text;
-  return text.replaceAllMapped(_shortcodePattern, (match) {
-    final emoji = emojiShortcodes[match.group(1)!.toLowerCase()];
-    return emoji ?? match.group(0)!;
-  });
+  return text.splitMapJoin(
+    _urlPattern,
+    onMatch: (url) => url.group(0)!,
+    onNonMatch: (segment) =>
+        segment.replaceAllMapped(_shortcodePattern, (match) {
+          final emoji = emojiShortcodes[match.group(1)!.toLowerCase()];
+          return emoji ?? match.group(0)!;
+        }),
+  );
 }
 
 /// Matches a string that is exactly one emoji grapheme: a flag (two
