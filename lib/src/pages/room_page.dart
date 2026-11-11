@@ -741,6 +741,9 @@ class _RoomPageState extends State<RoomPage> {
   /// how people expect to caption it — and is cleared once the send goes
   /// through. An edit in progress is left alone: that text belongs to the
   /// message being edited, not to the attachment.
+  ///
+  /// A caption is sent as its own text message right after its file rather
+  /// than inside the file event, so it can be edited like any other message.
   Future<void> _stageAndSend(
     List<({Uint8List bytes, String name, String? mimeType})> files,
   ) async {
@@ -849,12 +852,20 @@ class _RoomPageState extends State<RoomPage> {
       _saveDraft('');
     }
     for (final (index, file) in files.indexed) {
-      await _sendBytes(
-        file.bytes,
-        file.name,
-        mimeType: file.mimeType,
-        caption: captionControllers[index].text.trim(),
-      );
+      final caption = captionControllers[index].text.trim();
+      await _sendBytes(file.bytes, file.name, mimeType: file.mimeType);
+      if (caption.isEmpty) continue;
+      // Sent even if the file failed: a failed upload stays in the timeline
+      // to retry, while text dropped here would be lost. Commands are not
+      // parsed — the caption field never offered them.
+      try {
+        await widget.room.sendTextEvent(
+          replaceEmojiShortcodes(caption),
+          parseCommands: false,
+        );
+      } catch (e) {
+        _showError(e);
+      }
     }
   }
 
@@ -1103,7 +1114,6 @@ class _RoomPageState extends State<RoomPage> {
     String name, {
     String? mimeType,
     bool showPending = true,
-    String caption = '',
   }) async {
     final extension = name.split('.').last.toLowerCase();
     final isImage =
@@ -1142,15 +1152,7 @@ class _RoomPageState extends State<RoomPage> {
       } else {
         file = MatrixFile(bytes: bytes, name: name, mimeType: mimeType);
       }
-      await widget.room.sendFileEvent(
-        file,
-        thumbnail: thumbnail,
-        // MSC2530: `filename` keeps the real file name (the SDK sets it) and
-        // `body` becomes the caption, which is what other clients render.
-        extraContent: caption.isEmpty
-            ? null
-            : {'body': replaceEmojiShortcodes(caption)},
-      );
+      await widget.room.sendFileEvent(file, thumbnail: thumbnail);
     } catch (e) {
       _showError(e);
     } finally {

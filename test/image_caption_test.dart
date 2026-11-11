@@ -124,7 +124,7 @@ void main() {
     await tester.runAsync(() => client.dispose(closeDatabase: false));
   });
 
-  testWidgets('a caption typed when attaching is sent as the body', (
+  testWidgets('a caption typed when attaching is sent as its own message', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -233,12 +233,22 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
-    // MSC2530 shape: the file name stays in `filename`, the caption is the
-    // body other clients render.
-    final sent = room.client.getRoomById('!room0:fake')!.lastEvent;
-    expect(sent?.content['filename'], 'cat.png');
-    expect(sent?.content['body'], 'look at this cat');
-    // The composer text moved into the caption, so it must not linger.
+    // The caption goes out as a plain text message right after the image,
+    // so it can be edited later; the image itself carries no caption.
+    final events = await tester.runAsync(
+      () => room.client.database.getEventList(room),
+    );
+    final messages = [
+      for (final event in events!.reversed)
+        if (event.type == EventTypes.Message && event.eventId != '\$hi') event,
+    ];
+    expect(messages, hasLength(2));
+    expect(messages[0].messageType, MessageTypes.Image);
+    expect(messages[0].content['body'], 'cat.png');
+    expect(messages[0].content['filename'], 'cat.png');
+    expect(messages[1].messageType, MessageTypes.Text);
+    expect(messages[1].body, 'look at this cat');
+    // The composer text was sent, so it must not linger.
     expect(
       tester.widget<TextField>(find.byType(TextField).first).controller?.text,
       '',
