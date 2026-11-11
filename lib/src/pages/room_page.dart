@@ -4758,26 +4758,32 @@ class _InlineMessageEditor extends StatelessWidget {
             canRequestFocus: false,
             skipTraversal: true,
             onKeyEvent: _handleKey,
-            child: TextField(
-              controller: controller,
-              focusNode: focusNode,
-              // The message's own text size, so it doesn't jump on opening.
-              style: theme.textTheme.bodyMedium,
-              keyboardType: TextInputType.multiline,
-              textInputAction: TextInputAction.newline,
-              minLines: 1,
-              maxLines: 12,
-              decoration: InputDecoration(
-                isDense: true,
-                filled: true,
-                fillColor: colorScheme.surfaceContainerHigh,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
+            child: Actions(
+              actions: {
+                ExtendSelectionVerticallyToAdjacentLineIntent:
+                    _FieldCaretMovementAction(),
+              },
+              child: TextField(
+                controller: controller,
+                focusNode: focusNode,
+                // The message's own text size, so it doesn't jump on opening.
+                style: theme.textTheme.bodyMedium,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
+                minLines: 1,
+                maxLines: 12,
+                decoration: InputDecoration(
+                  isDense: true,
+                  filled: true,
+                  fillColor: colorScheme.surfaceContainerHigh,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
@@ -4797,6 +4803,27 @@ class _InlineMessageEditor extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Hands arrow up/down back to the text field they were pressed in.
+///
+/// A field's line-wise caret move is an overridable action that looks for
+/// an override above the field — and inside the timeline it finds the
+/// SelectionArea's, which (as of Flutter 3.47) fails a type cast on its way
+/// back to the field: the caret stays put and a TypeError is logged.
+/// Registered between the field and the SelectionArea, this override wins
+/// the lookup and simply runs the field's own move.
+class _FieldCaretMovementAction extends Action<DirectionalCaretMovementIntent> {
+  @override
+  bool get isActionEnabled => callingAction?.isActionEnabled ?? false;
+
+  @override
+  bool consumesKey(DirectionalCaretMovementIntent intent) =>
+      callingAction?.consumesKey(intent) ?? false;
+
+  @override
+  Object? invoke(DirectionalCaretMovementIntent intent) =>
+      callingAction?.invoke(intent);
 }
 
 /// Overrides the composer's paste shortcut (Ctrl/Cmd+V) so the clipboard

@@ -160,6 +160,27 @@ void main() {
     await tester.pump();
     expect(field(editor).controller!.text, 'half-typed, done');
 
+    // Arrow up/down move the caret between the lines — inside the
+    // timeline's SelectionArea they used to go nowhere (and log a
+    // TypeError); Shift extends the selection the same way.
+    tester.testTextInput.enterText('line one\nline two');
+    await tester.pump();
+    final editing = field(editor).controller!;
+    (int, int) caret() =>
+        (editing.selection.baseOffset, editing.selection.extentOffset);
+    expect(caret(), (17, 17));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump();
+    expect(caret(), (8, 8));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(caret(), (17, 17));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+    await tester.pump();
+    expect(caret(), (17, 8));
+
     // Escape cancels: nothing is sent and the composer has the keyboard.
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await settle();
