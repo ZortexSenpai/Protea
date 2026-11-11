@@ -1010,12 +1010,6 @@ abstract class AppLocalizations {
   /// **'(edited)'**
   String get edited;
 
-  /// No description provided for @editingMessage.
-  ///
-  /// In en, this message translates to:
-  /// **'Editing message'**
-  String get editingMessage;
-
   /// No description provided for @emoji.
   ///
   /// In en, this message translates to:
@@ -1099,6 +1093,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enter your recovery key to verify with your secure backup, or skip to compare emojis with the other device instead.'**
   String get enterRecoveryKeyToVerify;
+
+  /// No description provided for @enterToSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter to save'**
+  String get enterToSave;
+
+  /// No description provided for @escapeToCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Escape to cancel'**
+  String get escapeToCancel;
 
   /// No description provided for @expert.
   ///

@@ -498,9 +498,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get edited => '(editado)';
 
   @override
-  String get editingMessage => 'Editando mensaje';
-
-  @override
   String get emoji => 'Emoji';
 
   @override
@@ -549,6 +546,12 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get enterRecoveryKeyToVerify =>
       'Introduce tu clave de recuperación para verificarte con tu copia segura, u omite este paso y compara emojis con el otro dispositivo.';
+
+  @override
+  String get enterToSave => 'Intro para guardar';
+
+  @override
+  String get escapeToCancel => 'Esc para cancelar';
 
   @override
   String get expert => 'Experto';

@@ -86,7 +86,21 @@ class _RoomPageState extends State<RoomPage> {
   final _itemScrollController = ItemScrollController();
   final _itemPositionsListener = ItemPositionsListener.create();
   Event? _replyTo;
+
+  /// The message being edited in place, Discord-style, in the timeline.
   Event? _editing;
+
+  /// The in-place editor's text and focus. Owned here rather than by the
+  /// message bubble: the list drops bubbles scrolled out of view, and an
+  /// edit in progress must survive that.
+  final _editController = TextEditingController();
+  final _editFocusNode = FocusNode();
+
+  /// Keeps the editor (with its focus and text input connection) alive when
+  /// a new message shifts every list item by one: the list reuses its
+  /// items by position, so without it the field would be rebuilt in
+  /// another bubble and lose the keyboard.
+  final _editorKey = GlobalKey();
   Event? _threadRoot;
   final _pageScaffoldKey = GlobalKey<ScaffoldState>();
   final _inputFocusNode = FocusNode();
@@ -222,6 +236,8 @@ class _RoomPageState extends State<RoomPage> {
     _receiptsNotifier.dispose();
     _sendController.dispose();
     _inputFocusNode.dispose();
+    _editController.dispose();
+    _editFocusNode.dispose();
     super.dispose();
   }
 
@@ -529,11 +545,7 @@ class _RoomPageState extends State<RoomPage> {
     }
     _sendController.clear();
     final replyTo = _replyTo;
-    final editing = _editing;
-    setState(() {
-      _replyTo = null;
-      _editing = null;
-    });
+    setState(() => _replyTo = null);
     _typingLastSent = null;
     _saveDraft('');
     widget.room.setTyping(false).catchError((_) {});
@@ -544,7 +556,6 @@ class _RoomPageState extends State<RoomPage> {
       await widget.room.sendTextEvent(
         replaceEmojiShortcodes(text),
         inReplyTo: replyTo,
-        editEventId: editing?.eventId,
       );
       // When sending from a jumped-to history position, return to the live
       // timeline so the new message is visible.
@@ -554,24 +565,65 @@ class _RoomPageState extends State<RoomPage> {
     }
   }
 
+  /// Opens the Discord-style editor in place of [event]'s text. The
+  /// composer is left alone, so a draft (or a reply) in it survives.
   void _startEdit(Event event) {
-    final displayEvent = _timeline == null
-        ? event
-        : event.getDisplayEvent(_timeline!);
-    setState(() {
-      _editing = event;
-      _replyTo = null;
-    });
-    _sendController.text = displayEvent.rawBody;
-    _sendController.selection = TextSelection.collapsed(
-      offset: _sendController.text.length,
+    final timeline = _timeline;
+    final text =
+        (timeline == null ? event : event.getDisplayEvent(timeline)).rawBody;
+    setState(() => _editing = event);
+    _editController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
     );
+    // The editor's field is only built with the next frame. A focus node
+    // that is not in the tree yet takes the focus once it is, and one that
+    // already is (switching from another edit) keeps it as it moves.
+    _editFocusNode.requestFocus();
+    if (timeline == null) return;
+    // Arrow up can pick a message scrolled out of view.
+    final index = _visibleEvents(
+      timeline,
+    ).indexWhere((e) => e.eventId == event.eventId);
+    final fullyVisible = _itemPositionsListener.itemPositions.value.any(
+      (position) =>
+          position.index == index &&
+          position.itemLeadingEdge >= 0 &&
+          position.itemTrailingEdge <= 1,
+    );
+    if (index != -1 && !fullyVisible) _scrollToIndex(index);
+  }
+
+  /// Closes the in-place editor without changing the message and hands the
+  /// keyboard back to the composer.
+  void _cancelEdit() {
+    if (_editing == null) return;
+    setState(() => _editing = null);
     _inputFocusNode.requestFocus();
   }
 
-  void _cancelEdit() {
-    setState(() => _editing = null);
-    _sendController.clear();
+  /// Saves the in-place edit. An unchanged or emptied text closes the
+  /// editor without sending anything.
+  Future<void> _submitEdit() async {
+    final editing = _editing;
+    if (editing == null) return;
+    final timeline = _timeline;
+    final original =
+        (timeline == null ? editing : editing.getDisplayEvent(timeline)).rawBody
+            .trim();
+    final text = _editController.text.trim();
+    _cancelEdit();
+    if (text.isEmpty || text == original) return;
+    try {
+      await widget.room.sendTextEvent(
+        replaceEmojiShortcodes(text),
+        editEventId: editing.eventId,
+        // A leading slash is message text here, not a command.
+        parseCommands: false,
+      );
+    } catch (e) {
+      _showError(e);
+    }
   }
 
   /// Starts editing the newest own text message in the loaded timeline
@@ -739,8 +791,7 @@ class _RoomPageState extends State<RoomPage> {
   /// Each file gets a caption field. Anything already typed in the composer
   /// seeds the first one — attaching a file to a half-written message is
   /// how people expect to caption it — and is cleared once the send goes
-  /// through. An edit in progress is left alone: that text belongs to the
-  /// message being edited, not to the attachment.
+  /// through.
   ///
   /// A caption is sent as its own text message right after its file rather
   /// than inside the file event, so it can be edited like any other message.
@@ -748,7 +799,7 @@ class _RoomPageState extends State<RoomPage> {
     List<({Uint8List bytes, String name, String? mimeType})> files,
   ) async {
     if (files.isEmpty) return;
-    final draft = _editing == null ? _sendController.text.trim() : '';
+    final draft = _sendController.text.trim();
     final captionControllers = [
       for (var i = 0; i < files.length; i++)
         TextEditingController(text: i == 0 ? draft : ''),
@@ -1531,20 +1582,10 @@ class _RoomPageState extends State<RoomPage> {
   /// to [prefix]); with no selection the markers are inserted and the
   /// caret placed between them.
   void _wrapSelection(String prefix, [String? suffix]) {
-    suffix ??= prefix;
-    final text = _sendController.text;
-    final selection = _sendController.selection;
-    final start = selection.isValid ? selection.start : text.length;
-    final end = selection.isValid ? selection.end : text.length;
-    final selected = text.substring(start, end);
-    _sendController.value = TextEditingValue(
-      text: text.replaceRange(start, end, '$prefix$selected$suffix'),
-      selection: selected.isEmpty
-          ? TextSelection.collapsed(offset: start + prefix.length)
-          : TextSelection(
-              baseOffset: start + prefix.length,
-              extentOffset: start + prefix.length + selected.length,
-            ),
+    _sendController.value = _wrappedSelection(
+      _sendController.value,
+      prefix,
+      suffix ?? prefix,
     );
     _saveDraft(_sendController.text);
     _inputFocusNode.requestFocus();
@@ -1638,31 +1679,6 @@ class _RoomPageState extends State<RoomPage> {
             icon: const Icon(Icons.close, size: 18),
             visualDensity: VisualDensity.compact,
             onPressed: () => setState(() => _formattingBar = false),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget? _buildEditBar() {
-    final editing = _editing;
-    if (editing == null) return null;
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.edit_outlined, size: 20, color: colorScheme.primary),
-          const SizedBox(width: 8),
-          Expanded(child: Text(context.l10n.editingMessage)),
-          IconButton(
-            icon: const Icon(Icons.close, size: 18),
-            onPressed: _cancelEdit,
           ),
         ],
       ),
@@ -1896,13 +1912,18 @@ class _RoomPageState extends State<RoomPage> {
                                               _unreadMarkerEventId,
                                           receiptsByEvent: _receiptsNotifier,
                                           onReply: (event) {
-                                            setState(() {
-                                              _replyTo = event;
-                                              _editing = null;
-                                            });
+                                            setState(() => _replyTo = event);
                                             _inputFocusNode.requestFocus();
                                           },
                                           onEdit: _startEdit,
+                                          editingEventId: _editing?.eventId,
+                                          editor: _InlineMessageEditor(
+                                            key: _editorKey,
+                                            controller: _editController,
+                                            focusNode: _editFocusNode,
+                                            onSave: _submitEdit,
+                                            onCancel: _cancelEdit,
+                                          ),
                                           onOpenThread: _openThread,
                                           onSaveAttachment: _saveAttachment,
                                           onMarkUnread: _markUnread,
@@ -1943,11 +1964,6 @@ class _RoomPageState extends State<RoomPage> {
                           _buildTypingIndicator(),
                           // Bars and suggestion panels rise out of the
                           // composer and slide back into it when dismissed.
-                          CollapsiblePanel(
-                            axis: Axis.vertical,
-                            alignment: Alignment.bottomCenter,
-                            child: _buildEditBar(),
-                          ),
                           CollapsiblePanel(
                             axis: Axis.vertical,
                             alignment: Alignment.bottomCenter,
@@ -2254,7 +2270,6 @@ class _RoomPageState extends State<RoomPage> {
                                                     _sendController
                                                         .text
                                                         .isEmpty &&
-                                                    _editing == null &&
                                                     SettingsScope.of(
                                                       context,
                                                     ).arrowUpToEdit &&
@@ -3103,6 +3118,8 @@ class _TimelineList extends StatelessWidget {
     required this.receiptsByEvent,
     required this.onReply,
     required this.onEdit,
+    required this.editingEventId,
+    required this.editor,
     required this.onOpenThread,
     required this.onSaveAttachment,
     required this.onMarkUnread,
@@ -3120,6 +3137,11 @@ class _TimelineList extends StatelessWidget {
   final ValueListenable<Map<String, List<User>>> receiptsByEvent;
   final ValueChanged<Event> onReply;
   final ValueChanged<Event> onEdit;
+
+  /// The message being edited in place, which shows [editor] instead of
+  /// its text.
+  final String? editingEventId;
+  final Widget editor;
   final ValueChanged<Event> onOpenThread;
   final ValueChanged<Event> onSaveAttachment;
   final ValueChanged<Event> onMarkUnread;
@@ -3170,6 +3192,7 @@ class _TimelineList extends StatelessWidget {
             receipts: receiptsByEvent,
             onReply: onReply,
             onEdit: onEdit,
+            editor: event.eventId == editingEventId ? editor : null,
             onOpenThread: onOpenThread,
             onSaveAttachment: onSaveAttachment,
             onMarkUnread: onMarkUnread,
@@ -3286,6 +3309,7 @@ class _MessageBubble extends StatefulWidget {
     required this.receipts,
     required this.onReply,
     required this.onEdit,
+    this.editor,
     required this.onOpenThread,
     required this.onSaveAttachment,
     required this.onMarkUnread,
@@ -3302,6 +3326,9 @@ class _MessageBubble extends StatefulWidget {
   final ValueChanged<Event> onOpenThread;
   final ValueChanged<Event> onReply;
   final ValueChanged<Event> onEdit;
+
+  /// Set while this message is being edited: shown in place of its text.
+  final Widget? editor;
   final ValueChanged<Event> onSaveAttachment;
   final ValueChanged<Event> onMarkUnread;
   final ValueChanged<String> onJumpToMessage;
@@ -4121,8 +4148,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
             ),
           );
     final sender = event.senderFromMemoryOrFallback.nickOrDisplayname;
-    // Whether an m.replace aggregation rewrote this message.
-    final edited = event.hasAggregatedEvents(timeline, RelationshipTypes.edit);
+    final editor = widget.editor;
+    // Whether an m.replace aggregation rewrote this message. The label
+    // belongs to the text, so it goes while the editor stands in for it.
+    final edited =
+        editor == null &&
+        event.hasAggregatedEvents(timeline, RelationshipTypes.edit);
     final editedLabel = edited
         ? Text(
             context.l10n.edited,
@@ -4269,7 +4300,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
         ] else if (isFile) ...[
           _buildFileContent(context, displayEvent),
           ?captionWidget,
-        ] else if (includeText)
+        ] else if (editor != null)
+          editor
+        else if (includeText)
           if (isHtml)
             _htmlMessage(replaceEmojiShortcodes(displayEvent.formattedText))
           else if (isSingleEmoji(body))
@@ -4282,14 +4315,18 @@ class _MessageBubbleState extends State<_MessageBubble> {
       ],
     );
 
-    GestureDetector withMenu(Widget child) => GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onLongPressStart: (details) =>
-          _showMessageMenu(context, details.globalPosition),
-      onSecondaryTapUp: (details) =>
-          _showMessageMenu(context, details.globalPosition),
-      child: child,
-    );
+    // While editing, right-click and long-press belong to the text field
+    // (cut, copy, paste) rather than the message menu.
+    Widget withMenu(Widget child) => editor != null
+        ? child
+        : GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onLongPressStart: (details) =>
+                _showMessageMenu(context, details.globalPosition),
+            onSecondaryTapUp: (details) =>
+                _showMessageMenu(context, details.globalPosition),
+            child: child,
+          );
 
     Widget bubblesLayout() {
       final bubble = Container(
@@ -4476,7 +4513,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
     Widget textLayout() {
       final showInline =
-          !isImage && !isFile && !isAudio && !isVideo && !isPoll && !isLocation;
+          editor == null &&
+          !isImage &&
+          !isFile &&
+          !isAudio &&
+          !isVideo &&
+          !isPoll &&
+          !isLocation;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
         child: Opacity(
@@ -4585,15 +4628,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
             // as a hover-only affordance it is unreachable for assistive
             // tech anyway, and its tooltip targets appearing/disappearing
             // on every hover flick crashes Flutter 3.44's semantics
-            // pipeline (the '!child.attached' assert loop).
+            // pipeline (the '!child.attached' assert loop). Hidden while
+            // editing, where it would cover the editor's field.
             Positioned(
               top: 0,
               right: 8,
               child: ExcludeSemantics(
                 child: IgnorePointer(
-                  ignoring: !_hovered,
+                  ignoring: !_hovered || editor != null,
                   child: Opacity(
-                    opacity: _hovered ? 1 : 0,
+                    opacity: _hovered && editor == null ? 1 : 0,
                     child: _buildHoverActions(),
                   ),
                 ),
@@ -4609,6 +4653,148 @@ class _MessageBubbleState extends State<_MessageBubble> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [const _UnreadMarker(), messageRow],
+    );
+  }
+}
+
+/// [value] with its selection wrapped in [prefix] and [suffix] (markdown
+/// emphasis). The wrapped text stays selected; with nothing selected the
+/// caret lands between the two markers.
+TextEditingValue _wrappedSelection(
+  TextEditingValue value,
+  String prefix,
+  String suffix,
+) {
+  final text = value.text;
+  final selection = value.selection;
+  final start = selection.isValid ? selection.start : text.length;
+  final end = selection.isValid ? selection.end : text.length;
+  final selected = text.substring(start, end);
+  return TextEditingValue(
+    text: text.replaceRange(start, end, '$prefix$selected$suffix'),
+    selection: selected.isEmpty
+        ? TextSelection.collapsed(offset: start + prefix.length)
+        : TextSelection(
+            baseOffset: start + prefix.length,
+            extentOffset: start + prefix.length + selected.length,
+          ),
+  );
+}
+
+/// Discord-style editor shown in place of a message's text while it is
+/// being edited. Like the composer, Enter saves and Shift+Enter starts a
+/// new line; Escape cancels. The hint below doubles as buttons for both,
+/// which is how touch screens without those keys get there.
+class _InlineMessageEditor extends StatelessWidget {
+  const _InlineMessageEditor({
+    super.key,
+    required this.controller,
+    required this.focusNode,
+    required this.onSave,
+    required this.onCancel,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final VoidCallback onSave;
+  final VoidCallback onCancel;
+
+  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final keyboard = HardwareKeyboard.instance;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.escape) {
+      onCancel();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter) {
+      if (keyboard.isShiftPressed ||
+          keyboard.isAltPressed ||
+          keyboard.isControlPressed ||
+          keyboard.isMetaPressed) {
+        return KeyEventResult.ignored;
+      }
+      onSave();
+      return KeyEventResult.handled;
+    }
+    if (keyboard.isControlPressed || keyboard.isMetaPressed) {
+      final marker = key == LogicalKeyboardKey.keyB
+          ? '**'
+          : key == LogicalKeyboardKey.keyI
+          ? '*'
+          : null;
+      if (marker != null) {
+        controller.value = _wrappedSelection(controller.value, marker, marker);
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final hintStyle = theme.textTheme.labelSmall?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+    );
+    final linkStyle = hintStyle?.copyWith(color: colorScheme.primary);
+    Widget link(String label, VoidCallback onTap) => MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Text(label, style: linkStyle),
+      ),
+    );
+    // Not message text: kept out of the timeline's SelectionArea so drags
+    // select inside the field and the links show a click cursor.
+    return SelectionContainer.disabled(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Focus(
+            canRequestFocus: false,
+            skipTraversal: true,
+            onKeyEvent: _handleKey,
+            child: TextField(
+              controller: controller,
+              focusNode: focusNode,
+              // The message's own text size, so it doesn't jump on opening.
+              style: theme.textTheme.bodyMedium,
+              keyboardType: TextInputType.multiline,
+              textInputAction: TextInputAction.newline,
+              minLines: 1,
+              maxLines: 12,
+              decoration: InputDecoration(
+                isDense: true,
+                filled: true,
+                fillColor: colorScheme.surfaceContainerHigh,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 2),
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                link(context.l10n.escapeToCancel, onCancel),
+                Text('  •  ', style: hintStyle),
+                link(context.l10n.enterToSave, onSave),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
