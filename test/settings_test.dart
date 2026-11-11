@@ -36,6 +36,20 @@ void main() {
     },
   );
 
+  test('site link previews start on and switch off one by one', () async {
+    SharedPreferences.setMockInitialValues({});
+    final settings = await AppSettings.load();
+    expect(PreviewSite.values.every(settings.sitePreviewEnabled), isTrue);
+
+    await settings.setSitePreviewEnabled(PreviewSite.reddit, false);
+    final reloaded = await AppSettings.load();
+    expect(reloaded.sitePreviewEnabled(PreviewSite.reddit), isFalse);
+    expect(reloaded.sitePreviewEnabled(PreviewSite.youtube), isTrue);
+
+    await reloaded.setSitePreviewEnabled(PreviewSite.reddit, true);
+    expect(reloaded.sitePreviewEnabled(PreviewSite.reddit), isTrue);
+  });
+
   test('persists changes and notifies listeners', () async {
     SharedPreferences.setMockInitialValues({});
     final settings = await AppSettings.load();

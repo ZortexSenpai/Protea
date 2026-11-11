@@ -52,6 +52,9 @@ dependencies:
   shared_preferences: ^2.5.5
   flutter_vodozemac: ^0.6.0
   flutter_html: ^3.0.0
+  # Parses the post HTML in X/Bluesky oEmbed answers (site link previews);
+  # already in the graph through flutter_html.
+  html: ^0.15.6
   flutter_local_notifications: ^22.0.1
   scrollable_positioned_list: ^0.3.8
   desktop_drop: ^0.7.1

@@ -362,10 +362,25 @@ class AppLocalizationsFr extends AppLocalizations {
   String get copyImage => 'Copier l\'image';
 
   @override
+  String get embedStateClosed => 'Fermé';
+
+  @override
+  String get embedStateDraft => 'Brouillon';
+
+  @override
+  String get embedStateMerged => 'Fusionné';
+
+  @override
+  String get embedStateOpen => 'Ouvert';
+
+  @override
   String get findOrStartConversation => 'Trouver ou démarrer une conversation';
 
   @override
   String get imageCopied => 'Image copiée';
+
+  @override
+  String get linkPreviews => 'Aperçus de liens';
 
   @override
   String get noSearchResults => 'Aucun résultat.';
@@ -382,6 +397,10 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get messageNotSent => 'Non envoyé';
+
+  @override
+  String get sitePreviewsDescription =>
+      'Les liens vers ces sites affichent une carte plus riche avec miniature vidéo, texte de la publication ou étoiles. Elle est chargée directement depuis le site, qui voit votre adresse IP. Les sites désactivés utilisent l’aperçu simple de votre serveur.';
 
   @override
   String get spreadsheetEmpty => 'Cette feuille est vide.';

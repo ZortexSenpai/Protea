@@ -357,10 +357,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get copyImage => 'Copy image';
 
   @override
+  String get embedStateClosed => 'Closed';
+
+  @override
+  String get embedStateDraft => 'Draft';
+
+  @override
+  String get embedStateMerged => 'Merged';
+
+  @override
+  String get embedStateOpen => 'Open';
+
+  @override
   String get findOrStartConversation => 'Find or start a conversation';
 
   @override
   String get imageCopied => 'Image copied';
+
+  @override
+  String get linkPreviews => 'Link previews';
 
   @override
   String get noSearchResults => 'No results.';
@@ -377,6 +392,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get messageNotSent => 'Not sent';
+
+  @override
+  String get sitePreviewsDescription =>
+      'Links to these sites get a richer card with video thumbnails, post text or stars. It loads straight from the site, which sees your IP address. Sites you switch off get the basic preview from your homeserver.';
 
   @override
   String get spreadsheetEmpty => 'This sheet is empty.';

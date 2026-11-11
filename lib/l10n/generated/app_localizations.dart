@@ -764,6 +764,30 @@ abstract class AppLocalizations {
   /// **'Copy image'**
   String get copyImage;
 
+  /// No description provided for @embedStateClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed'**
+  String get embedStateClosed;
+
+  /// No description provided for @embedStateDraft.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft'**
+  String get embedStateDraft;
+
+  /// No description provided for @embedStateMerged.
+  ///
+  /// In en, this message translates to:
+  /// **'Merged'**
+  String get embedStateMerged;
+
+  /// No description provided for @embedStateOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get embedStateOpen;
+
   /// No description provided for @findOrStartConversation.
   ///
   /// In en, this message translates to:
@@ -775,6 +799,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Image copied'**
   String get imageCopied;
+
+  /// No description provided for @linkPreviews.
+  ///
+  /// In en, this message translates to:
+  /// **'Link previews'**
+  String get linkPreviews;
 
   /// No description provided for @noSearchResults.
   ///
@@ -805,6 +835,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not sent'**
   String get messageNotSent;
+
+  /// No description provided for @sitePreviewsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Links to these sites get a richer card with video thumbnails, post text or stars. It loads straight from the site, which sees your IP address. Sites you switch off get the basic preview from your homeserver.'**
+  String get sitePreviewsDescription;
 
   /// No description provided for @spreadsheetEmpty.
   ///

@@ -5,10 +5,12 @@ import 'package:matrix/matrix.dart' show PresenceType;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'gif_proxy.dart';
+import 'site_previews.dart';
 import 'themes.dart';
 
 // The theme enums live in themes.dart with the palettes they select, and are
 // re-exported here so `settings.dart` stays the single import for settings.
+export 'site_previews.dart' show PreviewSite;
 export 'themes.dart' show AppTheme, AppThemeColor, CustomPalette;
 
 enum AppLayout {
@@ -221,6 +223,24 @@ class AppSettings extends ChangeNotifier {
 
   Future<void> setShowUrlPreviews(bool value) =>
       _setBool('showUrlPreviews', value);
+
+  /// Whether links to [site] get its rich card, loaded straight from the
+  /// site; otherwise they get the homeserver's generic preview. Stored as the
+  /// list of switched-off sites so sites added later start switched on.
+  bool sitePreviewEnabled(PreviewSite site) =>
+      !(_prefs.getStringList('disabledSitePreviews') ?? const []).contains(
+        site.name,
+      );
+
+  Future<void> setSitePreviewEnabled(PreviewSite site, bool enabled) {
+    final disabled = {...?_prefs.getStringList('disabledSitePreviews')};
+    if (enabled) {
+      disabled.remove(site.name);
+    } else {
+      disabled.add(site.name);
+    }
+    return _setStringList('disabledSitePreviews', disabled.toList());
+  }
 
   /// Whether join/leave/invite state messages show in the timeline.
   bool get showMembershipEvents =>

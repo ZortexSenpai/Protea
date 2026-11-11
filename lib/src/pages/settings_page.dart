@@ -442,13 +442,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
       onChanged: (value) => settings.setSendReadReceipts(value),
     ),
     SwitchListTile(
-      secondary: const Icon(Icons.link),
-      title: Text(context.l10n.showUrlPreviewsTitle),
-      subtitle: Text(context.l10n.showUrlPreviewsDescription),
-      value: settings.showUrlPreviews,
-      onChanged: (value) => settings.setShowUrlPreviews(value),
-    ),
-    SwitchListTile(
       secondary: const Icon(Icons.done_all),
       title: Text(context.l10n.showReadReceiptsTitle),
       subtitle: Text(context.l10n.showReadReceiptsDescription),
@@ -462,6 +455,27 @@ class _SettingsDialogState extends State<SettingsDialog> {
       value: settings.pauseGifsUnfocused,
       onChanged: (value) => settings.setPauseGifsUnfocused(value),
     ),
+    const Divider(height: 32),
+    _SectionHeader(context.l10n.linkPreviews),
+    SwitchListTile(
+      secondary: const Icon(Icons.link),
+      title: Text(context.l10n.showUrlPreviewsTitle),
+      subtitle: Text(context.l10n.showUrlPreviewsDescription),
+      value: settings.showUrlPreviews,
+      onChanged: (value) => settings.setShowUrlPreviews(value),
+    ),
+    ListTile(subtitle: Text(context.l10n.sitePreviewsDescription)),
+    for (final site in PreviewSite.values)
+      SwitchListTile(
+        dense: true,
+        secondary: _SiteBadge(site),
+        title: Text(site.label),
+        subtitle: Text(site.domains.join(', ')),
+        value: settings.sitePreviewEnabled(site),
+        onChanged: settings.showUrlPreviews
+            ? (value) => settings.setSitePreviewEnabled(site, value)
+            : null,
+      ),
     const Divider(height: 32),
     _SectionHeader(context.l10n.systemMessages),
     ListTile(subtitle: Text(context.l10n.systemMessagesDescription)),
@@ -2622,6 +2636,35 @@ class _ColorSwatch extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A link-preview site's brand color behind a generic icon for its kind.
+class _SiteBadge extends StatelessWidget {
+  const _SiteBadge(this.site);
+
+  final PreviewSite site;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = switch (site) {
+      PreviewSite.youtube => Icons.smart_display_outlined,
+      PreviewSite.reddit => Icons.forum_outlined,
+      PreviewSite.x => Icons.alternate_email,
+      PreviewSite.bluesky => Icons.cloud_outlined,
+      PreviewSite.github => Icons.code,
+      PreviewSite.wikipedia => Icons.menu_book_outlined,
+      PreviewSite.spotify => Icons.music_note_outlined,
+      PreviewSite.soundcloud => Icons.graphic_eq,
+      PreviewSite.vimeo => Icons.videocam_outlined,
+    };
+    final dark =
+        ThemeData.estimateBrightnessForColor(site.color) == Brightness.dark;
+    return CircleAvatar(
+      radius: 14,
+      backgroundColor: site.color,
+      child: Icon(icon, size: 16, color: dark ? Colors.white : Colors.black),
     );
   }
 }

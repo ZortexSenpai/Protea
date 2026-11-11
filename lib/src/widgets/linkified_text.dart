@@ -2,7 +2,9 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-final _urlPattern = RegExp(
+/// A web link in plain text, without trailing punctuation ("see
+/// https://example.com." links to example.com).
+final webLinkPattern = RegExp(
   r'''https?://[^\s<>()\[\]{}]+[^\s<>()\[\]{}.,;:!?"']''',
 );
 
@@ -37,7 +39,7 @@ class _LinkifiedTextState extends State<LinkifiedText> {
   @override
   Widget build(BuildContext context) {
     final text = widget.text;
-    final matches = _urlPattern.allMatches(text).toList();
+    final matches = webLinkPattern.allMatches(text).toList();
     if (matches.isEmpty) return Text(text, style: widget.style);
     _disposeRecognizers();
     final colorScheme = Theme.of(context).colorScheme;
